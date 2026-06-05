@@ -26,7 +26,7 @@ const API_BASE = window.location.hostname === 'localhost' || window.location.hos
 
   ? 'http://localhost:5000' 
 
-  : 'https://basirah-backend.onrender.com'; 
+  : 'https://basirah-backend-yc1b.onrender.com'; 
 
 
 
