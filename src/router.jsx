@@ -7,13 +7,21 @@ const isAuth = () => !!localStorage.getItem("token");
 export default function Router() {
   return (
     <Routes>
-      <Route path="/login" element={<Login />} />
-
+      {/* DEFAULT ENTRY */}
       <Route
         path="/"
         element={
-          isAuth() ? <App /> : <Navigate to="/login" replace />
+          isAuth() ? <Navigate to="/dashboard" /> : <Navigate to="/login" />
         }
+      />
+
+      {/* LOGIN */}
+      <Route path="/login" element={<Login />} />
+
+      {/* DASHBOARD (PROTECTED) */}
+      <Route
+        path="/dashboard"
+        element={isAuth() ? <App /> : <Navigate to="/login" />}
       />
 
       {/* fallback */}
