@@ -16,7 +16,13 @@ import Select from 'react-select';
 // ==========================================
 const API_BASE = 'https://basirah-backend-1.onrender.com';
 export default function App() {
-  const [token, setToken] = useState(localStorage.getItem("token"));  
+ const [token, setToken] = useState(() => {
+  return localStorage.getItem("token") || null;
+});
+
+useEffect(() => {
+  console.log("TOKEN =", token);
+}, [token]);  
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [materials, setMaterials] = useState([]);
   const [contractors, setContractors] = useState([]);
@@ -56,9 +62,17 @@ export default function App() {
       console.error("Data syncing pipeline error:", err);
     }
   };
+useEffect(() => {
+  syncSystemData();
+}, []);
 
-  useEffect(() => { syncSystemData(); }, []);
+useEffect(() => {
+  const savedToken = localStorage.getItem("token");
 
+  if (!savedToken) {
+    setToken(null);
+  }
+}, []);
   // Volumetric Inventory Math Analytics
   const totalAvailable = materials.reduce((acc, curr) => acc + Number(curr.quantity || 0), 0);
   
