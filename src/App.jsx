@@ -13,8 +13,7 @@ import Select from 'react-select';
 // ==========================================
 // PRODUCTION BACKEND API LINK
 // ==========================================
-const API_BASE = 'https://basirah-360-production.up.railway.app';
-
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://basirah-backend-1.onrender.com';
 export default function App() {
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [materials, setMaterials] = useState([]);
