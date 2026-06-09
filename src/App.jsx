@@ -15,14 +15,16 @@ import Select from 'react-select';
 // PRODUCTION BACKEND API LINK
 // ==========================================
 const API_BASE = 'https://basirah-backend-1.onrender.com';
-export default function App() {
- const [token, setToken] = useState(() => {
-  return localStorage.getItem("token") || null;
-});
 
-useEffect(() => {
-  console.log("TOKEN =", token);
-}, [token]);  
+export default function App() {
+  const [token, setToken] = useState(() => {
+    return localStorage.getItem("token") || null;
+  });
+
+  useEffect(() => {
+    console.log("TOKEN =", token);
+  }, [token]);  
+
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [materials, setMaterials] = useState([]);
   const [contractors, setContractors] = useState([]);
@@ -62,17 +64,20 @@ useEffect(() => {
       console.error("Data syncing pipeline error:", err);
     }
   };
-useEffect(() => {
-  syncSystemData();
-}, []);
 
-useEffect(() => {
-  const savedToken = localStorage.getItem("token");
+  useEffect(() => {
+    if (token) {
+      syncSystemData();
+    }
+  }, [token]);
 
-  if (!savedToken) {
-    setToken(null);
-  }
-}, []);
+  useEffect(() => {
+    const savedToken = localStorage.getItem("token");
+    if (!savedToken) {
+      setToken(null);
+    }
+  }, []);
+
   // Volumetric Inventory Math Analytics
   const totalAvailable = materials.reduce((acc, curr) => acc + Number(curr.quantity || 0), 0);
   
@@ -119,18 +124,6 @@ useEffect(() => {
     const site = current.site_name.trim();
     if (!acc[site]) acc[site] = { name: site, totalLoaned: 0 };
     acc[site].totalLoaned += rem;
-    return acc;
-  }, {}));
-
-  const custodianChartData = Object.values(loans.reduce((acc, current) => {
-    const rem = getLoanRemainingQty(current.id);
-    if (rem <= 0 || !current.contact_person) return acc;
-    const cp = current.contact_person.trim();
-    if (!acc[cp]) acc[cp] = { name: cp, Good: 0, Worn: 0, Damaged: 0 };
-    
-    returns.filter(r => r.loan_id === current.id).forEach(r => {
-      acc[cp][r.returned_condition] += Number(r.returned_quantity || 0);
-    });
     return acc;
   }, {}));
 
@@ -233,73 +226,277 @@ useEffect(() => {
   };
 
   return token ? (
-  <div style={styles.container}>
+    <div style={styles.container}>
 
-    {/* ================= LOGOUT BUTTON ================= */}
-    <div style={{ position: "absolute", top: 10, right: 10 }}>
-      <button
-        onClick={() => {
-          localStorage.removeItem("token");
-          setToken(null);
-        }}
-        style={{
-          padding: "8px 12px",
-          background: "#dc2626",
-          color: "#fff",
-          border: "none",
-          borderRadius: "6px",
-          cursor: "pointer"
-        }}
-      >
-        Logout
-      </button>
-    </div>
-
-    {/* ================= YOUR EXISTING APP UI ================= */}
-    <div style={styles.sidebar}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '40px', paddingBottom: '20px', borderBottom: `1px solid ${THEME.border}` }}>
-        <ShieldCheck size={28} color={THEME.accentBlue}/>
-        <h3 style={{ fontSize: '20px', fontWeight: '700', margin: 0 }}>
-          BASIRAH <span style={{ color: THEME.accentBlue }}>360</span>
-        </h3>
+      {/* ================= LOGOUT BUTTON ================= */}
+      <div style={{ position: "absolute", top: 10, right: 10, zIndex: 50 }}>
+        <button
+          onClick={() => {
+            localStorage.removeItem("token");
+            setToken(null);
+          }}
+          style={{
+            padding: "8px 12px",
+            background: "#dc2626",
+            color: "#fff",
+            border: "none",
+            borderRadius: "6px",
+            cursor: "pointer",
+            fontWeight: "600"
+          }}
+        >
+          Logout
+        </button>
       </div>
 
-      <button style={styles.navLink(currentPage === 'dashboard')} onClick={() => { setCurrentPage('dashboard'); clearAllFilters(); }}>
-        <BarChart3 size={18}/> Telemetry Dashboard
-      </button>
+      {/* ================= SIDEBAR NAVIGATION ================= */}
+      <div style={styles.sidebar}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '40px', paddingBottom: '20px', borderBottom: `1px solid ${THEME.border}` }}>
+          <ShieldCheck size={28} color={THEME.accentBlue}/>
+          <h3 style={{ fontSize: '20px', fontWeight: '700', margin: 0 }}>
+            BASIRAH <span style={{ color: THEME.accentBlue }}>360</span>
+          </h3>
+        </div>
 
-      <button style={styles.navLink(currentPage === 'materials')} onClick={() => setCurrentPage('materials')}>
-        <Package size={18}/> Asset Registry
-      </button>
+        <button style={styles.navLink(currentPage === 'dashboard')} onClick={() => { setCurrentPage('dashboard'); clearAllFilters(); }}>
+          <BarChart3 size={18}/> Telemetry Dashboard
+        </button>
 
-      <button style={styles.navLink(currentPage === 'returns_page')} onClick={() => setCurrentPage('returns_page')}>
-        <RotateCcw size={18}/> Recovery Ops
-      </button>
+        <button style={styles.navLink(currentPage === 'materials')} onClick={() => setCurrentPage('materials')}>
+          <Package size={18}/> Asset Registry
+        </button>
+
+        <button style={styles.navLink(currentPage === 'returns_page')} onClick={() => setCurrentPage('returns_page')}>
+          <RotateCcw size={18}/> Recovery Ops
+        </button>
+      </div>
+
+      {/* ================= MAIN CONTENT MODULES ================= */}
+      <div style={styles.mainContent}>
+        
+        {/* ================= TELEMETRY DASHBOARD VIEW ================= */}
+        {currentPage === 'dashboard' && (
+          <div>
+            <h2 style={{ marginBottom: '24px', fontSize: '24px', fontWeight: '700' }}>System Telemetry Metrics</h2>
+            
+            <div style={styles.grid4}>
+              <div style={styles.card(THEME.accentBlue, dashboardCardFilter === 'ALL')} onClick={clearAllFilters}>
+                <LayoutGrid size={24} color={THEME.accentBlue}/>
+                <div>
+                  <div style={styles.label}>Total Managed Stock</div>
+                  <div style={{ fontSize: '24px', fontWeight: '700' }}>{totalStock}</div>
+                </div>
+              </div>
+
+              <div style={styles.card(THEME.accentEmerald, dashboardCardFilter === 'AVAILABLE')} onClick={() => setDashboardCardFilter('AVAILABLE')}>
+                <Package size={24} color={THEME.accentEmerald}/>
+                <div>
+                  <div style={styles.label}>Vault Reserve</div>
+                  <div style={{ fontSize: '24px', fontWeight: '700' }}>{totalAvailable}</div>
+                </div>
+              </div>
+
+              <div style={styles.card(THEME.accentAmber, dashboardCardFilter === 'LENDED')} onClick={() => setDashboardCardFilter('LENDED')}>
+                <ArrowLeftRight size={24} color={THEME.accentAmber}/>
+                <div>
+                  <div style={styles.label}>Active Deployments</div>
+                  <div style={{ fontSize: '24px', fontWeight: '700' }}>{totalLended}</div>
+                </div>
+              </div>
+
+              <div style={styles.card(THEME.accentCrimson, dashboardCardFilter === 'OVERDUE')} onClick={() => setDashboardCardFilter('OVERDUE')}>
+                <AlertTriangle size={24} color={THEME.accentCrimson}/>
+                <div>
+                  <div style={styles.label}>Critical Overdue</div>
+                  <div style={{ fontSize: '24px', fontWeight: '700' }}>{criticalOverdueCount}</div>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
+              <div style={styles.box}>
+                <div style={styles.label}>Deployment Demographics by Location</div>
+                <div style={{ width: '100%', height: 300 }}>
+                  <ResponsiveContainer>
+                    <BarChart data={siteChartData} onClick={handleChartDrillDown}>
+                      <CartesianGrid strokeDasharray="3 3" stroke={THEME.border} />
+                      <XAxis dataKey="name" stroke={THEME.textMuted} />
+                      <YAxis stroke={THEME.textMuted} />
+                      <Tooltip contentStyle={{ backgroundColor: THEME.cardBg, borderColor: THEME.border }} />
+                      <Bar dataKey="totalLoaned" fill={THEME.accentBlue} radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              <div style={styles.box}>
+                <div style={styles.label}>Condition Analytics Mix</div>
+                <div style={{ width: '100%', height: 300 }}>
+                  <ResponsiveContainer>
+                    <PieChart>
+                      <Pie
+                        data={[
+                          { name: 'Good', value: totalGoodStock },
+                          { name: 'Worn', value: totalWornStock },
+                          { name: 'Damaged', value: totalDamagedStock }
+                        ].filter(d => d.value > 0)}
+                        cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value"
+                      >
+                        <Cell fill={CONDITION_COLORS.Good} />
+                        <Cell fill={CONDITION_COLORS.Worn} />
+                        <Cell fill={CONDITION_COLORS.Damaged} />
+                      </Pie>
+                      <Tooltip contentStyle={{ backgroundColor: THEME.cardBg, borderColor: THEME.border }} />
+                      <Legend verticalAlign="bottom" height={36} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+
+            <div style={styles.box}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <div style={styles.label}>Active Tracking Streams {dashboardCardFilter !== 'ALL' && `(${dashboardCardFilter})`}</div>
+                {(dashboardCardFilter !== 'ALL' || activeDrillDown.active) && (
+                  <button onClick={clearAllFilters} style={{ background: 'none', border: 'none', color: THEME.accentBlue, cursor: 'pointer', fontSize: '12px', fontWeight: '600' }}>Clear Filters</button>
+                )}
+              </div>
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>Asset Nomenclature</th>
+                    <th style={styles.th}>Allocation Target / Hub</th>
+                    <th style={styles.th}>Volumetric Quantities</th>
+                    <th style={styles.th}>Status Badge</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {generateTelemetryRows().map(row => (
+                    <tr key={row.id}>
+                      <td style={styles.td}>{row.name}</td>
+                      <td style={styles.td}>{row.location}</td>
+                      <td style={styles.td}>{row.qty} units</td>
+                      <td style={styles.td}>
+                        <span style={{ color: row.color, fontWeight: '700', fontSize: '12px' }}>{row.status}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* ================= ASSET REGISTRY MANAGEMENT VIEW ================= */}
+        {currentPage === 'materials' && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px' }}>
+            <div style={styles.box}>
+              <div style={styles.label}>Register New Logistics Inventory Asset</div>
+              <form onSubmit={handleAddMaterialSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div>
+                  <label style={styles.label}>Asset Name</label>
+                  <input style={styles.input} value={newMaterialForm.name} onChange={e => setNewMaterialForm({...newMaterialForm, name: e.target.value})} required placeholder="e.g. Compound Mix"/>
+                </div>
+                <div>
+                  <label style={styles.label}>Classification Category</label>
+                  <input style={styles.input} value={newMaterialForm.category} onChange={e => setNewMaterialForm({...newMaterialForm, category: e.target.value})} required placeholder="e.g. Raw Material"/>
+                </div>
+                <div>
+                  <label style={styles.label}>Initial Volumetric Base Quantity</label>
+                  <input type="number" style={styles.input} value={newMaterialForm.quantity} onChange={e => setNewMaterialForm({...newMaterialForm, quantity: e.target.value})} required placeholder="e.g. 500"/>
+                </div>
+                <button type="submit" style={styles.button(THEME.accentBlue)}>Commit Asset to Registry</button>
+              </form>
+            </div>
+
+            <div style={styles.box}>
+              <div style={styles.label}>Authorized Custodian Verification Gateway</div>
+              <form onSubmit={handleAddContractorSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div>
+                  <label style={styles.label}>Responsible Agent / Contact Representative</label>
+                  <input style={styles.input} value={newContractorForm.contact_person} onChange={e => setNewContractorForm({...newContractorForm, contact_person: e.target.value})} required placeholder="e.g. Operations Manager"/>
+                </div>
+                <div>
+                  <label style={styles.label}>Company / Institution Node</label>
+                  <input style={styles.input} value={newContractorForm.company_name} onChange={e => setNewContractorForm({...newContractorForm, company_name: e.target.value})} required placeholder="e.g. Regional Cluster Logistics"/>
+                </div>
+                <button type="submit" style={styles.button(THEME.accentEmerald)}>Register Authorized Identity</button>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* ================= RECOVERY OPERATIONS & DISPATCH VIEW ================= */}
+        {currentPage === 'returns_page' && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px' }}>
+            <div style={styles.box}>
+              <div style={styles.label}>Authorize Logistic Route Dispatch Allocation</div>
+              <form onSubmit={handleLoanSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div>
+                  <label style={styles.label}>Target Logistics Inventory Material</label>
+                  <select style={styles.input} onChange={e => setLoanForm({...loanForm, material_id: e.target.value})} required value={loanForm.material_id || ''}>
+                    <option value="" disabled>Select registry material...</option>
+                    {materials.map(m => <option key={m.id} value={m.id}>{m.name} ({m.quantity} available)</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={styles.label}>Verified Custodian Node Target</label>
+                  <select style={styles.input} onChange={e => setLoanForm({...loanForm, contractor_id: e.target.value})} required value={loanForm.contractor_id || ''}>
+                    <option value="" disabled>Select clear agent profile...</option>
+                    {contractors.map(c => <option key={c.id} value={c.id}>{c.contact_person} — {c.company_name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={styles.label}>Allocation Target Hub / Site Name</label>
+                  <input style={styles.input} value={loanForm.site_name} onChange={e => setLoanForm({...loanForm, site_name: e.target.value})} required placeholder="e.g. Healthcare Ops Cluster A"/>
+                </div>
+                <div>
+                  <label style={styles.label}>Allocation Volume Quantity</label>
+                  <input type="number" style={styles.input} value={loanForm.quantity} onChange={e => setLoanForm({...loanForm, quantity: e.target.value})} required placeholder="Allocated Amount"/>
+                </div>
+                <div>
+                  <label style={styles.label}>Expected Material Return Evaluation Date</label>
+                  <input type="date" style={styles.input} value={loanForm.expected_return_date} onChange={e => setLoanForm({...loanForm, expected_return_date: e.target.value})} required/>
+                </div>
+                <button type="submit" style={styles.button(THEME.accentBlue)}>Authorize Deployment Chain Route</button>
+              </form>
+            </div>
+
+            <div style={styles.box}>
+              <div style={styles.label}>Process Asset Recovery Pipeline Intake</div>
+              <form onSubmit={handleReturnSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div>
+                  <label style={styles.label}>Active Deployment Trail Identification Token</label>
+                  <Select
+                    key={dropdownResetKey}
+                    options={activeTrailsOptions}
+                    styles={styles.customSelect}
+                    onChange={(opt) => setSelectedActiveLoan(opt)}
+                    placeholder="Search or select active deployment trails..."
+                    isClearable
+                  />
+                </div>
+                <div>
+                  <label style={styles.label}>Intake Recovery Quantity Verification</label>
+                  <input type="number" style={styles.input} value={returnQuantity} onChange={e => setReturnQuantity(e.target.value)} required placeholder="Verified Returned Units"/>
+                </div>
+                <div>
+                  <label style={styles.label}>Evaluated Post-Deployment Asset Material Condition</label>
+                  <select style={styles.input} value={returnCondition} onChange={e => setReturnCondition(e.target.value)}>
+                    <option value="Good">Good Condition (Restorable to Active Reserve)</option>
+                    <option value="Worn">Worn Condition (Requires Service Review)</option>
+                    <option value="Damaged">Damaged Condition (Critical System Scrap)</option>
+                  </select>
+                </div>
+                <button type="submit" style={styles.button(THEME.accentAmber)}>Process Material Pipeline Recovery Route</button>
+              </form>
+            </div>
+          </div>
+        )}
+
+      </div>
     </div>
-
-    <div style={styles.mainContent}>
-      {/* KEEP EVERYTHING YOU ALREADY HAD BELOW EXACTLY */}
-      {currentPage === 'dashboard' && (
-        <div>
-          {/* YOUR FULL DASHBOARD CODE STAYS HERE */}
-        </div>
-      )}
-
-      {currentPage === 'materials' && (
-        <div>
-          {/* YOUR MATERIALS CODE STAYS HERE */}
-        </div>
-      )}
-
-      {currentPage === 'returns_page' && (
-        <div>
-          {/* YOUR RETURNS CODE STAYS HERE */}
-        </div>
-      )}
-    </div>
-
-  </div>
-) : (
-  <Login setToken={setToken} />
-);
+  ) : (
+    <Login setToken={setToken} />
+  );
 }
