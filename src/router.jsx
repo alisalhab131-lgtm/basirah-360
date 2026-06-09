@@ -1,10 +1,15 @@
 import { Routes, Route, Navigate } from "react-router-dom";
+import { useState } from "react";
+
 import Login from "./pages/Login.jsx";
+import Register from "./pages/Register.jsx";
 import App from "./App.jsx";
 
-const isAuth = () => !!localStorage.getItem("token");
-
 export default function Router() {
+  const [token, setToken] = useState(localStorage.getItem("token"));
+
+  const isAuth = () => !!token;
+
   return (
     <Routes>
       {/* DEFAULT ENTRY */}
@@ -16,9 +21,15 @@ export default function Router() {
       />
 
       {/* LOGIN */}
-      <Route path="/login" element={<Login />} />
+      <Route
+        path="/login"
+        element={<Login setToken={setToken} />}
+      />
 
-      {/* DASHBOARD (PROTECTED) */}
+      {/* REGISTER */}
+      <Route path="/register" element={<Register />} />
+
+      {/* DASHBOARD */}
       <Route
         path="/dashboard"
         element={isAuth() ? <App /> : <Navigate to="/login" />}
