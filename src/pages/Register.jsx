@@ -8,7 +8,7 @@ export default function Register() {
     full_name: "",
     email: "",
     password: "",
-    role: "user"
+    role: "user",
   });
 
   const [loading, setLoading] = useState(false);
@@ -22,22 +22,13 @@ export default function Register() {
     setLoading(true);
 
     try {
-      const res = await axios.post(
-        `${API_BASE}/api/auth/register`,
-        form
-      );
+      const res = await axios.post(`${API_BASE}/api/auth/register`, form);
 
-      alert("User registered successfully!");
+      alert("User registered successfully! Please log in.");
       console.log(res.data);
 
-      // optional reset
-      setForm({
-        full_name: "",
-        email: "",
-        password: "",
-        role: "user"
-      });
-
+      // Redirect to login after successful register
+      window.location.href = "/login";
     } catch (err) {
       alert(err.response?.data?.message || "Register failed");
       console.error(err);
@@ -47,8 +38,17 @@ export default function Register() {
   };
 
   return (
-    <div style={{ padding: 30 }}>
-      <h2>Register</h2>
+    <div
+      style={{
+        maxWidth: "400px",
+        margin: "100px auto",
+        padding: "30px",
+        border: "1px solid #ddd",
+        borderRadius: "10px",
+        fontFamily: "Inter, sans-serif",
+      }}
+    >
+      <h2>Create Account</h2>
 
       <form onSubmit={handleSubmit}>
         <input
@@ -57,17 +57,22 @@ export default function Register() {
           value={form.full_name}
           onChange={handleChange}
           required
+          style={{ width: "100%", padding: "10px", boxSizing: "border-box" }}
         />
-        <br /><br />
+        <br />
+        <br />
 
         <input
           name="email"
+          type="email"
           placeholder="Email"
           value={form.email}
           onChange={handleChange}
           required
+          style={{ width: "100%", padding: "10px", boxSizing: "border-box" }}
         />
-        <br /><br />
+        <br />
+        <br />
 
         <input
           type="password"
@@ -76,13 +81,28 @@ export default function Register() {
           value={form.password}
           onChange={handleChange}
           required
+          style={{ width: "100%", padding: "10px", boxSizing: "border-box" }}
         />
-        <br /><br />
+        <br />
+        <br />
 
-        <button type="submit" disabled={loading}>
+        <button
+          type="submit"
+          disabled={loading}
+          style={{ width: "100%", padding: "12px", cursor: "pointer" }}
+        >
           {loading ? "Registering..." : "Register"}
         </button>
       </form>
+
+      <br />
+
+      <button
+        onClick={() => (window.location.href = "/login")}
+        style={{ width: "100%", padding: "12px", cursor: "pointer" }}
+      >
+        Back to Login
+      </button>
     </div>
   );
 }

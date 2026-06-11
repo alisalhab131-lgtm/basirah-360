@@ -16,7 +16,7 @@ import Select from 'react-select';
 // ==========================================
 const API_BASE = 'https://basirah-backend-1.onrender.com';
 
-export default function App() {
+export default function App({ setToken: setParentToken }) {
   const [token, setToken] = useState(() => {
     return localStorage.getItem("token") || null;
   });
@@ -234,6 +234,8 @@ export default function App() {
           onClick={() => {
             localStorage.removeItem("token");
             setToken(null);
+            if (setParentToken) setParentToken(null);
+            window.location.href = "/login";
           }}
           style={{
             padding: "8px 12px",
