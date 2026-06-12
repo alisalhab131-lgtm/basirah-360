@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
-import LoginPage from './pages/Login.jsx';
 import DashboardPage from './pages/Dashboard.jsx';
 import AnalyticsPage from './pages/Analytics.jsx';
 import MaterialsPage from './pages/Materials.jsx';
@@ -10,10 +9,8 @@ import Sidebar from './components/Sidebar.jsx';
 
 import { API_BASE, THEME } from './utils/theme.js';
 
-export default function App() {
-  const [token, setToken] = useState(() => localStorage.getItem('token') || null);
+export default function App({ setToken: setParentToken }) {
   const [currentPage, setCurrentPage] = useState('dashboard');
-
   const [materials, setMaterials] = useState([]);
   const [contractors, setContractors] = useState([]);
   const [loans, setLoans] = useState([]);
@@ -37,8 +34,8 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (token) syncSystemData();
-  }, [token]);
+    syncSystemData();
+  }, []);
 
   const getLoanRemainingQty = (loanId) => {
     const loan = loans.find(l => l.id === loanId);
@@ -49,13 +46,9 @@ export default function App() {
 
   const handleLogout = () => {
     localStorage.removeItem('token');
-    setToken(null);
+    if (setParentToken) setParentToken(null);
     window.location.href = '/login';
   };
-
-  if (!token) {
-    return <LoginPage setToken={setToken} />;
-  }
 
   const sharedProps = { materials, contractors, loans, returns, getLoanRemainingQty, syncSystemData };
 
