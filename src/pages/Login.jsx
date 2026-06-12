@@ -17,8 +17,9 @@ export default function LoginPage({ setToken }) {
       const token = res.data.token;
       localStorage.setItem('token', token);
       setToken(token);
+      window.location.href = '/dashboard';
     } catch (err) {
-      setError(err.response?.data?.error || 'Login failed. Check your credentials.');
+      setError(err.response?.data?.message || err.response?.data?.error || 'Login failed. Check your credentials.');
     } finally {
       setLoading(false);
     }
@@ -44,16 +45,28 @@ export default function LoginPage({ setToken }) {
         </p>
         <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div>
-            <label style={STYLES.label}>email</label>
-            <input style={STYLES.input} value={form.email}
+            <label style={STYLES.label}>Email</label>
+            <input
+              type="email"
+              style={STYLES.input}
+              value={form.email}
               onChange={e => setForm({ ...form, email: e.target.value })}
-              required placeholder="Enter email" autoComplete="email" />
+              required
+              placeholder="Enter email"
+              autoComplete="email"
+            />
           </div>
           <div>
             <label style={STYLES.label}>Password</label>
-            <input type="password" style={STYLES.input} value={form.password}
+            <input
+              type="password"
+              style={STYLES.input}
+              value={form.password}
               onChange={e => setForm({ ...form, password: e.target.value })}
-              required placeholder="Enter password" autoComplete="current-password" />
+              required
+              placeholder="Enter password"
+              autoComplete="current-password"
+            />
           </div>
           {error && (
             <div style={{
@@ -68,6 +81,9 @@ export default function LoginPage({ setToken }) {
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
+        <p style={{ textAlign: 'center', color: THEME.textMuted, fontSize: '12px', marginTop: '20px' }}>
+          No account? <a href="/register" style={{ color: THEME.accentBlue }}>Register here</a>
+        </p>
       </div>
     </div>
   );
