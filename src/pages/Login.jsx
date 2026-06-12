@@ -47,7 +47,7 @@ export default function LoginPage({ setToken }) {
             <label style={STYLES.label}>email</label>
             <input style={STYLES.input} value={form.email}
               onChange={e => setForm({ ...form, email: e.target.value })}
-              required placeholder="Enter username" autoComplete="email" />
+              required placeholder="Enter email" autoComplete="email" />
           </div>
           <div>
             <label style={STYLES.label}>Password</label>
