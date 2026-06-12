@@ -44,10 +44,10 @@ export default function LoginPage({ setToken }) {
         </p>
         <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div>
-            <label style={STYLES.label}>Username</label>
-            <input style={STYLES.input} value={form.username}
-              onChange={e => setForm({ ...form, username: e.target.value })}
-              required placeholder="Enter username" autoComplete="username" />
+            <label style={STYLES.label}>email</label>
+            <input style={STYLES.input} value={form.email}
+              onChange={e => setForm({ ...form, email: e.target.value })}
+              required placeholder="Enter username" autoComplete="email" />
           </div>
           <div>
             <label style={STYLES.label}>Password</label>
