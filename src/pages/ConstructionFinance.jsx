@@ -759,6 +759,82 @@ const ConstructionFinanceApp = () => {
       </div>
     </div>
   );
+// ... (Keep existing imports and CONSTANTS)
+
+// Updated Contractor State Structure within the Sites array:
+// contractor: {
+//    ...,
+//    payments: [{ id: 1, amount: 5000, date: '2026-06-13' }],
+//    progress: 0, // KPI: % completion
+//    status: 'In Progress' // KPI: Status
+// }
+
+// New helper functions to add to your component:
+const addPayment = (siteId, contractorId, amount, date) => {
+  setSites(sites.map(s => s.id !== siteId ? s : {
+    ...s,
+    contractors: s.contractors.map(c => c.id !== contractorId ? c : {
+      ...c,
+      payments: [...(c.payments || []), { id: Date.now(), amount: parseFloat(amount), date }]
+    })
+  }));
+};
+
+const updateKPI = (siteId, contractorId, progress, status) => {
+  setSites(sites.map(s => s.id !== siteId ? s : {
+    ...s,
+    contractors: s.contractors.map(c => c.id !== contractorId ? c : {
+      ...c, progress, status
+    })
+  }));
+};
+
+// ========================================================
+// In your Render Logic (Contractors BOQ Tab):
+// ========================================================
+
+// 1. Inside your contractor mapping:
+{site.contractors.map((c) => {
+  const totalPaid = (c.payments || []).reduce((sum, p) => sum + p.amount, 0);
+  const balance = (c.boqTotal || 0) - totalPaid;
+
+  return (
+    <div key={c.id} style={{ border: '1px solid #e5e7eb', padding: '15px', borderRadius: '8px', marginBottom: '10px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+        <div>
+          <div style={{ fontWeight: 'bold' }}>{c.name} - {c.scope}</div>
+          <div style={{ fontSize: '12px', color: '#666' }}>Progress: {c.progress || 0}% | Status: {c.status}</div>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ color: '#7c3aed', fontWeight: 'bold' }}>BOQ: ${c.boqTotal?.toLocaleString()}</div>
+          <div style={{ color: '#059669', fontWeight: 'bold' }}>Paid: ${totalPaid.toLocaleString()}</div>
+          <div style={{ color: balance > 0 ? '#d97706' : '#059669' }}>Due: ${balance.toLocaleString()}</div>
+        </div>
+      </div>
+
+      {/* Payment Inputs */}
+      <div style={{ marginTop: '10px', display: 'flex', gap: '5px' }}>
+        <input type="number" id={`pay-${c.id}`} placeholder="Amount" style={inp} />
+        <input type="date" id={`date-${c.id}`} style={inp} />
+        <button onClick={() => {
+          const amt = document.getElementById(`pay-${c.id}`).value;
+          const dt = document.getElementById(`date-${c.id}`).value;
+          if(amt && dt) addPayment(site.id, c.id, amt, dt);
+        }} style={btn('#059669')}>Add Payment</button>
+      </div>
+
+      {/* KPI Update */}
+      <div style={{ marginTop: '10px', display: 'flex', gap: '5px' }}>
+        <input type="number" placeholder="Progress %" onChange={(e) => updateKPI(site.id, c.id, e.target.value, c.status)} style={{...inp, width: '100px'}} />
+        <select onChange={(e) => updateKPI(site.id, c.id, c.progress, e.target.value)} style={inp}>
+          <option value="In Progress">In Progress</option>
+          <option value="Completed">Completed</option>
+          <option value="Delayed">Delayed</option>
+        </select>
+      </div>
+    </div>
+  );
+})}
 };
 
 export default ConstructionFinanceApp;
