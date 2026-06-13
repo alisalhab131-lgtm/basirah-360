@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Download, Trash2, Plus, Send, TrendingUp, BarChart3, FileText, DollarSign, AlertCircle, PieChart, ArrowUpRight, ArrowDownLeft, Home, Calculator, Users, Package, Map, MessageCircle } from 'lucide-react';
+import { Download, Trash2, Plus, Send, FileText, DollarSign, Home, Users, Package, Map, MessageCircle, Tag, X, Edit2, Check } from 'lucide-react';
 
-const MATERIAL_CATEGORIES = [
+const DEFAULT_CATEGORIES = [
   'Concrete & Masonry',
   'Steel & Metal',
   'Timber & Wood',
@@ -11,11 +11,46 @@ const MATERIAL_CATEGORIES = [
   'Earthworks',
   'Equipment',
   'Safety',
-  'Other',
+];
+
+const PRESET_CONTRACTORS = [
+  'Al Bayan Contracting',
+  'Gulf Build Co.',
+  'Al Masa Engineering',
+  'Horizon Contractors',
+  'Delta Civil Works',
+  'Apex Construction',
+  'Nile Infrastructure',
+  'Pinnacle Builders',
+  'Cornerstone Group',
+  'Landmark Civil',
+];
+
+const CONTRACTOR_SCOPES = [
+  'Foundation Work',
+  'Structural Works',
+  'Concrete Works',
+  'MEP Works',
+  'Finishing Works',
+  'Earthworks & Grading',
+  'Steel Fabrication',
+  'Roofing',
+  'Painting & Coating',
+  'Flooring',
+  'Landscaping',
+  'Site Clearance',
 ];
 
 const ConstructionFinanceApp = () => {
-  // ==================== STATE MANAGEMENT ====================
+
+  // ==================== STATE ====================
+  const [categories, setCategories] = useState(() => {
+    const saved = localStorage.getItem('cfCategories');
+    return saved ? JSON.parse(saved) : DEFAULT_CATEGORIES;
+  });
+  const [newCategoryInput, setNewCategoryInput] = useState('');
+  const [showAddCategory, setShowAddCategory] = useState(false);
+
   const [sites, setSites] = useState(() => {
     const saved = localStorage.getItem('constructionSites');
     return saved ? JSON.parse(saved) : [
@@ -26,13 +61,12 @@ const ConstructionFinanceApp = () => {
         status: 'In Progress',
         startDate: '2024-01-15',
         budget: 500000,
-        spent: 245000,
         materials: [
-          { id: 'm1', name: 'Concrete', category: 'Concrete & Masonry', quantity: 250, unit: 'm³', unitCost: 150, supplier: 'BuildCo Supply', deliveryDate: '2024-02-01' },
-          { id: 'm2', name: 'Steel Rebar', category: 'Steel & Metal', quantity: 50, unit: 'ton', unitCost: 800, supplier: 'Steel Ltd', deliveryDate: '2024-02-05' }
+          { id: 'm1', name: 'Concrete', category: 'Concrete & Masonry', quantity: 250, unit: 'm³', unitCost: 150, totalQty: 250, supplier: 'BuildCo Supply', deliveryDate: '2024-02-01', condition: 'Good', notes: 'Ready-mix' },
+          { id: 'm2', name: 'Steel Rebar', category: 'Steel & Metal', quantity: 50, unit: 'ton', unitCost: 800, totalQty: 50, supplier: 'Steel Ltd', deliveryDate: '2024-02-05', condition: 'Good', notes: 'Grade 60' },
         ],
         contractors: [
-          { id: 'c1', name: 'ABC Construction', scope: 'Foundation Work', unit: 'm²', pricePerUnit: 400, quantity: 300, boqTotal: 120000, paid: 60000, status: 'In Progress' }
+          { id: 'c1', name: 'Al Bayan Contracting', scope: 'Foundation Work', unit: 'm²', pricePerUnit: 400, quantity: 300, boqTotal: 120000, paid: 60000, retention: 10, startDate: '2024-01-20', endDate: '2024-04-20', status: 'In Progress', contact: '+966 50 000 0001', notes: 'Phase 1 complete' },
         ]
       }
     ];
@@ -40,591 +74,709 @@ const ConstructionFinanceApp = () => {
 
   const [currentSiteId, setCurrentSiteId] = useState(sites[0]?.id || null);
   const [activeTab, setActiveTab] = useState('overview');
+
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: 'Welcome to Construction Finance AI. I analyze your project finances, flag budget risks, and provide spending insights. Ask about costs, timelines, or recommendations.' }
+    { role: 'assistant', content: 'Welcome to Construction Finance AI. Ask about budgets, risks, cost savings, or contractor performance.' }
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef(null);
 
-  // Form states
+  // Site form
   const [newSite, setNewSite] = useState({ name: '', location: '', budget: '', startDate: '' });
-  const [newMaterial, setNewMaterial] = useState({ name: '', category: 'Concrete & Masonry', quantity: '', unit: '', unitCost: '', supplier: '', deliveryDate: '' });
-  const [newContractor, setNewContractor] = useState({ name: '', scope: '', unit: '', pricePerUnit: '', quantity: '', status: 'Pending' });
+
+  // Material form
+  const emptyMat = { name: '', category: '', quantity: '', unit: '', unitCost: '', totalQty: '', supplier: '', deliveryDate: '', condition: 'Good', notes: '' };
+  const [newMaterial, setNewMaterial] = useState(emptyMat);
   const [materialCategoryFilter, setMaterialCategoryFilter] = useState('All');
 
-  // Save to localStorage
-  useEffect(() => {
-    localStorage.setItem('constructionSites', JSON.stringify(sites));
-  }, [sites]);
+  // Contractor form
+  const emptyCon = { name: '', scope: '', unit: '', pricePerUnit: '', quantity: '', paid: '', retention: '', startDate: '', endDate: '', status: 'Pending', contact: '', notes: '' };
+  const [newContractor, setNewContractor] = useState(emptyCon);
+  const [showPresetContractors, setShowPresetContractors] = useState(false);
+  const [contractorNameMode, setContractorNameMode] = useState('preset'); // 'preset' | 'new'
+  const [customContractorName, setCustomContractorName] = useState('');
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  // Persist
+  useEffect(() => { localStorage.setItem('constructionSites', JSON.stringify(sites)); }, [sites]);
+  useEffect(() => { localStorage.setItem('cfCategories', JSON.stringify(categories)); }, [categories]);
+  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
-  // ==================== HELPER FUNCTIONS ====================
+  // ==================== HELPERS ====================
   const getCurrentSite = () => sites.find(s => s.id === currentSiteId);
 
-  const calculateSiteMetrics = (site) => {
-    const spent = site.materials.reduce((sum, m) => sum + (m.quantity * m.unitCost), 0) +
-                  site.contractors.reduce((sum, c) => sum + c.paid, 0);
+  const calcMetrics = (site) => {
+    const matSpent = site.materials.reduce((s, m) => s + m.quantity * m.unitCost, 0);
+    const conPaid  = site.contractors.reduce((s, c) => s + (c.paid || 0), 0);
+    const spent    = matSpent + conPaid;
     const remaining = site.budget - spent;
-    const percentSpent = (spent / site.budget * 100).toFixed(1);
-    return { spent, remaining, percentSpent };
+    const pct = site.budget ? (spent / site.budget * 100).toFixed(1) : '0.0';
+    return { matSpent, conPaid, spent, remaining, pct };
   };
 
-  const calculateAllSitesMetrics = () => {
-    const totalBudget = sites.reduce((sum, s) => sum + s.budget, 0);
-    const totalSpent = sites.reduce((sum, s) => sum + calculateSiteMetrics(s).spent, 0);
-    const totalRemaining = totalBudget - totalSpent;
-    const avgSpent = (totalSpent / totalBudget * 100).toFixed(1);
-    return { totalBudget, totalSpent, totalRemaining, avgSpent };
+  const calcAll = () => {
+    const totalBudget  = sites.reduce((s, x) => s + x.budget, 0);
+    const totalSpent   = sites.reduce((s, x) => s + calcMetrics(x).spent, 0);
+    return { totalBudget, totalSpent, totalRemaining: totalBudget - totalSpent, pct: totalBudget ? (totalSpent / totalBudget * 100).toFixed(1) : '0.0' };
   };
 
-  // ==================== ADD/DELETE FUNCTIONS ====================
+  // ==================== MUTATIONS ====================
   const addSite = () => {
-    if (newSite.name && newSite.location && newSite.budget) {
-      const site = {
-        id: Date.now(),
-        ...newSite,
-        budget: parseFloat(newSite.budget),
-        status: 'Planning',
-        materials: [],
-        contractors: []
-      };
-      setSites([...sites, site]);
-      setCurrentSiteId(site.id);
-      setNewSite({ name: '', location: '', budget: '', startDate: '' });
-    }
+    if (!newSite.name || !newSite.budget) return;
+    const s = { id: Date.now(), ...newSite, budget: parseFloat(newSite.budget), status: 'Planning', materials: [], contractors: [] };
+    setSites([...sites, s]);
+    setCurrentSiteId(s.id);
+    setNewSite({ name: '', location: '', budget: '', startDate: '' });
   };
 
-  const addMaterialToSite = () => {
-    if (newMaterial.name && newMaterial.quantity && newMaterial.unitCost) {
-      setSites(sites.map(s => {
-        if (s.id !== currentSiteId) return s;
-        return {
-          ...s,
-          materials: [...s.materials, {
-            id: `m${Date.now()}`,
-            ...newMaterial,
-            quantity: parseFloat(newMaterial.quantity),
-            unitCost: parseFloat(newMaterial.unitCost)
-          }]
-        };
-      }));
-      setNewMaterial({ name: '', category: 'Concrete & Masonry', quantity: '', unit: '', unitCost: '', supplier: '', deliveryDate: '' });
-    }
+  const addMaterial = () => {
+    if (!newMaterial.name || !newMaterial.quantity || !newMaterial.unitCost) return;
+    setSites(sites.map(s => s.id !== currentSiteId ? s : {
+      ...s, materials: [...s.materials, {
+        id: `m${Date.now()}`,
+        ...newMaterial,
+        quantity: parseFloat(newMaterial.quantity),
+        unitCost: parseFloat(newMaterial.unitCost),
+        totalQty: parseFloat(newMaterial.totalQty || newMaterial.quantity),
+      }]
+    }));
+    setNewMaterial(emptyMat);
   };
 
-  const addContractorToSite = () => {
+  const addContractor = () => {
+    const name = contractorNameMode === 'new' ? customContractorName : newContractor.name;
     const qty = parseFloat(newContractor.quantity) || 0;
     const ppu = parseFloat(newContractor.pricePerUnit) || 0;
-    if (newContractor.name && newContractor.scope && qty && ppu) {
-      setSites(sites.map(s => {
-        if (s.id !== currentSiteId) return s;
-        return {
-          ...s,
-          contractors: [...s.contractors, {
-            id: `c${Date.now()}`,
-            name: newContractor.name,
-            scope: newContractor.scope,
-            unit: newContractor.unit,
-            pricePerUnit: ppu,
-            quantity: qty,
-            boqTotal: qty * ppu,
-            paid: 0,
-            status: newContractor.status
-          }]
-        };
-      }));
-      setNewContractor({ name: '', scope: '', unit: '', pricePerUnit: '', quantity: '', status: 'Pending' });
+    if (!name || !newContractor.scope || !qty || !ppu) return;
+    setSites(sites.map(s => s.id !== currentSiteId ? s : {
+      ...s, contractors: [...s.contractors, {
+        id: `c${Date.now()}`,
+        ...newContractor,
+        name,
+        quantity: qty,
+        pricePerUnit: ppu,
+        boqTotal: qty * ppu,
+        paid: parseFloat(newContractor.paid) || 0,
+        retention: parseFloat(newContractor.retention) || 0,
+      }]
+    }));
+    setNewContractor(emptyCon);
+    setCustomContractorName('');
+    setContractorNameMode('preset');
+  };
+
+  const deleteMaterial   = id => setSites(sites.map(s => s.id !== currentSiteId ? s : { ...s, materials:   s.materials.filter(m => m.id !== id) }));
+  const deleteContractor = id => setSites(sites.map(s => s.id !== currentSiteId ? s : { ...s, contractors: s.contractors.filter(c => c.id !== id) }));
+
+  const addCategory = () => {
+    const trimmed = newCategoryInput.trim();
+    if (trimmed && !categories.includes(trimmed)) {
+      setCategories([...categories, trimmed]);
     }
+    setNewCategoryInput('');
+    setShowAddCategory(false);
   };
 
-  const deleteMaterial = (materialId) => {
-    setSites(sites.map(s => {
-      if (s.id !== currentSiteId) return s;
-      return { ...s, materials: s.materials.filter(m => m.id !== materialId) };
-    }));
-  };
+  const removeCategory = (cat) => setCategories(categories.filter(c => c !== cat));
 
-  const deleteContractor = (contractorId) => {
-    setSites(sites.map(s => {
-      if (s.id !== currentSiteId) return s;
-      return { ...s, contractors: s.contractors.filter(c => c.id !== contractorId) };
-    }));
-  };
-
-  const deleteSite = (siteId) => {
-    const newSites = sites.filter(s => s.id !== siteId);
-    setSites(newSites);
-    if (currentSiteId === siteId && newSites.length > 0) setCurrentSiteId(newSites[0].id);
-  };
-
-  // ==================== AI FEATURES ====================
-  const getFinancialContext = () => {
+  // ==================== AI ====================
+  const getContext = () => {
     const site = getCurrentSite();
-    const metrics = calculateSiteMetrics(site);
-    const allMetrics = calculateAllSitesMetrics();
+    const m = calcMetrics(site);
     return `
-CURRENT SITE: ${site?.name || 'N/A'}
-Budget: $${site?.budget?.toLocaleString() || 0}
-Spent: $${metrics.spent?.toLocaleString() || 0}
-Remaining: $${metrics.remaining?.toLocaleString() || 0}
-% Spent: ${metrics.percentSpent || 0}%
-Status: ${site?.status || 'N/A'}
-
-MATERIALS (${site?.materials?.length || 0} items):
-${site?.materials?.map(m => `- [${m.category}] ${m.name}: ${m.quantity} ${m.unit} @ $${m.unitCost}/${m.unit} = $${(m.quantity * m.unitCost).toLocaleString()}`).join('\n') || 'None'}
-
-CONTRACTORS (${site?.contractors?.length || 0} active):
-${site?.contractors?.map(c => `- ${c.name}: ${c.scope} | ${c.quantity} ${c.unit} @ $${c.pricePerUnit}/${c.unit} | BOQ: $${c.boqTotal?.toLocaleString()} | Paid: $${c.paid?.toLocaleString()}`).join('\n') || 'None'}
-
-ALL SITES SUMMARY:
-Total Budget: $${allMetrics.totalBudget?.toLocaleString()}
-Total Spent: $${allMetrics.totalSpent?.toLocaleString()}
-Overall % Spent: ${allMetrics.avgSpent}%
+SITE: ${site?.name} | Budget: $${site?.budget?.toLocaleString()} | Spent: $${m.spent.toLocaleString()} | Remaining: $${m.remaining.toLocaleString()} | ${m.pct}% utilized
+MATERIALS (${site?.materials.length}): ${site?.materials.map(x => `${x.name}(${x.category}) ${x.quantity}${x.unit}@$${x.unitCost}=$${(x.quantity*x.unitCost).toLocaleString()}`).join(', ')}
+CONTRACTORS (${site?.contractors.length}): ${site?.contractors.map(x => `${x.name}:${x.scope} BOQ$${x.boqTotal?.toLocaleString()} Paid$${x.paid?.toLocaleString()}`).join(', ')}
     `;
   };
 
-  const handleSendMessage = async () => {
+  const handleSend = async () => {
     if (!input.trim()) return;
-    const userMessage = input;
-    setInput('');
-    setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
+    const msg = input; setInput('');
+    setMessages(p => [...p, { role: 'user', content: msg }]);
     setLoading(true);
     try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 600,
-          system: `You are an expert construction project financial advisor. Analyze budgets, flag risks, recommend cost savings, and provide actionable insights. Be direct and quantify recommendations.\n\nProject Data:\n${getFinancialContext()}`,
-          messages: messages.filter(m => m.role !== 'system').concat([{ role: 'user', content: userMessage }])
+          model: 'claude-sonnet-4-6', max_tokens: 600,
+          system: `You are an expert construction financial advisor. Be direct, quantify recommendations.\n\nData:\n${getContext()}`,
+          messages: messages.filter(m => m.role !== 'system').concat([{ role: 'user', content: msg }])
         })
       });
-      const data = await response.json();
-      setMessages(prev => [...prev, { role: 'assistant', content: data.content[0]?.text || 'Unable to process request.' }]);
-    } catch (error) {
-      setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${error.message}` }]);
-    } finally {
-      setLoading(false);
-    }
+      const data = await res.json();
+      setMessages(p => [...p, { role: 'assistant', content: data.content[0]?.text || 'Error.' }]);
+    } catch (e) {
+      setMessages(p => [...p, { role: 'assistant', content: `Error: ${e.message}` }]);
+    } finally { setLoading(false); }
   };
 
-  // ==================== EXPORT FUNCTIONS ====================
-  const exportToExcel = () => {
+  // ==================== EXPORT ====================
+  const exportCSV = () => {
     const site = getCurrentSite();
-    const metrics = calculateSiteMetrics(site);
-    const allMetrics = calculateAllSitesMetrics();
-    let csv = `CONSTRUCTION FINANCE REPORT\nGenerated: ${new Date().toLocaleDateString()}\n\n`;
-    csv += `SITE: ${site.name}\nBudget,${site.budget}\nSpent,${metrics.spent}\nRemaining,${metrics.remaining}\n% Spent,${metrics.percentSpent}%\n\n`;
-    csv += `MATERIALS\nName,Category,Quantity,Unit,Unit Cost,Total,Supplier\n`;
-    site.materials.forEach(m => {
-      csv += `${m.name},${m.category},${m.quantity},${m.unit},${m.unitCost},${m.quantity * m.unitCost},${m.supplier || ''}\n`;
+    const m = calcMetrics(site);
+    let csv = `CONSTRUCTION FINANCE REPORT\nSite: ${site.name}\nBudget,$${site.budget}\nSpent,$${m.spent}\nRemaining,$${m.remaining}\n\n`;
+    csv += `MATERIALS\nName,Category,Qty Received,Total Qty,Unit,Price/Unit,Total Cost,Supplier,Delivery,Condition,Notes\n`;
+    site.materials.forEach(x => {
+      csv += `${x.name},${x.category},${x.quantity},${x.totalQty},${x.unit},${x.unitCost},${x.quantity*x.unitCost},${x.supplier||''},${x.deliveryDate||''},${x.condition||''},${x.notes||''}\n`;
     });
-    csv += `\nCONTRACTORS\nName,Scope,Unit,Price/Unit,Quantity,BOQ Total,Paid,Balance,Status\n`;
-    site.contractors.forEach(c => {
-      csv += `${c.name},${c.scope},${c.unit},${c.pricePerUnit},${c.quantity},${c.boqTotal},${c.paid},${c.boqTotal - c.paid},${c.status}\n`;
+    csv += `\nCONTRACTORS BOQ\nName,Scope,Unit,Price/Unit,Quantity,BOQ Total,Paid,Retention%,Balance,Start,End,Status,Contact,Notes\n`;
+    site.contractors.forEach(x => {
+      csv += `${x.name},${x.scope},${x.unit},${x.pricePerUnit},${x.quantity},${x.boqTotal},${x.paid},${x.retention}%,${x.boqTotal-x.paid},${x.startDate||''},${x.endDate||''},${x.status},${x.contact||''},${x.notes||''}\n`;
     });
-    csv += `\n\nALL SITES SUMMARY\nTotal Budget,${allMetrics.totalBudget}\nTotal Spent,${allMetrics.totalSpent}\nTotal Remaining,${allMetrics.totalRemaining}\n`;
     const blob = new Blob([csv], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `construction_finance_${Date.now()}.csv`;
-    a.click();
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = `finance_${site.name}_${Date.now()}.csv`; a.click();
   };
 
-  const generatePDFReport = () => {
-    const site = getCurrentSite();
-    const metrics = calculateSiteMetrics(site);
-    const allMetrics = calculateAllSitesMetrics();
-    const reportHTML = `
-      <!DOCTYPE html><html><head><style>
-        body { font-family: Arial; margin: 40px; color: #333; }
-        h1 { color: #d97706; border-bottom: 3px solid #d97706; }
-        h2 { color: #7c3aed; margin-top: 30px; }
-        .metric { display: inline-block; width: 22%; margin: 1%; padding: 15px; background: #f3f4f6; border-radius: 5px; }
-        .metric-value { font-size: 24px; font-weight: bold; color: #d97706; }
-        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-        th { background: #7c3aed; color: white; padding: 10px; text-align: left; }
-        td { padding: 8px; border-bottom: 1px solid #ddd; }
-        .warning { background: #fef3c7; padding: 15px; border-left: 4px solid #f59e0b; margin: 20px 0; }
-        .cat-badge { background: #e0e7ff; color: #3730a3; padding: 2px 6px; border-radius: 3px; font-size: 11px; }
-      </style></head><body>
-        <h1>🏗️ Construction Finance Report</h1>
-        <p>Site: <strong>${site.name}</strong> | Generated: ${new Date().toLocaleDateString()}</p>
-        <h2>Budget Summary</h2>
-        <div class="metric"><div class="metric-value">$${site.budget.toLocaleString()}</div><div>Total Budget</div></div>
-        <div class="metric"><div class="metric-value">$${metrics.spent.toLocaleString()}</div><div>Spent (${metrics.percentSpent}%)</div></div>
-        <div class="metric"><div class="metric-value">$${metrics.remaining.toLocaleString()}</div><div>Remaining</div></div>
-        ${metrics.percentSpent > 80 ? `<div class="warning">⚠️ Budget Alert: ${metrics.percentSpent}% spent.</div>` : ''}
-        <h2>Materials</h2>
-        <table>
-          <tr><th>Name</th><th>Category</th><th>Quantity</th><th>Unit</th><th>Price/Unit</th><th>Total</th><th>Supplier</th></tr>
-          ${site.materials.map(m => `<tr><td>${m.name}</td><td><span class="cat-badge">${m.category}</span></td><td>${m.quantity}</td><td>${m.unit}</td><td>$${m.unitCost}</td><td>$${(m.quantity * m.unitCost).toLocaleString()}</td><td>${m.supplier || 'N/A'}</td></tr>`).join('')}
-        </table>
-        <h2>Contractors & BOQ</h2>
-        <table>
-          <tr><th>Contractor</th><th>Scope</th><th>Unit</th><th>Price/Unit</th><th>Quantity</th><th>BOQ Total</th><th>Paid</th><th>Balance</th><th>Status</th></tr>
-          ${site.contractors.map(c => `<tr><td>${c.name}</td><td>${c.scope}</td><td>${c.unit}</td><td>$${c.pricePerUnit}</td><td>${c.quantity}</td><td>$${c.boqTotal?.toLocaleString()}</td><td>$${c.paid?.toLocaleString()}</td><td>$${(c.boqTotal - c.paid)?.toLocaleString()}</td><td>${c.status}</td></tr>`).join('')}
-        </table>
-      </body></html>
-    `;
-    const newWindow = window.open('', '', 'width=900,height=700');
-    newWindow.document.write(reportHTML);
-    newWindow.print();
-  };
-
-  // ==================== RENDER ====================
+  // ==================== STYLES ====================
   const site = getCurrentSite();
-  const metrics = site ? calculateSiteMetrics(site) : {};
-  const allMetrics = calculateAllSitesMetrics();
+  const metrics = site ? calcMetrics(site) : {};
+  const allM = calcAll();
 
-  const th = { padding: '12px', textAlign: 'left', fontWeight: '600', whiteSpace: 'nowrap' };
-  const td = { padding: '12px', verticalAlign: 'middle' };
+  const TH = { padding: '11px 14px', textAlign: 'left', fontWeight: '700', fontSize: '12px', whiteSpace: 'nowrap', color: '#374151', background: '#f3f4f6', borderBottom: '2px solid #e5e7eb' };
+  const TD = { padding: '11px 14px', verticalAlign: 'middle', fontSize: '13px', borderBottom: '1px solid #f0f0f0' };
+  const inp = { padding: '8px 10px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '13px', width: '100%', boxSizing: 'border-box' };
+  const btn = (bg, fg = 'white') => ({ padding: '8px 14px', background: bg, color: fg, border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' });
 
-  const filteredMaterials = site?.materials.filter(m =>
-    materialCategoryFilter === 'All' ? true : m.category === materialCategoryFilter
-  ) || [];
+  const statusBadge = (s) => {
+    const map = { Completed: ['#d1fae5','#065f46'], 'In Progress': ['#fef3c7','#92400e'], Pending: ['#f3f4f6','#374151'] };
+    const [bg, col] = map[s] || map.Pending;
+    return <span style={{ background: bg, color: col, padding: '3px 9px', borderRadius: '12px', fontSize: '11px', fontWeight: '700' }}>{s}</span>;
+  };
 
-  // Category summary for materials
-  const categorySummary = MATERIAL_CATEGORIES.map(cat => {
-    const items = site?.materials.filter(m => m.category === cat) || [];
-    const total = items.reduce((s, m) => s + m.quantity * m.unitCost, 0);
-    return { cat, count: items.length, total };
-  }).filter(c => c.count > 0);
+  const filteredMats = site?.materials.filter(m => materialCategoryFilter === 'All' || m.category === materialCategoryFilter) || [];
+
+  const boqPreview = parseFloat(newContractor.pricePerUnit || 0) * parseFloat(newContractor.quantity || 0);
 
   return (
     <div style={{ minHeight: '100vh', background: '#f9fafb', fontFamily: 'system-ui, sans-serif' }}>
+
       {/* HEADER */}
-      <div style={{ background: 'linear-gradient(135deg, #d97706 0%, #7c3aed 100%)', color: 'white', padding: '30px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
-        <h1 style={{ margin: '0 0 10px 0', fontSize: '32px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          🏗️ Construction Finance Manager
-        </h1>
-        <p style={{ margin: 0, opacity: 0.9 }}>Manage sites, materials, contractors, budgets & AI-powered financial insights</p>
+      <div style={{ background: 'linear-gradient(135deg, #d97706 0%, #7c3aed 100%)', color: 'white', padding: '28px 32px' }}>
+        <h1 style={{ margin: '0 0 6px', fontSize: '28px' }}>🏗️ Construction Finance Manager</h1>
+        <p style={{ margin: 0, opacity: 0.85, fontSize: '14px' }}>Sites · Materials · Contractors BOQ · AI Advisor</p>
       </div>
 
-      {/* MAIN CONTAINER */}
-      <div style={{ display: 'flex', minHeight: 'calc(100vh - 100px)' }}>
-        {/* SIDEBAR - SITE SELECTOR */}
-        <div style={{ width: '250px', background: 'white', borderRight: '1px solid #e5e7eb', padding: '20px', overflowY: 'auto', boxShadow: '2px 0 4px rgba(0,0,0,0.05)' }}>
-          <h3 style={{ margin: '0 0 15px 0', color: '#d97706', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', textTransform: 'uppercase', letterSpacing: '1px' }}>
-            <Home size={18} /> Projects
-          </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px' }}>
-            {sites.map(s => (
-              <div key={s.id} onClick={() => setCurrentSiteId(s.id)} style={{ padding: '12px', background: currentSiteId === s.id ? '#fef3c7' : '#f3f4f6', border: `2px solid ${currentSiteId === s.id ? '#d97706' : 'transparent'}`, borderRadius: '6px', cursor: 'pointer' }}>
-                <div style={{ fontWeight: '600', fontSize: '13px', color: '#1f2937' }}>{s.name}</div>
-                <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px' }}>{s.location}</div>
-                <div style={{ fontSize: '11px', color: '#d97706', fontWeight: '600', marginTop: '4px' }}>Budget: ${(s.budget / 1000).toFixed(0)}k</div>
-              </div>
-            ))}
+      <div style={{ display: 'flex', minHeight: 'calc(100vh - 90px)' }}>
+
+        {/* ── LEFT SIDEBAR ── */}
+        <div style={{ width: '240px', minWidth: '240px', background: 'white', borderRight: '1px solid #e5e7eb', padding: '18px', overflowY: 'auto' }}>
+          <div style={{ fontSize: '11px', fontWeight: '700', color: '#d97706', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>
+            <Home size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} /> Projects
           </div>
 
-          {/* Add Site Form */}
-          <div style={{ background: '#f3f4f6', padding: '15px', borderRadius: '6px', marginBottom: '20px' }}>
-            <h4 style={{ margin: '0 0 10px 0', fontSize: '12px', color: '#1f2937' }}>New Project</h4>
-            {['name', 'location'].map(field => (
-              <input key={field} placeholder={field.charAt(0).toUpperCase() + field.slice(1)} value={newSite[field]} onChange={e => setNewSite({ ...newSite, [field]: e.target.value })} style={{ width: '100%', padding: '6px', marginBottom: '8px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '11px', boxSizing: 'border-box' }} />
+          {sites.map(s => {
+            const m = calcMetrics(s);
+            return (
+              <div key={s.id} onClick={() => setCurrentSiteId(s.id)} style={{ padding: '10px', background: currentSiteId === s.id ? '#fef3c7' : '#f9fafb', border: `2px solid ${currentSiteId === s.id ? '#d97706' : 'transparent'}`, borderRadius: '8px', cursor: 'pointer', marginBottom: '8px' }}>
+                <div style={{ fontWeight: '700', fontSize: '13px', color: '#1f2937' }}>{s.name}</div>
+                <div style={{ fontSize: '11px', color: '#6b7280' }}>{s.location}</div>
+                <div style={{ fontSize: '11px', color: '#d97706', fontWeight: '600', marginTop: 3 }}>
+                  ${(s.budget / 1000).toFixed(0)}k · {m.pct}% used
+                </div>
+              </div>
+            );
+          })}
+
+          <div style={{ background: '#f3f4f6', padding: '12px', borderRadius: '8px', marginTop: '8px' }}>
+            <div style={{ fontSize: '12px', fontWeight: '600', marginBottom: '8px', color: '#374151' }}>+ New Project</div>
+            {[['name','Project Name'],['location','Location']].map(([k,ph]) => (
+              <input key={k} placeholder={ph} value={newSite[k]} onChange={e => setNewSite({...newSite,[k]:e.target.value})} style={{ ...inp, marginBottom: '6px', fontSize: '12px' }} />
             ))}
-            <input placeholder="Budget ($)" type="number" value={newSite.budget} onChange={e => setNewSite({ ...newSite, budget: e.target.value })} style={{ width: '100%', padding: '6px', marginBottom: '8px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '11px', boxSizing: 'border-box' }} />
-            <input placeholder="Start Date" type="date" value={newSite.startDate} onChange={e => setNewSite({ ...newSite, startDate: e.target.value })} style={{ width: '100%', padding: '6px', marginBottom: '8px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '11px', boxSizing: 'border-box' }} />
-            <button onClick={addSite} style={{ width: '100%', padding: '8px', background: '#d97706', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: '600', fontSize: '11px' }}>
-              <Plus size={14} style={{ display: 'inline', marginRight: '4px' }} /> Add Project
+            <input placeholder="Budget ($)" type="number" value={newSite.budget} onChange={e => setNewSite({...newSite,budget:e.target.value})} style={{ ...inp, marginBottom: '6px', fontSize: '12px' }} />
+            <input type="date" value={newSite.startDate} onChange={e => setNewSite({...newSite,startDate:e.target.value})} style={{ ...inp, marginBottom: '8px', fontSize: '12px' }} />
+            <button onClick={addSite} style={{ ...btn('#d97706'), width: '100%', justifyContent: 'center', fontSize: '12px' }}>
+              <Plus size={14} /> Add Project
             </button>
           </div>
 
-          {/* Summary Stats */}
-          <div style={{ background: '#fef3c7', padding: '15px', borderRadius: '6px', fontSize: '12px' }}>
-            <p style={{ margin: '0 0 10px 0', fontWeight: '600', color: '#92400e' }}>📊 All Sites</p>
-            <p style={{ margin: '5px 0', color: '#78350f' }}>Budget: ${(allMetrics.totalBudget / 1000).toFixed(0)}k</p>
-            <p style={{ margin: '5px 0', color: '#78350f' }}>Spent: ${(allMetrics.totalSpent / 1000).toFixed(0)}k</p>
-            <p style={{ margin: '5px 0', color: '#92400e', fontWeight: '600' }}>{allMetrics.avgSpent}% Utilization</p>
+          <div style={{ background: '#fef3c7', padding: '12px', borderRadius: '8px', marginTop: '12px', fontSize: '12px' }}>
+            <div style={{ fontWeight: '700', color: '#92400e', marginBottom: '6px' }}>📊 All Sites</div>
+            <div style={{ color: '#78350f' }}>Budget: ${(allM.totalBudget/1000).toFixed(0)}k</div>
+            <div style={{ color: '#78350f' }}>Spent: ${(allM.totalSpent/1000).toFixed(0)}k</div>
+            <div style={{ color: '#92400e', fontWeight: '700' }}>{allM.pct}% utilized</div>
           </div>
         </div>
 
-        {/* MAIN CONTENT */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-          {/* NAV TABS */}
-          <div style={{ display: 'flex', borderBottom: '1px solid #e5e7eb', background: 'white', overflowX: 'auto' }}>
+        {/* ── MAIN AREA ── */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+
+          {/* TABS */}
+          <div style={{ display: 'flex', background: 'white', borderBottom: '1px solid #e5e7eb', overflowX: 'auto' }}>
             {[
-              { id: 'overview', label: '📊 Overview' },
-              { id: 'materials', label: '📦 Materials' },
-              { id: 'contractors', label: '👷 Contractors BOQ' },
-              { id: 'financials', label: '💰 Financials' },
-              { id: 'ai', label: '🤖 AI Advisor' }
-            ].map(tab => (
-              <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{ padding: '15px 20px', border: 'none', background: activeTab === tab.id ? 'white' : '#f9fafb', borderBottom: activeTab === tab.id ? '3px solid #d97706' : 'none', cursor: 'pointer', fontWeight: activeTab === tab.id ? '600' : '400', color: activeTab === tab.id ? '#d97706' : '#6b7280', whiteSpace: 'nowrap', fontSize: '14px' }}>
-                {tab.label}
+              { id: 'overview',     label: '📊 Overview' },
+              { id: 'materials',    label: '📦 Materials' },
+              { id: 'contractors',  label: '👷 Contractors BOQ' },
+              { id: 'financials',   label: '💰 Financials' },
+              { id: 'ai',           label: '🤖 AI Advisor' },
+            ].map(t => (
+              <button key={t.id} onClick={() => setActiveTab(t.id)} style={{ padding: '14px 20px', border: 'none', background: 'none', borderBottom: activeTab === t.id ? '3px solid #d97706' : '3px solid transparent', cursor: 'pointer', fontWeight: activeTab === t.id ? '700' : '400', color: activeTab === t.id ? '#d97706' : '#6b7280', whiteSpace: 'nowrap', fontSize: '14px' }}>
+                {t.label}
               </button>
             ))}
           </div>
 
-          {/* TAB CONTENT */}
-          <div style={{ flex: 1, overflow: 'auto', padding: '25px', background: '#f9fafb' }}>
+          <div style={{ flex: 1, overflow: 'auto', padding: '24px' }}>
 
-            {/* ── OVERVIEW TAB ── */}
+            {/* ═══════════ OVERVIEW ═══════════ */}
             {activeTab === 'overview' && site && (
               <div>
-                <h2 style={{ margin: '0 0 20px 0', color: '#1f2937' }}><Map size={24} style={{ verticalAlign: 'middle', marginRight: 8 }} />{site.name}</h2>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '25px' }}>
+                <h2 style={{ margin: '0 0 20px', color: '#1f2937', fontSize: '20px' }}>{site.name} — Overview</h2>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: '14px', marginBottom: '20px' }}>
                   {[
-                    { label: 'Budget', value: `$${(site.budget / 1000).toFixed(0)}k`, color: '#d97706' },
-                    { label: 'Spent', value: `$${(metrics.spent / 1000).toFixed(0)}k`, sub: `${metrics.percentSpent}% utilized`, color: '#7c3aed' },
-                    { label: 'Remaining', value: `$${(metrics.remaining / 1000).toFixed(0)}k`, color: '#059669' },
-                    { label: 'Status', value: site.status, color: '#1f2937' },
+                    { l: 'Total Budget',        v: `$${site.budget.toLocaleString()}`,          c: '#d97706' },
+                    { l: 'Material Spend',       v: `$${metrics.matSpent?.toLocaleString()}`,     c: '#7c3aed' },
+                    { l: 'Contractor Payments',  v: `$${metrics.conPaid?.toLocaleString()}`,      c: '#0369a1' },
+                    { l: 'Total Spent',          v: `$${metrics.spent?.toLocaleString()}`,        c: '#dc2626' },
+                    { l: 'Remaining',            v: `$${metrics.remaining?.toLocaleString()}`,    c: '#059669' },
+                    { l: '% Utilized',           v: `${metrics.pct}%`,                            c: parseFloat(metrics.pct) > 80 ? '#dc2626' : '#d97706' },
                   ].map(card => (
-                    <div key={card.label} style={{ background: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                      <div style={{ fontSize: '12px', color: '#6b7280', textTransform: 'uppercase', marginBottom: '8px' }}>{card.label}</div>
-                      <div style={{ fontSize: '28px', fontWeight: 'bold', color: card.color }}>{card.value}</div>
-                      {card.sub && <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '5px' }}>{card.sub}</div>}
+                    <div key={card.l} style={{ background: 'white', padding: '18px', borderRadius: '10px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+                      <div style={{ fontSize: '11px', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>{card.l}</div>
+                      <div style={{ fontSize: '22px', fontWeight: '800', color: card.c }}>{card.v}</div>
                     </div>
                   ))}
                 </div>
 
-                {/* Progress Bar */}
-                <div style={{ background: 'white', padding: '20px', borderRadius: '8px', marginBottom: '25px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                  <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '10px', color: '#1f2937' }}>Budget Utilization</div>
-                  <div style={{ height: '12px', background: '#e5e7eb', borderRadius: '6px', overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${Math.min(metrics.percentSpent, 100)}%`, background: metrics.percentSpent > 90 ? '#dc2626' : metrics.percentSpent > 75 ? '#f59e0b' : '#10b981', transition: 'width 0.3s' }} />
+                {/* Budget bar */}
+                <div style={{ background: 'white', padding: '18px', borderRadius: '10px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', marginBottom: '18px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '13px', fontWeight: '600', color: '#374151' }}>
+                    <span>Budget Utilization</span><span>{metrics.pct}%</span>
                   </div>
-                  <div style={{ marginTop: '10px', fontSize: '12px', color: '#6b7280' }}>
-                    {metrics.percentSpent > 90 ? '⚠️ Critical: Over 90% spent' : metrics.percentSpent > 75 ? '⚠️ Warning: Over 75% spent' : '✅ On track'}
+                  <div style={{ height: '14px', background: '#e5e7eb', borderRadius: '7px', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${Math.min(metrics.pct, 100)}%`, background: metrics.pct > 90 ? '#dc2626' : metrics.pct > 75 ? '#f59e0b' : '#10b981', transition: 'width 0.4s' }} />
+                  </div>
+                  <div style={{ marginTop: '8px', fontSize: '12px', color: '#6b7280' }}>
+                    {metrics.pct > 90 ? '🔴 Critical — over 90% spent' : metrics.pct > 75 ? '🟡 Warning — over 75% spent' : '🟢 On track'}
                   </div>
                 </div>
 
-                {/* Category breakdown mini */}
-                {categorySummary.length > 0 && (
-                  <div style={{ background: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                    <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '12px', color: '#1f2937' }}>Materials by Category</div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
-                      {categorySummary.map(c => (
-                        <div key={c.cat} style={{ background: '#f3f4f6', padding: '10px 14px', borderRadius: '6px', fontSize: '12px' }}>
-                          <div style={{ fontWeight: '600', color: '#7c3aed' }}>{c.cat}</div>
-                          <div style={{ color: '#6b7280' }}>{c.count} item{c.count > 1 ? 's' : ''} · ${c.total.toLocaleString()}</div>
-                        </div>
-                      ))}
-                    </div>
+                {/* Quick tables */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div style={{ background: 'white', padding: '16px', borderRadius: '10px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+                    <div style={{ fontWeight: '700', marginBottom: '10px', color: '#7c3aed' }}>📦 Materials ({site.materials.length})</div>
+                    {site.materials.slice(0,5).map(m => (
+                      <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', padding: '4px 0', borderBottom: '1px solid #f0f0f0' }}>
+                        <span>{m.name} <span style={{ color: '#9ca3af' }}>({m.category})</span></span>
+                        <span style={{ fontWeight: '600', color: '#7c3aed' }}>${(m.quantity * m.unitCost).toLocaleString()}</span>
+                      </div>
+                    ))}
                   </div>
-                )}
+                  <div style={{ background: 'white', padding: '16px', borderRadius: '10px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+                    <div style={{ fontWeight: '700', marginBottom: '10px', color: '#d97706' }}>👷 Contractors ({site.contractors.length})</div>
+                    {site.contractors.slice(0,5).map(c => (
+                      <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', padding: '4px 0', borderBottom: '1px solid #f0f0f0' }}>
+                        <span>{c.name}</span>
+                        <span style={{ fontWeight: '600', color: '#d97706' }}>${c.boqTotal?.toLocaleString()}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
 
-            {/* ── MATERIALS TAB ── */}
+            {/* ═══════════ MATERIALS ═══════════ */}
             {activeTab === 'materials' && site && (
               <div>
-                <h2 style={{ margin: '0 0 20px 0', color: '#1f2937' }}>Materials & Supplies</h2>
+                <h2 style={{ margin: '0 0 18px', color: '#1f2937', fontSize: '20px' }}>Materials & Supplies</h2>
 
                 {/* Add Material Form */}
-                <div style={{ background: 'white', padding: '20px', borderRadius: '8px', marginBottom: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                  <h3 style={{ margin: '0 0 15px 0', color: '#7c3aed', fontSize: '14px' }}>+ Add Material</h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px' }}>
-                    <input placeholder="Material Name" value={newMaterial.name} onChange={e => setNewMaterial({ ...newMaterial, name: e.target.value })} style={{ padding: '8px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px' }} />
-                    <select value={newMaterial.category} onChange={e => setNewMaterial({ ...newMaterial, category: e.target.value })} style={{ padding: '8px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px' }}>
-                      {MATERIAL_CATEGORIES.map(c => <option key={c}>{c}</option>)}
-                    </select>
-                    <input placeholder="Quantity" type="number" value={newMaterial.quantity} onChange={e => setNewMaterial({ ...newMaterial, quantity: e.target.value })} style={{ padding: '8px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px' }} />
-                    <input placeholder="Unit (m³, ton, bag…)" value={newMaterial.unit} onChange={e => setNewMaterial({ ...newMaterial, unit: e.target.value })} style={{ padding: '8px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px' }} />
-                    <input placeholder="Price per Unit ($)" type="number" value={newMaterial.unitCost} onChange={e => setNewMaterial({ ...newMaterial, unitCost: e.target.value })} style={{ padding: '8px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px' }} />
-                    <input placeholder="Supplier" value={newMaterial.supplier} onChange={e => setNewMaterial({ ...newMaterial, supplier: e.target.value })} style={{ padding: '8px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px' }} />
-                    <input placeholder="Delivery Date" type="date" value={newMaterial.deliveryDate} onChange={e => setNewMaterial({ ...newMaterial, deliveryDate: e.target.value })} style={{ padding: '8px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px' }} />
-                    <button onClick={addMaterialToSite} style={{ padding: '8px', background: '#7c3aed', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: '600', fontSize: '13px' }}>
-                      <Plus size={16} style={{ display: 'inline', marginRight: '4px' }} /> Add
-                    </button>
+                <div style={{ background: 'white', padding: '20px', borderRadius: '10px', marginBottom: '18px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+                  <div style={{ fontWeight: '700', color: '#7c3aed', marginBottom: '14px', fontSize: '14px' }}>+ Add Material</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: '10px' }}>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>Material Name *</div>
+                      <input placeholder="e.g. Concrete, Rebar" value={newMaterial.name} onChange={e => setNewMaterial({...newMaterial,name:e.target.value})} style={inp} />
+                    </div>
+
+                    {/* Category with custom add */}
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px', display: 'flex', justifyContent: 'space-between' }}>
+                        Category *
+                        <button onClick={() => setShowAddCategory(!showAddCategory)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#7c3aed', fontSize: '11px', padding: 0, fontWeight: '600' }}>
+                          {showAddCategory ? 'Cancel' : '+ New'}
+                        </button>
+                      </div>
+                      {showAddCategory ? (
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                          <input placeholder="New category name" value={newCategoryInput} onChange={e => setNewCategoryInput(e.target.value)} onKeyPress={e => e.key === 'Enter' && addCategory()} style={{ ...inp, flex: 1 }} />
+                          <button onClick={addCategory} style={{ ...btn('#7c3aed'), padding: '8px 10px' }}><Check size={14} /></button>
+                        </div>
+                      ) : (
+                        <select value={newMaterial.category} onChange={e => setNewMaterial({...newMaterial,category:e.target.value})} style={inp}>
+                          <option value="">Select category</option>
+                          {categories.map(c => <option key={c}>{c}</option>)}
+                        </select>
+                      )}
+                    </div>
+
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>Qty Received *</div>
+                      <input placeholder="e.g. 250" type="number" value={newMaterial.quantity} onChange={e => setNewMaterial({...newMaterial,quantity:e.target.value})} style={inp} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>Total Ordered Qty</div>
+                      <input placeholder="e.g. 300" type="number" value={newMaterial.totalQty} onChange={e => setNewMaterial({...newMaterial,totalQty:e.target.value})} style={inp} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>Unit</div>
+                      <input placeholder="m³, ton, bag, pcs" value={newMaterial.unit} onChange={e => setNewMaterial({...newMaterial,unit:e.target.value})} style={inp} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>Price per Unit ($) *</div>
+                      <input placeholder="e.g. 150" type="number" value={newMaterial.unitCost} onChange={e => setNewMaterial({...newMaterial,unitCost:e.target.value})} style={inp} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>Supplier</div>
+                      <input placeholder="Supplier name" value={newMaterial.supplier} onChange={e => setNewMaterial({...newMaterial,supplier:e.target.value})} style={inp} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>Delivery Date</div>
+                      <input type="date" value={newMaterial.deliveryDate} onChange={e => setNewMaterial({...newMaterial,deliveryDate:e.target.value})} style={inp} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>Condition</div>
+                      <select value={newMaterial.condition} onChange={e => setNewMaterial({...newMaterial,condition:e.target.value})} style={inp}>
+                        <option>Good</option><option>Acceptable</option><option>Damaged</option>
+                      </select>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>Notes</div>
+                      <input placeholder="Grade, spec, remarks" value={newMaterial.notes} onChange={e => setNewMaterial({...newMaterial,notes:e.target.value})} style={inp} />
+                    </div>
                   </div>
-                </div>
 
-                {/* Category Filter */}
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' }}>
-                  {['All', ...MATERIAL_CATEGORIES].map(cat => (
-                    <button key={cat} onClick={() => setMaterialCategoryFilter(cat)} style={{ padding: '6px 12px', borderRadius: '20px', border: '1px solid', borderColor: materialCategoryFilter === cat ? '#7c3aed' : '#ddd', background: materialCategoryFilter === cat ? '#7c3aed' : 'white', color: materialCategoryFilter === cat ? 'white' : '#374151', fontSize: '12px', cursor: 'pointer', fontWeight: materialCategoryFilter === cat ? '600' : '400' }}>
-                      {cat}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Materials Table */}
-                <div style={{ background: 'white', borderRadius: '8px', overflow: 'auto', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                    <thead>
-                      <tr style={{ background: '#f3f4f6', borderBottom: '2px solid #ddd' }}>
-                        <th style={th}>Material</th>
-                        <th style={th}>Category</th>
-                        <th style={th}>Quantity</th>
-                        <th style={th}>Unit</th>
-                        <th style={th}>Price / Unit</th>
-                        <th style={th}>Total Cost</th>
-                        <th style={th}>Supplier</th>
-                        <th style={th}>Delivery</th>
-                        <th style={{ ...th, textAlign: 'center' }}>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredMaterials.map(m => (
-                        <tr key={m.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                          <td style={{ ...td, fontWeight: '600' }}>{m.name}</td>
-                          <td style={td}>
-                            <span style={{ background: '#e0e7ff', color: '#3730a3', padding: '3px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '600', whiteSpace: 'nowrap' }}>{m.category}</span>
-                          </td>
-                          <td style={td}>{m.quantity.toLocaleString()}</td>
-                          <td style={td}>{m.unit}</td>
-                          <td style={td}>${m.unitCost.toLocaleString()} / {m.unit}</td>
-                          <td style={{ ...td, fontWeight: '700', color: '#7c3aed' }}>${(m.quantity * m.unitCost).toLocaleString()}</td>
-                          <td style={td}>{m.supplier || '—'}</td>
-                          <td style={td}>{m.deliveryDate || '—'}</td>
-                          <td style={{ ...td, textAlign: 'center' }}>
-                            <button onClick={() => deleteMaterial(m.id)} style={{ background: '#ef4444', color: 'white', border: 'none', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>Delete</button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    {filteredMaterials.length > 0 && (
-                      <tfoot>
-                        <tr style={{ background: '#fef3c7', borderTop: '2px solid #d97706' }}>
-                          <td colSpan={5} style={{ ...td, fontWeight: '700', color: '#92400e' }}>TOTAL ({filteredMaterials.length} items)</td>
-                          <td style={{ ...td, fontWeight: '700', color: '#92400e', fontSize: '14px' }}>${filteredMaterials.reduce((s, m) => s + m.quantity * m.unitCost, 0).toLocaleString()}</td>
-                          <td colSpan={3} />
-                        </tr>
-                      </tfoot>
-                    )}
-                  </table>
-                  {filteredMaterials.length === 0 && <div style={{ padding: '30px', textAlign: 'center', color: '#6b7280' }}>No materials found</div>}
-                </div>
-              </div>
-            )}
-
-            {/* ── CONTRACTORS BOQ TAB ── */}
-            {activeTab === 'contractors' && site && (
-              <div>
-                <h2 style={{ margin: '0 0 20px 0', color: '#1f2937' }}>Contractors & BOQ</h2>
-
-                {/* Add Contractor Form */}
-                <div style={{ background: 'white', padding: '20px', borderRadius: '8px', marginBottom: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                  <h3 style={{ margin: '0 0 15px 0', color: '#7c3aed', fontSize: '14px' }}>+ Add Contractor BOQ</h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px' }}>
-                    <input placeholder="Contractor Name" value={newContractor.name} onChange={e => setNewContractor({ ...newContractor, name: e.target.value })} style={{ padding: '8px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px' }} />
-                    <input placeholder="Scope of Work" value={newContractor.scope} onChange={e => setNewContractor({ ...newContractor, scope: e.target.value })} style={{ padding: '8px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px' }} />
-                    <input placeholder="Unit (m², m³, lump sum…)" value={newContractor.unit} onChange={e => setNewContractor({ ...newContractor, unit: e.target.value })} style={{ padding: '8px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px' }} />
-                    <input placeholder="Price per Unit ($)" type="number" value={newContractor.pricePerUnit} onChange={e => setNewContractor({ ...newContractor, pricePerUnit: e.target.value })} style={{ padding: '8px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px' }} />
-                    <input placeholder="Total Quantity" type="number" value={newContractor.quantity} onChange={e => setNewContractor({ ...newContractor, quantity: e.target.value })} style={{ padding: '8px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px' }} />
-                    <select value={newContractor.status} onChange={e => setNewContractor({ ...newContractor, status: e.target.value })} style={{ padding: '8px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px' }}>
-                      <option>Pending</option>
-                      <option>In Progress</option>
-                      <option>Completed</option>
-                    </select>
-                    <button onClick={addContractorToSite} style={{ padding: '8px', background: '#7c3aed', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: '600', fontSize: '13px' }}>
-                      <Plus size={16} style={{ display: 'inline', marginRight: '4px' }} /> Add
-                    </button>
-                  </div>
-                  {newContractor.pricePerUnit && newContractor.quantity && (
-                    <div style={{ marginTop: '10px', padding: '8px 12px', background: '#e0e7ff', borderRadius: '4px', fontSize: '13px', color: '#3730a3', fontWeight: '600' }}>
-                      Calculated BOQ Total: ${(parseFloat(newContractor.pricePerUnit || 0) * parseFloat(newContractor.quantity || 0)).toLocaleString()}
+                  {newMaterial.quantity && newMaterial.unitCost && (
+                    <div style={{ marginTop: '10px', padding: '8px 12px', background: '#e0e7ff', borderRadius: '6px', fontSize: '13px', color: '#3730a3', fontWeight: '600' }}>
+                      Total Cost Preview: ${(parseFloat(newMaterial.quantity||0) * parseFloat(newMaterial.unitCost||0)).toLocaleString()}
                     </div>
                   )}
+
+                  <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end' }}>
+                    <button onClick={addMaterial} style={btn('#7c3aed')}>
+                      <Plus size={15} /> Add Material
+                    </button>
+                  </div>
                 </div>
 
-                {/* Contractors Table */}
-                <div style={{ background: 'white', borderRadius: '8px', overflow: 'auto', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                    <thead>
-                      <tr style={{ background: '#f3f4f6', borderBottom: '2px solid #ddd' }}>
-                        <th style={th}>Contractor</th>
-                        <th style={th}>Scope of Work</th>
-                        <th style={th}>Unit</th>
-                        <th style={th}>Price / Unit</th>
-                        <th style={th}>Total Qty</th>
-                        <th style={th}>BOQ Total</th>
-                        <th style={th}>Amount Paid</th>
-                        <th style={th}>Balance Due</th>
-                        <th style={th}>Status</th>
-                        <th style={{ ...th, textAlign: 'center' }}>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {site.contractors.map(c => (
-                        <tr key={c.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                          <td style={{ ...td, fontWeight: '600' }}>{c.name}</td>
-                          <td style={td}>{c.scope}</td>
-                          <td style={td}>{c.unit || '—'}</td>
-                          <td style={td}>{c.pricePerUnit ? `$${c.pricePerUnit.toLocaleString()} / ${c.unit || 'unit'}` : '—'}</td>
-                          <td style={td}>{c.quantity ? c.quantity.toLocaleString() : '—'}</td>
-                          <td style={{ ...td, fontWeight: '700', color: '#7c3aed' }}>${c.boqTotal?.toLocaleString()}</td>
-                          <td style={{ ...td, color: '#059669', fontWeight: '600' }}>${c.paid?.toLocaleString()}</td>
-                          <td style={{ ...td, color: '#d97706', fontWeight: '600' }}>${(c.boqTotal - c.paid)?.toLocaleString()}</td>
-                          <td style={td}>
-                            <span style={{ background: c.status === 'Completed' ? '#d1fae5' : c.status === 'In Progress' ? '#fef3c7' : '#f3f4f6', color: c.status === 'Completed' ? '#065f46' : c.status === 'In Progress' ? '#92400e' : '#374151', padding: '3px 8px', borderRadius: '3px', fontSize: '11px', fontWeight: '600' }}>
-                              {c.status}
-                            </span>
-                          </td>
-                          <td style={{ ...td, textAlign: 'center' }}>
-                            <button onClick={() => deleteContractor(c.id)} style={{ background: '#ef4444', color: 'white', border: 'none', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>Delete</button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    {site.contractors.length > 0 && (
-                      <tfoot>
-                        <tr style={{ background: '#fef3c7', borderTop: '2px solid #d97706' }}>
-                          <td colSpan={5} style={{ ...td, fontWeight: '700', color: '#92400e' }}>TOTAL ({site.contractors.length} contractors)</td>
-                          <td style={{ ...td, fontWeight: '700', color: '#92400e', fontSize: '14px' }}>${site.contractors.reduce((s, c) => s + (c.boqTotal || 0), 0).toLocaleString()}</td>
-                          <td style={{ ...td, fontWeight: '700', color: '#059669' }}>${site.contractors.reduce((s, c) => s + (c.paid || 0), 0).toLocaleString()}</td>
-                          <td style={{ ...td, fontWeight: '700', color: '#d97706' }}>${site.contractors.reduce((s, c) => s + ((c.boqTotal || 0) - (c.paid || 0)), 0).toLocaleString()}</td>
-                          <td colSpan={2} />
-                        </tr>
-                      </tfoot>
-                    )}
-                  </table>
-                  {site.contractors.length === 0 && <div style={{ padding: '30px', textAlign: 'center', color: '#6b7280' }}>No contractors assigned yet</div>}
-                </div>
-              </div>
-            )}
-
-            {/* ── FINANCIALS TAB ── */}
-            {activeTab === 'financials' && (
-              <div>
-                <h2 style={{ margin: '0 0 20px 0', color: '#1f2937' }}>Financial Dashboard</h2>
-                <div style={{ background: 'white', padding: '20px', borderRadius: '8px', marginBottom: '25px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                  <h3 style={{ margin: '0 0 15px 0', color: '#7c3aed', fontSize: '16px' }}>All Projects Summary</h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '15px' }}>
-                    {[
-                      { label: 'Total Budget', val: `$${(allMetrics.totalBudget / 1000).toFixed(0)}k`, bg: '#f3f4f6', col: '#1f2937' },
-                      { label: 'Total Spent', val: `$${(allMetrics.totalSpent / 1000).toFixed(0)}k`, bg: '#fef3c7', col: '#d97706' },
-                      { label: 'Total Remaining', val: `$${(allMetrics.totalRemaining / 1000).toFixed(0)}k`, bg: '#e0f2fe', col: '#0369a1' },
-                      { label: '% Spent', val: `${allMetrics.avgSpent}%`, bg: '#f0fdf4', col: '#16a34a' },
-                    ].map(card => (
-                      <div key={card.label} style={{ padding: '15px', background: card.bg, borderRadius: '6px', textAlign: 'center' }}>
-                        <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '5px' }}>{card.label}</div>
-                        <div style={{ fontSize: '24px', fontWeight: 'bold', color: card.col }}>{card.val}</div>
+                {/* Manage Categories */}
+                <div style={{ background: 'white', padding: '14px 18px', borderRadius: '10px', marginBottom: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+                  <div style={{ fontSize: '12px', fontWeight: '700', color: '#374151', marginBottom: '10px' }}>
+                    <Tag size={13} style={{ verticalAlign: 'middle', marginRight: 4 }} /> Categories
+                    <button onClick={() => setShowAddCategory(!showAddCategory)} style={{ marginLeft: '10px', background: '#7c3aed', color: 'white', border: 'none', borderRadius: '4px', padding: '2px 8px', fontSize: '11px', cursor: 'pointer', fontWeight: '600' }}>+ Add</button>
+                  </div>
+                  {showAddCategory && (
+                    <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
+                      <input placeholder="New category name" value={newCategoryInput} onChange={e => setNewCategoryInput(e.target.value)} onKeyPress={e => e.key === 'Enter' && addCategory()} style={{ ...inp, maxWidth: '280px' }} />
+                      <button onClick={addCategory} style={btn('#7c3aed')}>Add</button>
+                      <button onClick={() => { setShowAddCategory(false); setNewCategoryInput(''); }} style={btn('#6b7280')}>Cancel</button>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    {categories.map(cat => (
+                      <div key={cat} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#e0e7ff', color: '#3730a3', padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: '600' }}>
+                        {cat}
+                        <button onClick={() => removeCategory(cat)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#7c3aed', padding: 0, display: 'flex', alignItems: 'center' }}><X size={12} /></button>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                <div style={{ background: 'white', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                  <div style={{ padding: '20px', borderBottom: '1px solid #e5e7eb' }}>
-                    <h3 style={{ margin: 0, color: '#1f2937', fontSize: '16px' }}>Cost Breakdown by Project</h3>
-                  </div>
+                {/* Category Filter */}
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '14px' }}>
+                  {['All', ...categories].map(cat => (
+                    <button key={cat} onClick={() => setMaterialCategoryFilter(cat)} style={{ padding: '5px 12px', borderRadius: '20px', border: `1px solid ${materialCategoryFilter === cat ? '#7c3aed' : '#ddd'}`, background: materialCategoryFilter === cat ? '#7c3aed' : 'white', color: materialCategoryFilter === cat ? 'white' : '#374151', fontSize: '12px', cursor: 'pointer', fontWeight: materialCategoryFilter === cat ? '700' : '400' }}>
+                      {cat}{cat !== 'All' && ` (${site.materials.filter(m => m.category === cat).length})`}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Materials Table */}
+                <div style={{ background: 'white', borderRadius: '10px', overflow: 'auto', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                     <thead>
-                      <tr style={{ background: '#f3f4f6', borderBottom: '2px solid #ddd' }}>
-                        {['Project', 'Budget', 'Spent', 'Remaining', '% Used'].map(h => (
-                          <th key={h} style={{ ...th, textAlign: h !== 'Project' ? 'right' : 'left' }}>{h}</th>
+                      <tr>
+                        <th style={TH}>#</th>
+                        <th style={TH}>Material Name</th>
+                        <th style={TH}>Category</th>
+                        <th style={TH}>Qty Received</th>
+                        <th style={TH}>Total Ordered</th>
+                        <th style={TH}>Unit</th>
+                        <th style={TH}>Price / Unit</th>
+                        <th style={TH}>Total Cost</th>
+                        <th style={TH}>Supplier</th>
+                        <th style={TH}>Delivery Date</th>
+                        <th style={TH}>Condition</th>
+                        <th style={TH}>Notes</th>
+                        <th style={{ ...TH, textAlign: 'center' }}>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredMats.map((m, i) => (
+                        <tr key={m.id} style={{ background: i % 2 === 0 ? 'white' : '#fafafa' }}>
+                          <td style={{ ...TD, color: '#9ca3af' }}>{i + 1}</td>
+                          <td style={{ ...TD, fontWeight: '700' }}>{m.name}</td>
+                          <td style={TD}><span style={{ background: '#e0e7ff', color: '#3730a3', padding: '3px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '600', whiteSpace: 'nowrap' }}>{m.category || '—'}</span></td>
+                          <td style={{ ...TD, fontWeight: '600' }}>{m.quantity.toLocaleString()}</td>
+                          <td style={TD}>{m.totalQty ? m.totalQty.toLocaleString() : '—'}</td>
+                          <td style={TD}>{m.unit || '—'}</td>
+                          <td style={TD}>{m.unit ? `$${m.unitCost.toLocaleString()} / ${m.unit}` : `$${m.unitCost.toLocaleString()}`}</td>
+                          <td style={{ ...TD, fontWeight: '800', color: '#7c3aed' }}>${(m.quantity * m.unitCost).toLocaleString()}</td>
+                          <td style={TD}>{m.supplier || '—'}</td>
+                          <td style={TD}>{m.deliveryDate || '—'}</td>
+                          <td style={TD}>
+                            <span style={{ background: m.condition === 'Good' ? '#d1fae5' : m.condition === 'Damaged' ? '#fee2e2' : '#fef3c7', color: m.condition === 'Good' ? '#065f46' : m.condition === 'Damaged' ? '#991b1b' : '#92400e', padding: '3px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '600' }}>{m.condition || '—'}</span>
+                          </td>
+                          <td style={{ ...TD, color: '#6b7280', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.notes || '—'}</td>
+                          <td style={{ ...TD, textAlign: 'center' }}>
+                            <button onClick={() => deleteMaterial(m.id)} style={btn('#ef4444')}><Trash2 size={13} /></button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    {filteredMats.length > 0 && (
+                      <tfoot>
+                        <tr style={{ background: '#fef9c3' }}>
+                          <td colSpan={3} style={{ ...TD, fontWeight: '800', color: '#92400e' }}>TOTAL ({filteredMats.length} items)</td>
+                          <td style={{ ...TD, fontWeight: '800' }}>{filteredMats.reduce((s, m) => s + m.quantity, 0).toLocaleString()}</td>
+                          <td style={{ ...TD, fontWeight: '800' }}>{filteredMats.reduce((s, m) => s + (m.totalQty || 0), 0).toLocaleString()}</td>
+                          <td colSpan={2} />
+                          <td style={{ ...TD, fontWeight: '800', color: '#7c3aed', fontSize: '14px' }}>${filteredMats.reduce((s, m) => s + m.quantity * m.unitCost, 0).toLocaleString()}</td>
+                          <td colSpan={5} />
+                        </tr>
+                      </tfoot>
+                    )}
+                  </table>
+                  {filteredMats.length === 0 && <div style={{ padding: '32px', textAlign: 'center', color: '#9ca3af' }}>No materials found</div>}
+                </div>
+              </div>
+            )}
+
+            {/* ═══════════ CONTRACTORS BOQ ═══════════ */}
+            {activeTab === 'contractors' && site && (
+              <div>
+                <h2 style={{ margin: '0 0 18px', color: '#1f2937', fontSize: '20px' }}>Contractors & BOQ</h2>
+
+                {/* Add Contractor Form */}
+                <div style={{ background: 'white', padding: '20px', borderRadius: '10px', marginBottom: '18px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+                  <div style={{ fontWeight: '700', color: '#d97706', marginBottom: '14px', fontSize: '14px' }}>+ Add Contractor</div>
+
+                  {/* Contractor Name — Preset or New */}
+                  <div style={{ marginBottom: '14px' }}>
+                    <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '6px', fontWeight: '600' }}>CONTRACTOR NAME *</div>
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                      <button onClick={() => setContractorNameMode('preset')} style={{ ...btn(contractorNameMode === 'preset' ? '#d97706' : '#f3f4f6', contractorNameMode === 'preset' ? 'white' : '#374151'), fontSize: '12px' }}>
+                        Select from List
+                      </button>
+                      <button onClick={() => { setContractorNameMode('new'); setNewContractor({...newContractor, name: ''}); }} style={{ ...btn(contractorNameMode === 'new' ? '#d97706' : '#f3f4f6', contractorNameMode === 'new' ? 'white' : '#374151'), fontSize: '12px' }}>
+                        <Plus size={13} /> Add New Contractor
+                      </button>
+                    </div>
+
+                    {contractorNameMode === 'preset' ? (
+                      <div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                          {PRESET_CONTRACTORS.map(name => (
+                            <button key={name} onClick={() => setNewContractor({...newContractor, name})} style={{ padding: '6px 12px', borderRadius: '20px', border: `1.5px solid ${newContractor.name === name ? '#d97706' : '#e5e7eb'}`, background: newContractor.name === name ? '#fef3c7' : 'white', color: newContractor.name === name ? '#92400e' : '#374151', fontSize: '12px', cursor: 'pointer', fontWeight: newContractor.name === name ? '700' : '400' }}>
+                              {newContractor.name === name ? '✓ ' : ''}{name}
+                            </button>
+                          ))}
+                        </div>
+                        {newContractor.name && <div style={{ marginTop: '8px', fontSize: '13px', color: '#92400e', fontWeight: '600' }}>Selected: {newContractor.name}</div>}
+                      </div>
+                    ) : (
+                      <input placeholder="Type new contractor name" value={customContractorName} onChange={e => setCustomContractorName(e.target.value)} style={{ ...inp, maxWidth: '360px' }} />
+                    )}
+                  </div>
+
+                  {/* Rest of BOQ fields */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: '10px' }}>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>Scope of Work *</div>
+                      <select value={newContractor.scope} onChange={e => setNewContractor({...newContractor,scope:e.target.value})} style={inp}>
+                        <option value="">Select scope</option>
+                        {CONTRACTOR_SCOPES.map(s => <option key={s}>{s}</option>)}
+                        <option value="__custom__">Other (type below)</option>
+                      </select>
+                      {newContractor.scope === '__custom__' && (
+                        <input placeholder="Custom scope" style={{ ...inp, marginTop: '6px' }} onChange={e => setNewContractor({...newContractor, scope: e.target.value === '__custom__' ? '' : e.target.value})} />
+                      )}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>Unit of Measure</div>
+                      <input placeholder="m², m³, lump sum, hr" value={newContractor.unit} onChange={e => setNewContractor({...newContractor,unit:e.target.value})} style={inp} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>Price per Unit ($) *</div>
+                      <input type="number" placeholder="e.g. 400" value={newContractor.pricePerUnit} onChange={e => setNewContractor({...newContractor,pricePerUnit:e.target.value})} style={inp} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>Total Quantity *</div>
+                      <input type="number" placeholder="e.g. 300" value={newContractor.quantity} onChange={e => setNewContractor({...newContractor,quantity:e.target.value})} style={inp} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>Amount Paid ($)</div>
+                      <input type="number" placeholder="0" value={newContractor.paid} onChange={e => setNewContractor({...newContractor,paid:e.target.value})} style={inp} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>Retention (%)</div>
+                      <input type="number" placeholder="e.g. 10" value={newContractor.retention} onChange={e => setNewContractor({...newContractor,retention:e.target.value})} style={inp} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>Start Date</div>
+                      <input type="date" value={newContractor.startDate} onChange={e => setNewContractor({...newContractor,startDate:e.target.value})} style={inp} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>End Date</div>
+                      <input type="date" value={newContractor.endDate} onChange={e => setNewContractor({...newContractor,endDate:e.target.value})} style={inp} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>Status</div>
+                      <select value={newContractor.status} onChange={e => setNewContractor({...newContractor,status:e.target.value})} style={inp}>
+                        <option>Pending</option><option>In Progress</option><option>Completed</option>
+                      </select>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>Contact</div>
+                      <input placeholder="+966 50 000 0000" value={newContractor.contact} onChange={e => setNewContractor({...newContractor,contact:e.target.value})} style={inp} />
+                    </div>
+                    <div style={{ gridColumn: 'span 2' }}>
+                      <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px' }}>Notes</div>
+                      <input placeholder="Payment terms, milestones, remarks" value={newContractor.notes} onChange={e => setNewContractor({...newContractor,notes:e.target.value})} style={inp} />
+                    </div>
+                  </div>
+
+                  {boqPreview > 0 && (
+                    <div style={{ marginTop: '10px', padding: '10px 14px', background: '#fef3c7', borderRadius: '6px', fontSize: '13px', color: '#92400e', fontWeight: '700', display: 'flex', gap: '24px' }}>
+                      <span>BOQ Total: ${boqPreview.toLocaleString()}</span>
+                      {newContractor.paid && <span>Paid: ${parseFloat(newContractor.paid||0).toLocaleString()}</span>}
+                      {newContractor.paid && <span>Balance: ${(boqPreview - parseFloat(newContractor.paid||0)).toLocaleString()}</span>}
+                      {newContractor.retention && <span>Retention: ${(boqPreview * parseFloat(newContractor.retention||0) / 100).toLocaleString()}</span>}
+                    </div>
+                  )}
+
+                  <div style={{ marginTop: '14px', display: 'flex', justifyContent: 'flex-end' }}>
+                    <button onClick={addContractor} style={btn('#d97706')}>
+                      <Plus size={15} /> Add to BOQ
+                    </button>
+                  </div>
+                </div>
+
+                {/* Contractors Table */}
+                <div style={{ background: 'white', borderRadius: '10px', overflow: 'auto', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                    <thead>
+                      <tr>
+                        <th style={TH}>#</th>
+                        <th style={TH}>Contractor Name</th>
+                        <th style={TH}>Scope of Work</th>
+                        <th style={TH}>Unit</th>
+                        <th style={TH}>Price / Unit</th>
+                        <th style={TH}>Total Qty</th>
+                        <th style={TH}>BOQ Total</th>
+                        <th style={TH}>Amount Paid</th>
+                        <th style={TH}>Retention %</th>
+                        <th style={TH}>Retention Amt</th>
+                        <th style={TH}>Balance Due</th>
+                        <th style={TH}>Start Date</th>
+                        <th style={TH}>End Date</th>
+                        <th style={TH}>Status</th>
+                        <th style={TH}>Contact</th>
+                        <th style={TH}>Notes</th>
+                        <th style={{ ...TH, textAlign: 'center' }}>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {site.contractors.map((c, i) => {
+                        const retAmt = (c.boqTotal || 0) * (c.retention || 0) / 100;
+                        const balance = (c.boqTotal || 0) - (c.paid || 0);
+                        return (
+                          <tr key={c.id} style={{ background: i % 2 === 0 ? 'white' : '#fafafa' }}>
+                            <td style={{ ...TD, color: '#9ca3af' }}>{i + 1}</td>
+                            <td style={{ ...TD, fontWeight: '700', whiteSpace: 'nowrap' }}>{c.name}</td>
+                            <td style={TD}>{c.scope}</td>
+                            <td style={TD}>{c.unit || '—'}</td>
+                            <td style={TD}>{c.pricePerUnit ? `$${c.pricePerUnit.toLocaleString()} / ${c.unit || 'unit'}` : '—'}</td>
+                            <td style={{ ...TD, fontWeight: '600' }}>{c.quantity ? c.quantity.toLocaleString() : '—'}</td>
+                            <td style={{ ...TD, fontWeight: '800', color: '#7c3aed' }}>${(c.boqTotal || 0).toLocaleString()}</td>
+                            <td style={{ ...TD, fontWeight: '700', color: '#059669' }}>${(c.paid || 0).toLocaleString()}</td>
+                            <td style={TD}>{c.retention ? `${c.retention}%` : '—'}</td>
+                            <td style={{ ...TD, color: '#0369a1', fontWeight: '600' }}>{c.retention ? `$${retAmt.toLocaleString()}` : '—'}</td>
+                            <td style={{ ...TD, fontWeight: '800', color: balance > 0 ? '#d97706' : '#059669' }}>${balance.toLocaleString()}</td>
+                            <td style={TD}>{c.startDate || '—'}</td>
+                            <td style={TD}>{c.endDate || '—'}</td>
+                            <td style={TD}>{statusBadge(c.status)}</td>
+                            <td style={{ ...TD, color: '#6b7280' }}>{c.contact || '—'}</td>
+                            <td style={{ ...TD, color: '#6b7280', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.notes || '—'}</td>
+                            <td style={{ ...TD, textAlign: 'center' }}>
+                              <button onClick={() => deleteContractor(c.id)} style={btn('#ef4444')}><Trash2 size={13} /></button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    {site.contractors.length > 0 && (
+                      <tfoot>
+                        <tr style={{ background: '#fef9c3' }}>
+                          <td colSpan={6} style={{ ...TD, fontWeight: '800', color: '#92400e' }}>TOTAL ({site.contractors.length} contractors)</td>
+                          <td style={{ ...TD, fontWeight: '800', color: '#7c3aed', fontSize: '14px' }}>${site.contractors.reduce((s,c)=>s+(c.boqTotal||0),0).toLocaleString()}</td>
+                          <td style={{ ...TD, fontWeight: '800', color: '#059669' }}>${site.contractors.reduce((s,c)=>s+(c.paid||0),0).toLocaleString()}</td>
+                          <td />
+                          <td style={{ ...TD, fontWeight: '800', color: '#0369a1' }}>${site.contractors.reduce((s,c)=>s+(c.boqTotal||0)*(c.retention||0)/100,0).toLocaleString()}</td>
+                          <td style={{ ...TD, fontWeight: '800', color: '#d97706' }}>${site.contractors.reduce((s,c)=>s+((c.boqTotal||0)-(c.paid||0)),0).toLocaleString()}</td>
+                          <td colSpan={6} />
+                        </tr>
+                      </tfoot>
+                    )}
+                  </table>
+                  {site.contractors.length === 0 && <div style={{ padding: '32px', textAlign: 'center', color: '#9ca3af' }}>No contractors added yet</div>}
+                </div>
+              </div>
+            )}
+
+            {/* ═══════════ FINANCIALS ═══════════ */}
+            {activeTab === 'financials' && (
+              <div>
+                <h2 style={{ margin: '0 0 18px', color: '#1f2937', fontSize: '20px' }}>Financial Dashboard</h2>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: '14px', marginBottom: '20px' }}>
+                  {[
+                    { l: 'Total Budget', v: `$${(allM.totalBudget/1000).toFixed(0)}k`, bg: '#f3f4f6', c: '#1f2937' },
+                    { l: 'Total Spent', v: `$${(allM.totalSpent/1000).toFixed(0)}k`, bg: '#fef3c7', c: '#d97706' },
+                    { l: 'Total Remaining', v: `$${(allM.totalRemaining/1000).toFixed(0)}k`, bg: '#e0f2fe', c: '#0369a1' },
+                    { l: '% Spent', v: `${allM.pct}%`, bg: '#f0fdf4', c: '#16a34a' },
+                  ].map(card => (
+                    <div key={card.l} style={{ padding: '16px', background: card.bg, borderRadius: '10px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '4px', textTransform: 'uppercase' }}>{card.l}</div>
+                      <div style={{ fontSize: '24px', fontWeight: '800', color: card.c }}>{card.v}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{ background: 'white', borderRadius: '10px', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+                  <div style={{ padding: '16px 20px', borderBottom: '1px solid #e5e7eb', fontWeight: '700', color: '#1f2937' }}>Cost Breakdown by Project</div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                    <thead>
+                      <tr>
+                        {['Project', 'Budget', 'Materials', 'Contractor Paid', 'Total Spent', 'Remaining', '% Used'].map(h => (
+                          <th key={h} style={{ ...TH, textAlign: h === 'Project' ? 'left' : 'right' }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {sites.map(s => {
-                        const m = calculateSiteMetrics(s);
+                      {sites.map((s, i) => {
+                        const m = calcMetrics(s);
                         return (
-                          <tr key={s.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                            <td style={{ ...td, fontWeight: '600' }}>{s.name}</td>
-                            <td style={{ ...td, textAlign: 'right' }}>${(s.budget / 1000).toFixed(0)}k</td>
-                            <td style={{ ...td, textAlign: 'right', color: '#d97706', fontWeight: '600' }}>${(m.spent / 1000).toFixed(0)}k</td>
-                            <td style={{ ...td, textAlign: 'right', color: '#059669' }}>${(m.remaining / 1000).toFixed(0)}k</td>
-                            <td style={{ ...td, textAlign: 'right', fontWeight: '600', color: m.percentSpent > 75 ? '#d97706' : '#059669' }}>{m.percentSpent}%</td>
+                          <tr key={s.id} style={{ background: i % 2 === 0 ? 'white' : '#fafafa' }}>
+                            <td style={{ ...TD, fontWeight: '700' }}>{s.name}</td>
+                            <td style={{ ...TD, textAlign: 'right' }}>${s.budget.toLocaleString()}</td>
+                            <td style={{ ...TD, textAlign: 'right', color: '#7c3aed' }}>${m.matSpent.toLocaleString()}</td>
+                            <td style={{ ...TD, textAlign: 'right', color: '#0369a1' }}>${m.conPaid.toLocaleString()}</td>
+                            <td style={{ ...TD, textAlign: 'right', fontWeight: '700', color: '#d97706' }}>${m.spent.toLocaleString()}</td>
+                            <td style={{ ...TD, textAlign: 'right', color: '#059669' }}>${m.remaining.toLocaleString()}</td>
+                            <td style={{ ...TD, textAlign: 'right', fontWeight: '700', color: m.pct > 75 ? '#d97706' : '#059669' }}>{m.pct}%</td>
                           </tr>
                         );
                       })}
@@ -632,41 +784,39 @@ Overall % Spent: ${allMetrics.avgSpent}%
                   </table>
                 </div>
 
-                <div style={{ display: 'flex', gap: '10px', marginTop: '25px' }}>
-                  <button onClick={exportToExcel} style={{ flex: 1, padding: '12px', background: '#059669', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                    <Download size={18} /> Download Excel
-                  </button>
-                  <button onClick={generatePDFReport} style={{ flex: 1, padding: '12px', background: '#7c3aed', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                    <FileText size={18} /> Generate PDF
+                <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
+                  <button onClick={exportCSV} style={{ ...btn('#059669'), flex: 1, justifyContent: 'center' }}>
+                    <Download size={16} /> Download CSV / Excel
                   </button>
                 </div>
               </div>
             )}
 
-            {/* ── AI ADVISOR TAB ── */}
+            {/* ═══════════ AI ADVISOR ═══════════ */}
             {activeTab === 'ai' && (
-              <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-                <h2 style={{ margin: '0 0 15px 0', color: '#1f2937' }}>🤖 AI Financial Advisor</h2>
-                <p style={{ color: '#6b7280', fontSize: '13px', margin: '0 0 15px 0' }}>Get instant analysis on budgets, cost optimization, risks, and recommendations.</p>
-                <div style={{ flex: 1, overflowY: 'auto', background: 'white', borderRadius: '8px', padding: '15px', marginBottom: '15px', display: 'flex', flexDirection: 'column', gap: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', minHeight: '300px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <h2 style={{ margin: '0 0 6px', color: '#1f2937', fontSize: '20px' }}>🤖 AI Financial Advisor</h2>
+                <p style={{ color: '#6b7280', fontSize: '13px', margin: '0 0 14px' }}>Ask about budget risks, cost savings, payment schedules, or contractor performance.</p>
+                <div style={{ overflowY: 'auto', background: 'white', borderRadius: '10px', padding: '16px', marginBottom: '14px', display: 'flex', flexDirection: 'column', gap: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', minHeight: '320px', maxHeight: '480px' }}>
                   {messages.map((msg, idx) => (
                     <div key={idx} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
-                      <div style={{ maxWidth: '70%', padding: '12px 14px', borderRadius: '8px', background: msg.role === 'user' ? '#d97706' : '#f3f4f6', color: msg.role === 'user' ? 'white' : '#1f2937', lineHeight: '1.5', fontSize: '13px' }}>
+                      <div style={{ maxWidth: '72%', padding: '12px 14px', borderRadius: '10px', background: msg.role === 'user' ? '#d97706' : '#f3f4f6', color: msg.role === 'user' ? 'white' : '#1f2937', lineHeight: '1.6', fontSize: '13px' }}>
                         {msg.content}
                       </div>
                     </div>
                   ))}
-                  {loading && <div style={{ color: '#6b7280', fontSize: '13px' }}>🤔 Analyzing your financials...</div>}
+                  {loading && <div style={{ color: '#9ca3af', fontSize: '13px' }}>🤔 Analyzing your project data...</div>}
                   <div ref={messagesEndRef} />
                 </div>
                 <div style={{ display: 'flex', gap: '10px' }}>
-                  <input value={input} onChange={e => setInput(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleSendMessage()} placeholder="Ask about budget risks, cost savings, payment schedules..." style={{ flex: 1, padding: '10px 12px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '13px' }} disabled={loading} />
-                  <button onClick={handleSendMessage} disabled={loading || !input.trim()} style={{ padding: '10px 16px', background: loading || !input.trim() ? '#d1d5db' : '#d97706', color: 'white', border: 'none', borderRadius: '6px', cursor: loading || !input.trim() ? 'default' : 'pointer', fontWeight: '600', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Send size={16} /> Send
+                  <input value={input} onChange={e => setInput(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleSend()} placeholder="Ask about risks, savings, contractor payments..." style={{ ...inp, flex: 1 }} disabled={loading} />
+                  <button onClick={handleSend} disabled={loading || !input.trim()} style={btn(loading || !input.trim() ? '#d1d5db' : '#d97706')}>
+                    <Send size={15} /> Send
                   </button>
                 </div>
               </div>
             )}
+
           </div>
         </div>
       </div>
