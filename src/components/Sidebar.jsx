@@ -1,12 +1,14 @@
 import React from 'react';
-import { BarChart3, Package, RotateCcw, ShieldCheck, TrendingUp } from 'lucide-react';
+import { BarChart3, Bot, HardHat, Package, RotateCcw, ShieldCheck, TrendingUp } from 'lucide-react';
 import { THEME } from '../utils/theme';
 
 const navItems = [
-  { id: 'dashboard', icon: BarChart3, label: 'Telemetry Dashboard' },
-  { id: 'analytics', icon: TrendingUp, label: 'KPI Analytics' },
-  { id: 'materials', icon: Package, label: 'Asset Registry' },
-  { id: 'returns_page', icon: RotateCcw, label: 'Recovery Ops' },
+  { id: 'dashboard',            icon: BarChart3,  label: 'Telemetry Dashboard' },
+  { id: 'analytics',            icon: TrendingUp, label: 'KPI Analytics' },
+  { id: 'materials',            icon: Package,    label: 'Asset Registry' },
+  { id: 'returns_page',         icon: RotateCcw,  label: 'Recovery Ops' },
+  { id: 'construction_finance', icon: HardHat,    label: 'Construction Finance' },
+  { id: 'asset_chatbot',        icon: Bot,        label: 'Asset Intelligence' },
 ];
 
 export default function Sidebar({ currentPage, setCurrentPage, clearFilters, onLogout }) {

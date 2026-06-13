@@ -5,6 +5,8 @@ import DashboardPage from './pages/Dashboard.jsx';
 import AnalyticsPage from './pages/Analytics.jsx';
 import MaterialsPage from './pages/Materials.jsx';
 import RecoveryPage from './pages/Recovery.jsx';
+import ConstructionFinancePage from './pages/ConstructionFinance.jsx';
+import AssetChatbotPage from './pages/AssetChatbot.jsx';
 import Sidebar from './components/Sidebar.jsx';
 
 import { API_BASE, THEME } from './utils/theme.js';
@@ -66,10 +68,12 @@ export default function App({ setToken: setParentToken }) {
         onLogout={handleLogout}
       />
       <div style={{ flex: 1, padding: '40px 48px', overflowY: 'auto', maxWidth: '1400px' }}>
-        {currentPage === 'dashboard' && <DashboardPage {...sharedProps} />}
-        {currentPage === 'analytics' && <AnalyticsPage {...sharedProps} />}
-        {currentPage === 'materials' && <MaterialsPage {...sharedProps} />}
-        {currentPage === 'returns_page' && <RecoveryPage {...sharedProps} />}
+        {currentPage === 'dashboard'            && <DashboardPage         {...sharedProps} />}
+        {currentPage === 'analytics'            && <AnalyticsPage         {...sharedProps} />}
+        {currentPage === 'materials'            && <MaterialsPage         {...sharedProps} />}
+        {currentPage === 'returns_page'         && <RecoveryPage          {...sharedProps} />}
+        {currentPage === 'construction_finance' && <ConstructionFinancePage />}
+        {currentPage === 'asset_chatbot'        && <AssetChatbotPage />}
       </div>
     </div>
   );
