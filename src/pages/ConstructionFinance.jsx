@@ -94,7 +94,7 @@ const ConstructionFinanceApp = () => {
   const emptyCon = { name: '', scope: '', unit: '', pricePerUnit: '', quantity: '', paid: '', retention: '', startDate: '', endDate: '', status: 'Pending', contact: '', notes: '' };
   const [newContractor, setNewContractor] = useState(emptyCon);
   const [showPresetContractors, setShowPresetContractors] = useState(false);
-  const [contractorNameMode, setContractorNameMode] = useState('preset'); // 'preset' | 'new'
+  const [contractorNameMode, setContractorNameMode] = useState('preset'); 
   const [customContractorName, setCustomContractorName] = useState('');
 
   // Persist
@@ -106,6 +106,7 @@ const ConstructionFinanceApp = () => {
   const getCurrentSite = () => sites.find(s => s.id === currentSiteId);
 
   const calcMetrics = (site) => {
+    if (!site) return { matSpent: 0, conPaid: 0, spent: 0, remaining: 0, pct: '0.0' };
     const matSpent = site.materials.reduce((s, m) => s + m.quantity * m.unitCost, 0);
     const conPaid  = site.contractors.reduce((s, c) => s + (c.paid || 0), 0);
     const spent    = matSpent + conPaid;
@@ -127,6 +128,16 @@ const ConstructionFinanceApp = () => {
     setSites([...sites, s]);
     setCurrentSiteId(s.id);
     setNewSite({ name: '', location: '', budget: '', startDate: '' });
+  };
+
+  const deleteSite = (id) => {
+    if (window.confirm('Are you sure you want to delete this project and all its data?')) {
+      const newSites = sites.filter(s => s.id !== id);
+      setSites(newSites);
+      if (currentSiteId === id) {
+        setCurrentSiteId(newSites.length > 0 ? newSites[0].id : null);
+      }
+    }
   };
 
   const addMaterial = () => {
@@ -185,8 +196,8 @@ const ConstructionFinanceApp = () => {
     const m = calcMetrics(site);
     return `
 SITE: ${site?.name} | Budget: $${site?.budget?.toLocaleString()} | Spent: $${m.spent.toLocaleString()} | Remaining: $${m.remaining.toLocaleString()} | ${m.pct}% utilized
-MATERIALS (${site?.materials.length}): ${site?.materials.map(x => `${x.name}(${x.category}) ${x.quantity}${x.unit}@$${x.unitCost}=$${(x.quantity*x.unitCost).toLocaleString()}`).join(', ')}
-CONTRACTORS (${site?.contractors.length}): ${site?.contractors.map(x => `${x.name}:${x.scope} BOQ$${x.boqTotal?.toLocaleString()} Paid$${x.paid?.toLocaleString()}`).join(', ')}
+MATERIALS (${site?.materials?.length || 0}): ${site?.materials?.map(x => `${x.name}(${x.category}) ${x.quantity}${x.unit}@$${x.unitCost}=$${(x.quantity*x.unitCost).toLocaleString()}`).join(', ')}
+CONTRACTORS (${site?.contractors?.length || 0}): ${site?.contractors?.map(x => `${x.name}:${x.scope} BOQ$${x.boqTotal?.toLocaleString()} Paid$${x.paid?.toLocaleString()}`).join(', ')}
     `;
   };
 
@@ -212,7 +223,7 @@ CONTRACTORS (${site?.contractors.length}): ${site?.contractors.map(x => `${x.nam
     } finally { setLoading(false); }
   };
 
-  // ==================== EXPORT ====================
+  // ==================== EXPORTS ====================
   const exportCSV = () => {
     const site = getCurrentSite();
     const m = calcMetrics(site);
@@ -230,13 +241,116 @@ CONTRACTORS (${site?.contractors.length}): ${site?.contractors.map(x => `${x.nam
     a.download = `finance_${site.name}_${Date.now()}.csv`; a.click();
   };
 
+  const exportPDF = () => {
+    const site = getCurrentSite();
+    if (!site) return;
+    const m = calcMetrics(site);
+    
+    // Create a new window for printing
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Finance Report - ${site.name}</title>
+          <style>
+            body { font-family: system-ui, sans-serif; padding: 30px; color: #1f2937; line-height: 1.5; }
+            h1 { color: #d97706; margin-bottom: 5px; }
+            h2 { color: #374151; font-size: 18px; margin-top: 30px; border-bottom: 2px solid #e5e7eb; padding-bottom: 5px;}
+            .summary-box { background: #f9fafb; padding: 15px; border-radius: 8px; border: 1px solid #e5e7eb; margin-bottom: 20px; }
+            .summary-box p { margin: 5px 0; font-size: 14px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 12px; text-align: left; }
+            th, td { border: 1px solid #e5e7eb; padding: 10px; }
+            th { background-color: #f3f4f6; color: #374151; font-weight: bold; }
+            .total-row td { font-weight: bold; background-color: #fef9c3; }
+          </style>
+        </head>
+        <body>
+          <h1>Construction Finance Report</h1>
+          <div class="summary-box">
+            <p><strong>Project Name:</strong> ${site.name}</p>
+            <p><strong>Location:</strong> ${site.location || 'N/A'}</p>
+            <p><strong>Total Budget:</strong> $${site.budget.toLocaleString()}</p>
+            <p><strong>Total Spent:</strong> $${m.spent.toLocaleString()} (${m.pct}% utilized)</p>
+            <p><strong>Remaining Budget:</strong> $${m.remaining.toLocaleString()}</p>
+          </div>
+
+          <h2>Material Supplies</h2>
+          <table>
+            <tr>
+              <th>Name</th>
+              <th>Category</th>
+              <th>Quantity</th>
+              <th>Unit Cost</th>
+              <th>Total Cost</th>
+            </tr>
+            ${site.materials.map(mat => `
+              <tr>
+                <td>${mat.name}</td>
+                <td>${mat.category || '-'}</td>
+                <td>${mat.quantity} ${mat.unit || ''}</td>
+                <td>$${mat.unitCost.toLocaleString()}</td>
+                <td>$${(mat.quantity * mat.unitCost).toLocaleString()}</td>
+              </tr>
+            `).join('')}
+            ${site.materials.length > 0 ? `
+              <tr class="total-row">
+                <td colspan="4">Total Material Spend</td>
+                <td>$${m.matSpent.toLocaleString()}</td>
+              </tr>
+            ` : '<tr><td colspan="5">No materials recorded.</td></tr>'}
+          </table>
+
+          <h2>Contractors & BOQ</h2>
+          <table>
+            <tr>
+              <th>Contractor Name</th>
+              <th>Scope</th>
+              <th>BOQ Total</th>
+              <th>Amount Paid</th>
+              <th>Balance Due</th>
+            </tr>
+            ${site.contractors.map(c => `
+              <tr>
+                <td>${c.name}</td>
+                <td>${c.scope}</td>
+                <td>$${(c.boqTotal || 0).toLocaleString()}</td>
+                <td>$${(c.paid || 0).toLocaleString()}</td>
+                <td>$${((c.boqTotal || 0) - (c.paid || 0)).toLocaleString()}</td>
+              </tr>
+            `).join('')}
+            ${site.contractors.length > 0 ? `
+              <tr class="total-row">
+                <td colspan="2">Total Contractor Obligations</td>
+                <td>$${site.contractors.reduce((s,c)=>s+(c.boqTotal||0),0).toLocaleString()}</td>
+                <td>$${m.conPaid.toLocaleString()}</td>
+                <td>$${site.contractors.reduce((s,c)=>s+((c.boqTotal||0)-(c.paid||0)),0).toLocaleString()}</td>
+              </tr>
+            ` : '<tr><td colspan="5">No contractors recorded.</td></tr>'}
+          </table>
+
+          <script>
+            // Automatically trigger the print dialog when the window loads
+            window.onload = function() {
+              setTimeout(() => {
+                window.print();
+                window.close();
+              }, 250);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   // ==================== STYLES ====================
   const site = getCurrentSite();
   const metrics = site ? calcMetrics(site) : {};
   const allM = calcAll();
 
+  // FIX: Added 'color: #1f2937' to TD so the text is fully solid and dark
   const TH = { padding: '11px 14px', textAlign: 'left', fontWeight: '700', fontSize: '12px', whiteSpace: 'nowrap', color: '#374151', background: '#f3f4f6', borderBottom: '2px solid #e5e7eb' };
-  const TD = { padding: '11px 14px', verticalAlign: 'middle', fontSize: '13px', borderBottom: '1px solid #f0f0f0' };
+  const TD = { padding: '11px 14px', verticalAlign: 'middle', fontSize: '13px', borderBottom: '1px solid #f0f0f0', color: '#1f2937' };
   const inp = { padding: '8px 10px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '13px', width: '100%', boxSizing: 'border-box' };
   const btn = (bg, fg = 'white') => ({ padding: '8px 14px', background: bg, color: fg, border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' });
 
@@ -323,7 +437,12 @@ CONTRACTORS (${site?.contractors.length}): ${site?.contractors.map(x => `${x.nam
             {/* ═══════════ OVERVIEW ═══════════ */}
             {activeTab === 'overview' && site && (
               <div>
-                <h2 style={{ margin: '0 0 20px', color: '#1f2937', fontSize: '20px' }}>{site.name} — Overview</h2>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                  <h2 style={{ margin: 0, color: '#1f2937', fontSize: '20px' }}>{site.name} — Overview</h2>
+                  <button onClick={() => deleteSite(site.id)} style={btn('#ef4444')}>
+                    <Trash2 size={15} /> Delete Project
+                  </button>
+                </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: '14px', marginBottom: '20px' }}>
                   {[
@@ -787,6 +906,9 @@ CONTRACTORS (${site?.contractors.length}): ${site?.contractors.map(x => `${x.nam
                 <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
                   <button onClick={exportCSV} style={{ ...btn('#059669'), flex: 1, justifyContent: 'center' }}>
                     <Download size={16} /> Download CSV / Excel
+                  </button>
+                  <button onClick={exportPDF} style={{ ...btn('#dc2626'), flex: 1, justifyContent: 'center' }}>
+                    <FileText size={16} /> Download PDF
                   </button>
                 </div>
               </div>
