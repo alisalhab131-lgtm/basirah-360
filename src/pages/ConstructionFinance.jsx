@@ -1,4 +1,3 @@
-cat > /mnt/user-data/outputs/ConstructionFinanceApp.jsx << 'ENDOFFILE'
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Download, Trash2, Plus, Send, FileText, DollarSign, Home, Users, 
@@ -63,8 +62,8 @@ const INITIAL_SITES = [
       { id: 'm2', name: 'Structural Grade Steel Rebar', category: '05-000 Steel & Structural Metal', quantity: 50, unit: 'ton', unitCost: 800, totalQty: 50, supplier: 'Steel Ltd', deliveryDate: '2024-02-05', condition: 'Good', notes: 'Grade 60 TMT' },
     ],
     contractors: [
-      { id: 'c1', name: 'Al Bayan Contracting', scope: 'Foundation Work', costCode: '03-000 Concrete & Masonry', unit: 'm²', pricePerUnit: 400, quantity: 300, boqTotal: 120000, paid: 75000, retention: 10, startDate: '2024-01-20', endDate: '2024-04-20', status: 'In Progress', contact: '+966 50 000 0001', notes: 'Phase 1 substructure complete' },
-      { id: 'c2', name: 'Al Masa Engineering', scope: 'MEP Works', costCode: '22-000 Plumbing & Drainage', unit: 'Lump Sum', pricePerUnit: 45000, quantity: 1, boqTotal: 45000, paid: 15000, retention: 5, startDate: '2024-03-01', endDate: '2024-08-15', status: 'In Progress', contact: '+966 50 000 0002', notes: 'Rough-ins ongoing' }
+      { id: 'c1', name: 'Al Bayan Contracting', scope: 'Foundation Work', costCode: '03-000 Concrete & Masonry', unit: 'm²', pricePerUnit: 400, quantity: 300, boqTotal: 120000, retention: 10, startDate: '2024-01-20', endDate: '2024-04-20', status: 'In Progress', contact: '+966 50 000 0001', notes: 'Phase 1 substructure complete' },
+      { id: 'c2', name: 'Al Masa Engineering', scope: 'MEP Works', costCode: '22-000 Plumbing & Drainage', unit: 'Lump Sum', pricePerUnit: 45000, quantity: 1, boqTotal: 45000, retention: 5, startDate: '2024-03-01', endDate: '2024-08-15', status: 'In Progress', contact: '+966 50 000 0002', notes: 'Rough-ins ongoing' }
     ],
     changeOrders: [
       { id: 'co1', title: 'Subgrade Rock Excavation Overrun', type: 'Owner', costCode: '02-000 Earthworks & Site Clearance', amount: 35000, status: 'Approved', date: '2024-02-10', description: 'Encountered unexpected bedrock tier' },
@@ -92,7 +91,6 @@ const ConstructionFinanceApp = () => {
   const [sites, setSites] = useState(() => {
     const saved = localStorage.getItem('constructionSitesERP');
     if (saved) {
-      // Migrate old data: add payments array if missing
       const parsed = JSON.parse(saved);
       return parsed.map(s => ({ ...s, payments: s.payments || [] }));
     }
@@ -101,6 +99,7 @@ const ConstructionFinanceApp = () => {
 
   const [currentSiteId, setCurrentSiteId] = useState(sites[0]?.id || null);
   const [activeTab, setActiveTab] = useState('overview');
+  const [expandedContractorId, setExpandedContractorId] = useState(null);
 
   // AI Assistant
   const [messages, setMessages] = useState([
@@ -158,7 +157,11 @@ const ConstructionFinanceApp = () => {
     const subBOQTotal = site.contractors?.reduce((s, c) => s + parseFloat(c.boqTotal || 0), 0) || 0;
     const totalCommitted = subBOQTotal + matCommittedCosts + approvedSubCO;
 
-    const subPaid = site.contractors?.reduce((s, c) => s + parseFloat(c.paid || 0), 0) || 0;
+    // Dynamically query payment array for subcontractor payouts instead of relying on static properties
+    const subPaid = (site.payments || [])
+      .filter(p => p.type === 'Contractor' && p.status === 'Paid')
+      .reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
+
     const subRetention = site.contractors?.reduce((s, c) => s + ((parseFloat(c.boqTotal || 0) * parseFloat(c.retention || 0)) / 100), 0) || 0;
 
     const actualCost = matActualCosts + subPaid;
@@ -177,11 +180,9 @@ const ConstructionFinanceApp = () => {
     const projectedGrossProfit = revisedRevenue - eac;
     const profitMarginPct = revisedRevenue ? ((projectedGrossProfit / revisedRevenue) * 100).toFixed(1) : '0.0';
 
-    // Payment ledger metrics
     const payments = site.payments || [];
     const cashPaidOut = payments.filter(p => p.status === 'Paid').reduce((s, p) => s + parseFloat(p.amount || 0), 0);
 
-    // Contractor completion rate
     const completedContractors = (site.contractors || []).filter(c => c.status === 'Completed').length;
     const contractorCompletionRate = site.contractors?.length
       ? Math.round((completedContractors / site.contractors.length) * 100)
@@ -227,8 +228,11 @@ const ConstructionFinanceApp = () => {
 
   const getContractorPaymentStatus = (site) => {
     return (site?.contractors || []).map(c => {
+      const paid = (site.payments || [])
+        .filter(p => p.type === 'Contractor' && p.reference === c.name && p.status === 'Paid')
+        .reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
+      
       const ret = parseFloat(c.boqTotal || 0) * parseFloat(c.retention || 0) / 100;
-      const paid = parseFloat(c.paid || 0);
       const outstanding = Math.max(0, parseFloat(c.boqTotal || 0) - paid);
       return {
         name: c.name.split(' ').slice(0, 2).join(' '),
@@ -294,13 +298,32 @@ const ConstructionFinanceApp = () => {
         quantity: qty,
         pricePerUnit: ppu,
         boqTotal: qty * ppu,
-        paid: parseFloat(newContractor.paid) || 0,
         retention: parseFloat(newContractor.retention || 0),
       }]
     }));
     setNewContractor({ name: '', scope: '', costCode: '', unit: '', pricePerUnit: '', quantity: '', paid: '', retention: '10', startDate: '', endDate: '', status: 'Pending', contact: '', notes: '' });
     setCustomContractorName('');
     setContractorNameMode('preset');
+  };
+
+  const updateContractorQuantity = (contractorId, newQty) => {
+    const qty = parseFloat(newQty) || 0;
+    setSites(sites.map(s => {
+      if (s.id !== currentSiteId) return s;
+      return {
+        ...s,
+        contractors: s.contractors.map(c => {
+          if (c.id === contractorId) {
+            return {
+              ...c,
+              quantity: qty,
+              boqTotal: qty * parseFloat(c.pricePerUnit || 0)
+            };
+          }
+          return c;
+        })
+      };
+    }));
   };
 
   const addChangeOrder = () => {
@@ -341,16 +364,7 @@ const ConstructionFinanceApp = () => {
     };
     setSites(sites.map(s => {
       if (s.id !== currentSiteId) return s;
-      let contractors = s.contractors;
-      // Auto-update contractor paid amount when a Contractor payment is marked Paid
-      if (payment.type === 'Contractor' && payment.status === 'Paid') {
-        contractors = contractors.map(c =>
-          c.name === payment.reference
-            ? { ...c, paid: Math.min(parseFloat(c.boqTotal || 0), parseFloat(c.paid || 0) + payment.amount) }
-            : c
-        );
-      }
-      return { ...s, payments: [...(s.payments || []), payment], contractors };
+      return { ...s, payments: [...(s.payments || []), payment] };
     }));
     setNewPayment({ date: '', type: 'Contractor', reference: '', amount: '', method: 'Bank Transfer', invoice: '', status: 'Pending', notes: '' });
   };
@@ -358,20 +372,9 @@ const ConstructionFinanceApp = () => {
   const updatePaymentStatus = (payId, newStatus) => {
     setSites(sites.map(s => {
       if (s.id !== currentSiteId) return s;
-      const payment = (s.payments || []).find(p => p.id === payId);
-      let contractors = s.contractors;
-      // Auto-update BOQ paid when status changes to Paid
-      if (payment && payment.type === 'Contractor' && newStatus === 'Paid' && payment.status !== 'Paid') {
-        contractors = contractors.map(c =>
-          c.name === payment.reference
-            ? { ...c, paid: Math.min(parseFloat(c.boqTotal || 0), parseFloat(c.paid || 0) + parseFloat(payment.amount || 0)) }
-            : c
-        );
-      }
       return {
         ...s,
-        payments: s.payments.map(p => p.id === payId ? { ...p, status: newStatus } : p),
-        contractors
+        payments: s.payments.map(p => p.id === payId ? { ...p, status: newStatus } : p)
       };
     }));
   };
@@ -406,8 +409,12 @@ const ConstructionFinanceApp = () => {
     const contractorPayments = paidPayments.filter(p => p.type === 'Contractor').reduce((s, p) => s + parseFloat(p.amount || 0), 0);
     const materialPayments = paidPayments.filter(p => p.type === 'Material').reduce((s, p) => s + parseFloat(p.amount || 0), 0);
     const pendingPayments = payments.filter(p => p.status === 'Pending').reduce((s, p) => s + parseFloat(p.amount || 0), 0);
+    
     const contractorSummary = (activeProject?.contractors || [])
-      .map(c => `  - ${c.name}: BOQ $${parseFloat(c.boqTotal||0).toLocaleString()}, Paid $${parseFloat(c.paid||0).toLocaleString()}, Retention ${c.retention}%, Status: ${c.status}`)
+      .map(c => {
+        const cPaid = paidPayments.filter(p => p.type === 'Contractor' && p.reference === c.name).reduce((sum, p) => sum + p.amount, 0);
+        return `  - ${c.name}: BOQ $${parseFloat(c.boqTotal||0).toLocaleString()} (Qty: ${c.quantity}), Paid $${cPaid.toLocaleString()}, Retention ${c.retention}%, Status: ${c.status}`;
+      })
       .join('\n');
 
     return `
@@ -492,7 +499,12 @@ ${contractorSummary}
       const codeLabel = `${cc.code} ${cc.name}`;
       const codeMatCost = site.materials.filter(m => m.category === codeLabel).reduce((s, m) => s + (m.quantity * m.unitCost), 0);
       const codeSubCost = site.contractors.filter(c => c.costCode === codeLabel).reduce((s, c) => s + c.boqTotal, 0);
-      const codeActual = site.contractors.filter(c => c.costCode === codeLabel).reduce((s, c) => s + c.paid, 0) + codeMatCost;
+      
+      const codeActual = site.contractors.filter(c => c.costCode === codeLabel).reduce((s, c) => {
+        const cPaid = (site.payments || []).filter(p => p.type === 'Contractor' && p.reference === c.name && p.status === 'Paid').reduce((sum, p) => sum + p.amount, 0);
+        return s + cPaid;
+      }, 0) + codeMatCost;
+
       raw += `"${codeLabel}",$${codeMatCost + codeSubCost},$${codeActual}\n`;
     });
 
@@ -598,263 +610,218 @@ ${contractorSummary}
               { id: 'materials', label: '📦 Inventory Logs' },
               { id: 'ai', label: '🤖 Core AI Quant Advisor' },
             ].map(tab => (
-              <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{ padding: '16px 20px', border: 'none', background: 'none', borderBottom: activeTab === tab.id ? '3px solid #f59e0b' : '3px solid transparent', color: activeTab === tab.id ? '#0f172a' : '#64748b', fontWeight: activeTab === tab.id ? '700' : '500', fontSize: '13px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+              <button 
+                key={tab.id} 
+                onClick={() => setActiveTab(tab.id)} 
+                style={{ padding: '16px 20px', border: 'none', background: 'none', borderBottom: activeTab === tab.id ? '3px solid #f59e0b' : '3px solid transparent', color: activeTab === tab.id ? '#0f172a' : '#64748b', fontWeight: activeTab === tab.id ? '700' : '500', fontSize: '13px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+              >
                 {tab.label}
               </button>
             ))}
           </div>
 
           <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
-            {(!activeProjectInstance) ? <div style={{ color: '#64748b' }}>Initialize a project sequence to start tracking.</div> : (
+            {(!activeProjectInstance) ? (
+              <div style={{ color: '#64748b' }}>Initialize a project sequence to start tracking.</div>
+            ) : (
               <>
-
                 {/* ==================== VIEW 1: EXECUTIVE ANALYTICS ==================== */}
                 {activeTab === 'overview' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div>
-                        <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: '#0f172a' }}>{activeProjectInstance.name} — Command Center</h2>
-                        <span style={{ fontSize: '13px', color: '#64748b' }}>Real-time valuation analytics derived from live contract data structures.</span>
+                        <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: '#0f172a' }}>{activeProjectInstance.name} Terminal</h2>
+                        <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#64748b' }}>📍 Location Cost Bounds: {activeProjectInstance.location} · Commenced {activeProjectInstance.startDate}</p>
                       </div>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button onClick={executeCSVDownload} style={flexBtn('#16a34a')}><Download size={15} /> Export CSV</button>
-                        <button onClick={() => deleteSite(activeProjectInstance.id)} style={flexBtn('#ef4444')}><Trash2 size={16} /> Wreck Center</button>
+                      <div style={{ display: 'flex', gap: '10px' }}>
+                        <button onClick={executeCSVDownload} style={flexBtn('#16a34a')}><Download size={15} /> Export Audit Dataset</button>
+                        <button onClick={() => deleteSite(activeProjectInstance.id)} style={flexBtn('#ef4444')}><Trash2 size={15} /> Terminate Site</button>
                       </div>
                     </div>
 
-                    {/* KPI CARDS — now includes Payments, BOQ, Retention, Completion */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                    {/* METRIC INDEX GRID */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
                       {[
-                        { label: 'BOQ Total', value: `$${metrics.subBOQTotal.toLocaleString()}`, color: '#0f172a' },
-                        { label: 'Cash Paid Out', value: `$${metrics.cashPaidOut.toLocaleString()}`, color: '#2563eb', desc: 'from payment ledger' },
-                        { label: 'Retention Held (Sub)', value: `$${metrics.subRetention.toLocaleString()}`, color: '#d97706' },
-                        { label: 'Outstanding Balance', value: `$${metrics.balanceDue.toLocaleString()}`, color: '#ef4444' },
-                        { label: 'Revised Cost Ceiling', value: `$${metrics.revisedBudget.toLocaleString()}`, color: '#475569' },
-                        { label: 'Estimate At Completion (EAC)', value: `$${metrics.eac.toLocaleString()}`, color: '#7c3aed' },
-                        {
-                          label: 'Cost Variance (CV)',
-                          value: `$${metrics.variance.toLocaleString()}`,
-                          color: metrics.variance >= 0 ? '#16a34a' : '#dc2626',
-                          desc: metrics.variance >= 0 ? 'Under target ceiling' : 'Accruing cost slippage'
-                        },
-                        { label: 'Projected Net Margin', value: `$${metrics.projectedGrossProfit.toLocaleString()} (${metrics.profitMarginPct}%)`, color: '#0891b2' },
-                        {
-                          label: 'Contractor Completion Rate',
-                          value: `${metrics.contractorCompletionRate}%`,
-                          color: metrics.contractorCompletionRate === 100 ? '#16a34a' : '#f59e0b',
-                          desc: `${(activeProjectInstance.contractors || []).filter(c => c.status === 'Completed').length} of ${(activeProjectInstance.contractors || []).length} completed`
-                        },
+                        { label: 'Revised Budget Ceiling', value: `$${metrics.revisedBudget.toLocaleString()}`, color: '#1e293b', desc: `Base: $${metrics.origBudget.toLocaleString()} + COs` },
+                        { label: 'Obligations Committed', value: `$${metrics.committed.toLocaleString()}`, color: '#2563eb', desc: `Uncommitted Pool: $${metrics.uncommitted.toLocaleString()}` },
+                        { label: 'JTD Cash Burn (Actual Cost)', value: `$${metrics.actualCost.toLocaleString()}`, color: '#d97706', desc: `Utilized: ${metrics.pctUtilized}%` },
+                        { label: 'Cost Variance (CV)', value: `$${metrics.variance.toLocaleString()}`, color: metrics.variance >= 0 ? '#16a34a' : '#dc2626', desc: metrics.variance >= 0 ? 'Under target ceiling' : 'Accruing cost slippage' },
+                        { label: 'Projected Net Margin', value: `$${metrics.projectedGrossProfit.toLocaleString()} (${metrics.profitMarginPct}%)`, color: '#0891b2', desc: `Est. EAC Total: $${metrics.eac.toLocaleString()}` },
+                        { label: 'Contractor Completion Rate', value: `${metrics.contractorCompletionRate}%`, color: metrics.contractorCompletionRate === 100 ? '#16a34a' : '#f59e0b', desc: `${(activeProjectInstance.contractors || []).filter(c => c.status === 'Completed').length} of ${(activeProjectInstance.contractors || []).length} completed` },
                       ].map((card, idx) => (
                         <div key={idx} style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', border: '1px solid #e2e8f0' }}>
-                          <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', marginBottom: '8px' }}>{card.label}</div>
-                          <div style={{ fontSize: '22px', fontWeight: '800', color: card.color }}>{card.value}</div>
-                          {card.desc && <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>{card.desc}</div>}
+                          <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{card.label}</div>
+                          <div style={{ fontSize: '22px', fontWeight: '800', color: card.color, margin: '8px 0 4px' }}>{card.value}</div>
+                          <div style={{ fontSize: '12px', color: '#64748b' }}>{card.desc}</div>
                         </div>
                       ))}
                     </div>
 
-                    {/* BUDGET UTILIZATION BAR */}
+                    {/* GRAPHICAL INTEGRATIONS */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '20px' }}>
+                      <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                        <div style={{ fontWeight: '700', fontSize: '14px', marginBottom: '16px', color: '#1e293b' }}>Monthly Cash Outflows Breakdown</div>
+                        {monthlyPaymentData.length > 0 ? (
+                          <div style={{ height: '260px' }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                              <BarChart data={monthlyPaymentData}>
+                                <XAxis dataKey="month" stroke="#94a3b8" fontSize={11} />
+                                <YAxis stroke="#94a3b8" fontSize={11} />
+                                <Tooltip formatter={(value) => `$${value.toLocaleString()}`} />
+                                <Legend />
+                                <Bar dataKey="Contractor" stackId="a" fill="#2563eb" name="Subcontracts" />
+                                <Bar dataKey="Material" stackId="a" fill="#7c3aed" name="Materials Vendor" />
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+                        ) : (
+                          <div style={{ height: '260px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: '13px' }}>No execution payments logged yet.</div>
+                        )}
+                      </div>
+
+                      <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                        <div style={{ fontWeight: '700', fontSize: '14px', marginBottom: '16px', color: '#1e293b' }}>Contractor Accounts Exposure Ledger ($)</div>
+                        {contractorPayStatus.length > 0 ? (
+                          <div style={{ height: '260px' }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                              <BarChart data={contractorPayStatus} layout="vertical">
+                                <XAxis type="number" stroke="#94a3b8" fontSize={11} />
+                                <YAxis dataKey="name" type="category" stroke="#94a3b8" fontSize={11} width={80} />
+                                <Tooltip formatter={(value) => `$${value.toLocaleString()}`} />
+                                <Legend />
+                                <Bar dataKey="paid" stackId="b" fill="#10b981" name="Disbursed JTD" />
+                                <Bar dataKey="retention" stackId="b" fill="#f59e0b" name="Retention Pool" />
+                                <Bar dataKey="outstanding" stackId="b" fill="#ef4444" name="Outstanding Balance" />
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+                        ) : (
+                          <div style={{ height: '260px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: '13px' }}>No bound subcontractors registered.</div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* LIVE AUDIT LOG ACTIVITY TIER */}
                     <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '13px', fontWeight: '700', color: '#334155' }}>
-                        <span>Accrued JTD Cost vs Target Ceiling Ratio</span>
-                        <span>{metrics.pctUtilized}% Expended</span>
-                      </div>
-                      <div style={{ height: '12px', background: '#e2e8f0', borderRadius: '6px', overflow: 'hidden' }}>
-                        <div style={{ height: '100%', width: `${Math.min(parseFloat(metrics.pctUtilized), 100)}%`, background: parseFloat(metrics.pctUtilized) > 90 ? '#ef4444' : '#f59e0b', transition: 'width 0.3s' }} />
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                      {/* COMMITMENTS */}
-                      <div style={{ background: '#fff', padding: '18px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                        <div style={{ fontWeight: '700', fontSize: '14px', color: '#0f172a', marginBottom: '12px' }}>Committed vs Uncommitted</div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Absolute Binding Commitments:</span><span style={{ fontWeight: '700' }}>${metrics.committed.toLocaleString()}</span></div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Uncommitted Fluid Reserves:</span><span style={{ fontWeight: '700', color: '#16a34a' }}>${metrics.uncommitted.toLocaleString()}</span></div>
-                        </div>
-                      </div>
-
-                      {/* RETENTION POOLS */}
-                      <div style={{ background: '#fff', padding: '18px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                        <div style={{ fontWeight: '700', fontSize: '14px', color: '#0f172a', marginBottom: '12px' }}>Retention Accounting Pools</div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Withheld from Subcontractors:</span><span style={{ fontWeight: '700', color: '#2563eb' }}>${metrics.subRetention.toLocaleString()}</span></div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Withheld by Client/Owner:</span><span style={{ fontWeight: '700', color: '#7c3aed' }}>${metrics.ownerRetentionHeld.toLocaleString()}</span></div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* RECENT PAYMENTS PREVIEW */}
-                    <div style={{ background: '#fff', padding: '18px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                        <div style={{ fontWeight: '700', fontSize: '14px', color: '#0f172a' }}>Recent Payments</div>
-                        <button onClick={() => setActiveTab('payments')} style={{ background: 'none', border: 'none', color: '#2563eb', fontSize: '12px', cursor: 'pointer', fontWeight: '600' }}>View All Payments →</button>
-                      </div>
+                      <div style={{ fontWeight: '700', fontSize: '14px', marginBottom: '12px', color: '#1e293b' }}>Recent Cash Voucher Clearances</div>
                       {recentPayments.length === 0 ? (
-                        <div style={{ color: '#94a3b8', fontSize: '13px' }}>No payments recorded yet. Go to the Payments tab to add one.</div>
-                      ) : recentPayments.map(p => (
-                        <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #f1f5f9', fontSize: '13px' }}>
-                          <div>
-                            <div style={{ fontWeight: '600', color: '#0f172a' }}>{p.reference}</div>
-                            <div style={{ fontSize: '11px', color: '#64748b' }}>{p.date} · {p.type} · {p.method}</div>
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ fontWeight: '700', color: '#0f172a' }}>${parseFloat(p.amount).toLocaleString()}</span>
-                            {renderBadge(p.status)}
-                          </div>
+                        <div style={{ color: '#94a3b8', fontSize: '13px', fontStyle: 'italic' }}>Zero real-time settlements logged. Visit the payments terminal.</div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          {recentPayments.map((p) => (
+                            <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: '#f8fafc', borderRadius: '6px', borderLeft: `4px solid ${p.type === 'Contractor' ? '#2563eb' : '#7c3aed'}` }}>
+                              <div>
+                                <span style={{ fontWeight: '700', color: '#0f172a' }}>{p.reference}</span>
+                                <span style={{ marginLeft: '10px', fontSize: '11px', background: '#e2e8f0', padding: '2px 6px', borderRadius: '4px' }}>{p.invoice || 'No Ref Invoice'}</span>
+                                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>Cleared via {p.method} on {p.date}</div>
+                              </div>
+                              <div style={{ textAlign: 'right' }}>
+                                <div style={{ fontWeight: '800', color: '#16a34a' }}>${p.amount.toLocaleString()}</div>
+                                {renderBadge(p.status)}
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      )}
                     </div>
                   </div>
                 )}
 
-                {/* ==================== VIEW 2: PAYMENTS TAB ==================== */}
+                {/* ==================== VIEW 2: PAYMENTS TERMINAL ==================== */}
                 {activeTab === 'payments' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>Payment Ledger</h2>
-
-                    {/* ENTRY FORM */}
-                    <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                      <div style={{ fontWeight: '700', fontSize: '13px', color: '#2563eb' }}>+ Record New Payment</div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px', alignItems: 'flex-end' }}>
+                    <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>Voucher Management & Disbursement Registry</h2>
+                    
+                    <div style={{ background: '#fff', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <div style={{ fontWeight: '700', fontSize: '13px', color: '#2563eb' }}>+ Authorize New Payment Settlement Voucher</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px', alignItems: 'flex-end' }}>
                         <div>
                           <label style={{ fontSize: '11px', fontWeight: '700', color: '#4b5563' }}>Date</label>
-                          <input type="date" value={newPayment.date} onChange={e => setNewPayment({...newPayment, date: e.target.value})} style={{ ...inputStyle, marginTop: '4px' }} />
+                          <input type="date" value={newPayment.date} onChange={e => setNewPayment({...newPayment, date: e.target.value})} style={inputStyle} />
                         </div>
                         <div>
                           <label style={{ fontSize: '11px', fontWeight: '700', color: '#4b5563' }}>Type</label>
-                          <select value={newPayment.type} onChange={e => setNewPayment({...newPayment, type: e.target.value, reference: ''})} style={{ ...inputStyle, marginTop: '4px' }}>
-                            <option value="Contractor">Contractor</option>
-                            <option value="Material">Material</option>
-                            <option value="Other">Other</option>
+                          <select value={newPayment.type} onChange={e => setNewPayment({...newPayment, type: e.target.value, reference: ''})} style={inputStyle}>
+                            <option value="Contractor">Subcontractor Progress Certificate</option>
+                            <option value="Material">Material Supplier PO Purchase</option>
                           </select>
                         </div>
                         <div>
-                          <label style={{ fontSize: '11px', fontWeight: '700', color: '#4b5563' }}>Reference</label>
+                          <label style={{ fontSize: '11px', fontWeight: '700', color: '#4b5563' }}>Payment Reference Target</label>
                           {newPayment.type === 'Contractor' ? (
-                            <select value={newPayment.reference} onChange={e => setNewPayment({...newPayment, reference: e.target.value})} style={{ ...inputStyle, marginTop: '4px' }}>
-                              <option value="">-- Select Contractor --</option>
+                            <select value={newPayment.reference} onChange={e => setNewPayment({...newPayment, reference: e.target.value})} style={inputStyle}>
+                              <option value="">-- Select Bound Contractor --</option>
                               {refOpts.contractors.map(n => <option key={n} value={n}>{n}</option>)}
                             </select>
-                          ) : newPayment.type === 'Material' ? (
-                            <select value={newPayment.reference} onChange={e => setNewPayment({...newPayment, reference: e.target.value})} style={{ ...inputStyle, marginTop: '4px' }}>
-                              <option value="">-- Select Supplier --</option>
+                          ) : (
+                            <select value={newPayment.reference} onChange={e => setNewPayment({...newPayment, reference: e.target.value})} style={inputStyle}>
+                              <option value="">-- Select Supplier Target --</option>
                               {refOpts.suppliers.map(n => <option key={n} value={n}>{n}</option>)}
                             </select>
-                          ) : (
-                            <input placeholder="Reference name" value={newPayment.reference} onChange={e => setNewPayment({...newPayment, reference: e.target.value})} style={{ ...inputStyle, marginTop: '4px' }} />
                           )}
                         </div>
                         <div>
                           <label style={{ fontSize: '11px', fontWeight: '700', color: '#4b5563' }}>Amount ($)</label>
-                          <input type="number" placeholder="0.00" value={newPayment.amount} onChange={e => setNewPayment({...newPayment, amount: e.target.value})} style={{ ...inputStyle, marginTop: '4px' }} />
+                          <input type="number" placeholder="0.00" value={newPayment.amount} onChange={e => setNewPayment({...newPayment, amount: e.target.value})} style={inputStyle} />
                         </div>
                         <div>
                           <label style={{ fontSize: '11px', fontWeight: '700', color: '#4b5563' }}>Method</label>
-                          <select value={newPayment.method} onChange={e => setNewPayment({...newPayment, method: e.target.value})} style={{ ...inputStyle, marginTop: '4px' }}>
+                          <select value={newPayment.method} onChange={e => setNewPayment({...newPayment, method: e.target.value})} style={inputStyle}>
                             {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
                           </select>
                         </div>
                         <div>
-                          <label style={{ fontSize: '11px', fontWeight: '700', color: '#4b5563' }}>Invoice #</label>
-                          <input placeholder="INV-XXX" value={newPayment.invoice} onChange={e => setNewPayment({...newPayment, invoice: e.target.value})} style={{ ...inputStyle, marginTop: '4px' }} />
+                          <label style={{ fontSize: '11px', fontWeight: '700', color: '#4b5563' }}>Invoice # Reference</label>
+                          <input placeholder="INV-XXX" value={newPayment.invoice} onChange={e => setNewPayment({...newPayment, invoice: e.target.value})} style={inputStyle} />
                         </div>
                         <div>
-                          <label style={{ fontSize: '11px', fontWeight: '700', color: '#4b5563' }}>Status</label>
-                          <select value={newPayment.status} onChange={e => setNewPayment({...newPayment, status: e.target.value})} style={{ ...inputStyle, marginTop: '4px' }}>
-                            <option value="Pending">Pending</option>
-                            <option value="Paid">Paid</option>
+                          <label style={{ fontSize: '11px', fontWeight: '700', color: '#4b5563' }}>Voucher Status</label>
+                          <select value={newPayment.status} onChange={e => setNewPayment({...newPayment, status: e.target.value})} style={inputStyle}>
+                            <option value="Pending">Pending Approval</option>
+                            <option value="Paid">Disbursed / Paid</option>
                           </select>
                         </div>
-                        <button onClick={addPayment} style={{ ...flexBtn('#2563eb'), marginTop: '18px' }}><Plus size={15} /> Record Payment</button>
+                        <button onClick={addPayment} style={{ ...flexBtn('#2563eb'), height: '38px' }}><Plus size={15} /> Post Log</button>
                       </div>
                     </div>
 
-                    {/* MONTHLY PAYMENT FLOW CHART */}
-                    {monthlyPaymentData.length > 0 && (
-                      <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                        <div style={{ fontWeight: '700', fontSize: '14px', color: '#0f172a', marginBottom: '16px' }}>Monthly Payment Flow</div>
-                        <ResponsiveContainer width="100%" height={220}>
-                          <BarChart data={monthlyPaymentData} margin={{ top: 0, right: 16, left: 10, bottom: 0 }}>
-                            <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                            <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} />
-                            <Tooltip formatter={v => `$${parseFloat(v).toLocaleString()}`} />
-                            <Legend />
-                            <Bar dataKey="Contractor" fill="#2563eb" stackId="a" />
-                            <Bar dataKey="Material" fill="#7c3aed" stackId="a" />
-                            <Bar dataKey="Other" fill="#d97706" stackId="a" />
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </div>
-                    )}
-
-                    {/* CONTRACTOR PAYMENT STATUS CHART */}
-                    {contractorPayStatus.length > 0 && (
-                      <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                        <div style={{ fontWeight: '700', fontSize: '14px', color: '#0f172a', marginBottom: '16px' }}>Contractor Payment Status vs BOQ</div>
-                        <ResponsiveContainer width="100%" height={Math.max(180, contractorPayStatus.length * 55)}>
-                          <BarChart data={contractorPayStatus} layout="vertical" margin={{ top: 0, right: 16, left: 90, bottom: 0 }}>
-                            <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} />
-                            <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} />
-                            <Tooltip formatter={v => `$${parseFloat(v).toLocaleString()}`} />
-                            <Legend />
-                            <Bar dataKey="paid" name="Paid" fill="#16a34a" stackId="b" />
-                            <Bar dataKey="retention" name="Retention Held" fill="#d97706" stackId="b" />
-                            <Bar dataKey="outstanding" name="Outstanding" fill="#ef4444" stackId="b" />
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </div>
-                    )}
-
-                    {/* PAYMENT LEDGER TABLE */}
-                    <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', overflowX: 'auto' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead>
-                          <tr>
-                            <th style={ERP_TH}>Date</th>
-                            <th style={ERP_TH}>Type</th>
-                            <th style={ERP_TH}>Reference</th>
-                            <th style={{ ...ERP_TH, textAlign: 'right' }}>Amount</th>
-                            <th style={ERP_TH}>Method</th>
-                            <th style={ERP_TH}>Invoice</th>
-                            <th style={ERP_TH}>BOQ Link</th>
-                            <th style={ERP_TH}>Status</th>
-                            <th style={{ ...ERP_TH, textAlign: 'center' }}>Purge</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(activeProjectInstance.payments || []).length === 0 && (
-                            <tr><td colSpan="9" style={{ ...ERP_TD, textAlign: 'center', color: '#94a3b8' }}>No payments recorded. Add one above.</td></tr>
-                          )}
-                          {(activeProjectInstance.payments || []).map((p, i) => {
-                            const matchedContractor = p.type === 'Contractor'
-                              ? (activeProjectInstance.contractors || []).find(c => c.name === p.reference)
-                              : null;
-                            const boqPct = matchedContractor
-                              ? Math.round((parseFloat(p.amount) / parseFloat(matchedContractor.boqTotal)) * 100)
-                              : null;
-                            return (
-                              <tr key={p.id} style={{ background: i % 2 === 0 ? '#fff' : '#f8fafc' }}>
+                    {/* LIVE PAYMENTS TABLE */}
+                    <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                      <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                          <thead>
+                            <tr>
+                              <th style={ERP_TH}>Date</th>
+                              <th style={ERP_TH}>Classification</th>
+                              <th style={ERP_TH}>Vendor Account</th>
+                              <th style={{ ...ERP_TH, textAlign: 'right' }}>Disbursed Amount</th>
+                              <th style={ERP_TH}>Channel Method</th>
+                              <th style={ERP_TH}>Invoice Reference</th>
+                              <th style={ERP_TH}>Status Flow Controls</th>
+                              <th style={{ ...ERP_TH, textAlign: 'center' }}>Purge</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(activeProjectInstance.payments || []).length === 0 && (
+                              <tr><td colSpan="8" style={{ ...ERP_TD, textAlign: 'center', color: '#94a3b8' }}>No project cash records discovered.</td></tr>
+                            )}
+                            {(activeProjectInstance.payments || []).map((p, idx) => (
+                              <tr key={p.id} style={{ background: idx % 2 === 0 ? '#fff' : '#f8fafc' }}>
                                 <td style={ERP_TD}>{p.date}</td>
                                 <td style={ERP_TD}>
-                                  <span style={{ fontSize: '11px', background: p.type === 'Contractor' ? '#dbeafe' : p.type === 'Material' ? '#ede9fe' : '#fef3c7', color: p.type === 'Contractor' ? '#1e40af' : p.type === 'Material' ? '#5b21b6' : '#92400e', padding: '2px 8px', borderRadius: '10px', fontWeight: '700' }}>
+                                  <span style={{ fontSize: '11px', background: p.type === 'Contractor' ? '#dbeafe' : '#ede9fe', color: p.type === 'Contractor' ? '#1e40af' : '#5b21b6', padding: '2px 8px', borderRadius: '10px', fontWeight: '700' }}>
                                     {p.type}
                                   </span>
                                 </td>
                                 <td style={{ ...ERP_TD, fontWeight: '600' }}>{p.reference}</td>
-                                <td style={{ ...ERP_TD, textAlign: 'right', fontWeight: '700' }}>${parseFloat(p.amount).toLocaleString()}</td>
-                                <td style={{ ...ERP_TD, color: '#64748b' }}>{p.method}</td>
-                                <td style={{ ...ERP_TD, fontSize: '12px', color: '#64748b' }}>{p.invoice || '—'}</td>
+                                <td style={{ ...ERP_TD, textAlign: 'right', fontWeight: '700', color: '#16a34a' }}>${p.amount.toLocaleString()}</td>
+                                <td style={ERP_TD}>{p.method}</td>
+                                <td style={{ ...ERP_TD, fontFamily: 'monospace' }}>{p.invoice || '—'}</td>
                                 <td style={ERP_TD}>
-                                  {boqPct !== null ? (
-                                    <span style={{ fontSize: '11px', background: '#f0fdf4', color: '#166534', padding: '2px 8px', borderRadius: '10px', fontWeight: '700' }}>{boqPct}% of BOQ</span>
-                                  ) : <span style={{ color: '#94a3b8', fontSize: '12px' }}>—</span>}
-                                </td>
-                                <td style={ERP_TD}>
-                                  <select
-                                    value={p.status}
-                                    onChange={e => updatePaymentStatus(p.id, e.target.value)}
-                                    style={{ ...inputStyle, padding: '4px 8px', fontSize: '12px', width: 'auto' }}
+                                  <select 
+                                    value={p.status} 
+                                    onChange={(e) => updatePaymentStatus(p.id, e.target.value)} 
+                                    style={{ padding: '4px 8px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '4px', background: '#fff', fontWeight: '600' }}
                                   >
                                     <option value="Pending">Pending</option>
                                     <option value="Paid">Paid</option>
@@ -864,44 +831,40 @@ ${contractorSummary}
                                   <button onClick={() => deletePayment(p.id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><Trash2 size={14} /></button>
                                 </td>
                               </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   </div>
                 )}
 
-                {/* ==================== VIEW 3: WBS & DIVISION COST CODES ==================== */}
+                {/* ==================== VIEW 3: WBS COST CODES ==================== */}
                 {activeTab === 'wbs' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div>
-                        <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>Work Breakdown Structure (WBS) Matrix</h2>
-                        <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>Division ledger mappings aligned with standard industrial construction cost centers.</p>
-                      </div>
-                      <button onClick={executeCSVDownload} style={flexBtn('#16a34a')}><Download size={15} /> Export Master Sheet</button>
-                    </div>
+                    <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>Work Breakdown Structure (WBS) Controls</h2>
+                    
                     <div style={{ background: '#fff', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
                       <div style={{ flex: '0 0 120px' }}>
-                        <label style={{ fontSize: '11px', fontWeight: '700', color: '#4b5563' }}>CSI Div Code</label>
+                        <label style={{ fontSize: '11px', fontWeight: '700', color: '#4b5563' }}>CSI Code</label>
                         <input placeholder="e.g., 04-000" value={newCodeInput.code} onChange={e => setNewCodeInput({...newCodeInput, code: e.target.value})} style={inputStyle} />
                       </div>
                       <div style={{ flex: 1 }}>
-                        <label style={{ fontSize: '11px', fontWeight: '700', color: '#4b5563' }}>Division Element Name</label>
-                        <input placeholder="Masonry Assemblies, Finished Drywall, etc." value={newCodeInput.name} onChange={e => setNewCodeInput({...newCodeInput, name: e.target.value})} style={inputStyle} />
+                        <label style={{ fontSize: '11px', fontWeight: '700', color: '#4b5563' }}>CSI Division Name Description</label>
+                        <input placeholder="Masonry Assemblies, etc." value={newCodeInput.name} onChange={e => setNewCodeInput({...newCodeInput, name: e.target.value})} style={inputStyle} />
                       </div>
-                      <button onClick={addCostCode} style={flexBtn('#0f172a')}><Plus size={15} /> Bind Code</button>
+                      <button onClick={addCostCode} style={flexBtn('#0f172a')}><Plus size={15} /> Bind WBS Division</button>
                     </div>
+
                     <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
                           <tr>
-                            <th style={ERP_TH}>Cost Code Alignment</th>
+                            <th style={ERP_TH}>Cost Code Alignment Matrix</th>
                             <th style={{ ...ERP_TH, textAlign: 'right' }}>Target Budget Allocation</th>
-                            <th style={{ ...ERP_TH, textAlign: 'right' }}>Committed Contracts Value</th>
-                            <th style={{ ...ERP_TH, textAlign: 'right' }}>JTD Material Cost</th>
-                            <th style={{ ...ERP_TH, textAlign: 'right' }}>Forecasted EAC Status</th>
+                            <th style={{ ...ERP_TH, textAlign: 'right' }}>Committed Scope Value</th>
+                            <th style={{ ...ERP_TH, textAlign: 'right' }}>JTD Actual Cash Outlays</th>
+                            <th style={{ ...ERP_TH, textAlign: 'right' }}>Variance Status</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -910,8 +873,14 @@ ${contractorSummary}
                             const matchMats = activeProjectInstance.materials?.filter(m => m.category === combinedLabel) || [];
                             const matchSubs = activeProjectInstance.contractors?.filter(c => c.costCode === combinedLabel) || [];
                             const allocation = activeProjectInstance.budget / costCodes.length;
+                            
                             const committedVal = matchSubs.reduce((s, c) => s + c.boqTotal, 0) + matchMats.reduce((s, m) => s + (m.totalQty * m.unitCost), 0);
-                            const actualVal = matchSubs.reduce((s, c) => s + c.paid, 0) + matchMats.reduce((s, m) => s + (m.quantity * m.unitCost), 0);
+                            
+                            const actualVal = matchSubs.reduce((s, c) => {
+                              const cPaid = (activeProjectInstance.payments || []).filter(p => p.type === 'Contractor' && p.reference === c.name && p.status === 'Paid').reduce((sum, p) => sum + p.amount, 0);
+                              return s + cPaid;
+                            }, 0) + matchMats.reduce((s, m) => s + (m.quantity * m.unitCost), 0);
+
                             return (
                               <tr key={idx} style={{ background: idx % 2 === 0 ? '#fff' : '#f8fafc' }}>
                                 <td style={{ ...ERP_TD, fontWeight: '700' }}>{cc.code} — {cc.name}</td>
@@ -919,7 +888,7 @@ ${contractorSummary}
                                 <td style={{ ...ERP_TD, textAlign: 'right', fontWeight: '600' }}>${committedVal.toLocaleString()}</td>
                                 <td style={{ ...ERP_TD, textAlign: 'right', color: '#2563eb' }}>${actualVal.toLocaleString()}</td>
                                 <td style={{ ...ERP_TD, textAlign: 'right', fontWeight: '800', color: committedVal > allocation ? '#dc2626' : '#16a34a' }}>
-                                  ${committedVal.toLocaleString()}
+                                  ${(allocation - committedVal).toLocaleString(undefined, {maximumFractionDigits:0})}
                                 </td>
                               </tr>
                             );
@@ -930,86 +899,176 @@ ${contractorSummary}
                   </div>
                 )}
 
-                {/* ==================== VIEW 4: COMMITMENTS & CONTRACTOR BOQ ==================== */}
+                {/* ==================== VIEW 4: COMMITMENTS & LIVE BOQ ==================== */}
                 {activeTab === 'commitments' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>Subcontract Commitment Control & BOQs</h2>
-                    <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                      <div style={{ fontWeight: '700', fontSize: '13px', color: '#2563eb' }}>+ Bind Binding Subcontract Framework</div>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+                      <h2 style={{ margin: '0 0 14px', fontSize: '16px', fontWeight: '800', color: '#0f172a' }}>Bind New Subcontract Order (BOQ Scope)</h2>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px', alignItems: 'flex-end' }}>
                         <div>
-                          <label style={{ fontSize: '11px', color: '#4b5563' }}>Contractor Identity Selection</label>
-                          <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
-                            {contractorNameMode === 'preset' ? (
+                          <label style={{ fontSize: '11px', fontWeight: '700' }}>Contractor Name</label>
+                          {contractorNameMode === 'preset' ? (
+                            <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
                               <select value={newContractor.name} onChange={e => setNewContractor({...newContractor, name: e.target.value})} style={inputStyle}>
-                                <option value="">-- Choose Vendor --</option>
-                                {PRESET_CONTRACTORS.map(v => <option key={v} value={v}>{v}</option>)}
+                                <option value="">-- Choose Preset --</option>
+                                {PRESET_CONTRACTORS.map(c => <option key={c} value={c}>{c}</option>)}
                               </select>
-                            ) : (
-                              <input placeholder="Enter Vendor Name" value={customContractorName} onChange={e => setCustomContractorName(e.target.value)} style={inputStyle} />
-                            )}
-                            <button onClick={() => setContractorNameMode(contractorNameMode === 'preset' ? 'new' : 'preset')} style={{ ...flexBtn('#64748b'), padding: '10px' }}>Swap</button>
-                          </div>
+                              <button onClick={() => setContractorNameMode('new')} style={{ padding: '6px 8px', fontSize: '11px', background: '#e2e8f0', border: '1px solid #cbd5e1', borderRadius: '4px', cursor: 'pointer' }}>Custom</button>
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
+                              <input placeholder="Enter Entity Name" value={customContractorName} onChange={e => setCustomContractorName(e.target.value)} style={inputStyle} />
+                              <button onClick={() => setContractorNameMode('preset')} style={{ padding: '6px 8px', fontSize: '11px', background: '#e2e8f0', border: '1px solid #cbd5e1', borderRadius: '4px', cursor: 'pointer' }}>Preset</button>
+                            </div>
+                          )}
                         </div>
                         <div>
-                          <label style={{ fontSize: '11px', color: '#4b5563' }}>Cost Code Alignment</label>
-                          <select value={newContractor.costCode} onChange={e => setNewContractor({...newContractor, costCode: e.target.value})} style={{ ...inputStyle, marginTop: '4px' }}>
-                            <option value="">-- Select Code --</option>
-                            {costCodes.map(c => <option key={c.code} value={`${c.code} ${c.name}`}>{c.code} {c.name}</option>)}
+                          <label style={{ fontSize: '11px', fontWeight: '700' }}>Work Scope</label>
+                          <select value={newContractor.scope} onChange={e => setNewContractor({...newContractor, scope: e.target.value})} style={{ ...inputStyle, marginTop: '4px' }}>
+                            <option value="">-- Select Scope --</option>
+                            {CONTRACTOR_SCOPES.map(s => <option key={s} value={s}>{s}</option>)}
                           </select>
                         </div>
-                      </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px' }}>
-                        <input placeholder="Scope / Deliverable" value={newContractor.scope} onChange={e => setNewContractor({...newContractor, scope: e.target.value})} style={inputStyle} />
-                        <input placeholder="Unit (e.g. m², LS)" value={newContractor.unit} onChange={e => setNewContractor({...newContractor, unit: e.target.value})} style={inputStyle} />
-                        <input placeholder="Rate / Unit Cost" type="number" value={newContractor.pricePerUnit} onChange={e => setNewContractor({...newContractor, pricePerUnit: e.target.value})} style={inputStyle} />
-                        <input placeholder="Quantity Matrix" type="number" value={newContractor.quantity} onChange={e => setNewContractor({...newContractor, quantity: e.target.value})} style={inputStyle} />
-                        <input placeholder="Retention Value (%)" type="number" value={newContractor.retention} onChange={e => setNewContractor({...newContractor, retention: e.target.value})} style={inputStyle} />
-                        <input placeholder="Accrued Paid To Date" type="number" value={newContractor.paid} onChange={e => setNewContractor({...newContractor, paid: e.target.value})} style={inputStyle} />
-                        <select value={newContractor.status} onChange={e => setNewContractor({...newContractor, status: e.target.value})} style={inputStyle}>
-                          <option value="Pending">Pending</option>
-                          <option value="In Progress">In Progress</option>
-                          <option value="Completed">Completed</option>
-                        </select>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                        <button onClick={addContractor} style={flexBtn('#2563eb')}><Plus size={15} /> Commit Subcontract to Ledger</button>
+                        <div>
+                          <label style={{ fontSize: '11px', fontWeight: '700' }}>Cost Code Alignment</label>
+                          <select value={newContractor.costCode} onChange={e => setNewContractor({...newContractor, costCode: e.target.value})} style={{ ...inputStyle, marginTop: '4px' }}>
+                            <option value="">-- Select Code --</option>
+                            {costCodes.map(cc => <option key={cc.code} value={`${cc.code} ${cc.name}`}>{cc.code} {cc.name}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '11px', fontWeight: '700' }}>Unit Metric</label>
+                          <input placeholder="m², ton, LS" value={newContractor.unit} onChange={e => setNewContractor({...newContractor, unit: e.target.value})} style={{ ...inputStyle, marginTop: '4px' }} />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '11px', fontWeight: '700' }}>Rate/Price Per Unit</label>
+                          <input type="number" placeholder="0" value={newContractor.pricePerUnit} onChange={e => setNewContractor({...newContractor, pricePerUnit: e.target.value})} style={{ ...inputStyle, marginTop: '4px' }} />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '11px', fontWeight: '700' }}>BOQ Baseline Qnt</label>
+                          <input type="number" placeholder="0" value={newContractor.quantity} onChange={e => setNewContractor({...newContractor, quantity: e.target.value})} style={{ ...inputStyle, marginTop: '4px' }} />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '11px', fontWeight: '700' }}>Retention %</label>
+                          <input type="number" placeholder="10" value={newContractor.retention} onChange={e => setNewContractor({...newContractor, retention: e.target.value})} style={{ ...inputStyle, marginTop: '4px' }} />
+                        </div>
+                        <button onClick={addContractor} style={{ ...flexBtn('#0f172a'), height: '38px' }}><Plus size={15} /> Bind Contract</button>
                       </div>
                     </div>
-                    <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', overflowX: 'auto' }}>
+
+                    <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #cbd5e1', overflow: 'hidden' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
                           <tr>
-                            <th style={ERP_TH}>Subcontractor & Scope Mapping</th>
-                            <th style={ERP_TH}>WBS Division</th>
-                            <th style={{ ...ERP_TH, textAlign: 'right' }}>Absolute Commitment</th>
-                            <th style={{ ...ERP_TH, textAlign: 'right' }}>Disbursed Cash</th>
-                            <th style={{ ...ERP_TH, textAlign: 'right' }}>Retention Isolation</th>
-                            <th style={{ ...ERP_TH, textAlign: 'right' }}>Remaining Balance Due</th>
+                            <th style={ERP_TH}>Contractor / Operational Scope</th>
+                            <th style={ERP_TH}>WBS Division Alignment</th>
+                            <th style={{ ...ERP_TH, textAlign: 'right' }}>Unit Rate / Measure</th>
+                            <th style={{ ...ERP_TH, width: '110px', textAlign: 'center' }}>BOQ Quantity (Editable)</th>
+                            <th style={{ ...ERP_TH, textAlign: 'right' }}>BOQ Master Ceiling</th>
+                            <th style={{ ...ERP_TH, textAlign: 'right' }}>Paid JTD ( Live Ledger )</th>
+                            <th style={{ ...ERP_TH, textAlign: 'right' }}>Retention Pools</th>
+                            <th style={{ ...ERP_TH, textAlign: 'right' }}>Remaining Balance</th>
                             <th style={ERP_TH}>Status</th>
-                            <th style={{ ...ERP_TH, textAlign: 'center' }}>Purge</th>
+                            <th style={{ ...ERP_TH, textAlign: 'center' }}>Action</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {activeProjectInstance.contractors?.map((c, i) => {
+                          {(activeProjectInstance.contractors || []).length === 0 && (
+                            <tr><td colSpan="10" style={{ ...ERP_TD, textAlign: 'center', color: '#94a3b8' }}>No subcontractors bound yet.</td></tr>
+                          )}
+                          {(activeProjectInstance.contractors || []).map((c, idx) => {
+                            const contractorPayments = (activeProjectInstance.payments || []).filter(p => p.type === 'Contractor' && p.reference === c.name);
+                            const dynamicPaid = contractorPayments.filter(p => p.status === 'Paid').reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
                             const calculatedRetentionValue = (parseFloat(c.boqTotal || 0) * parseFloat(c.retention || 0)) / 100;
-                            const balanceOutstanding = parseFloat(c.boqTotal || 0) - parseFloat(c.paid || 0);
+                            const balanceOutstanding = Math.max(0, parseFloat(c.boqTotal || 0) - dynamicPaid);
+                            const isExpanded = expandedContractorId === c.id;
+
                             return (
-                              <tr key={c.id} style={{ background: i % 2 === 0 ? '#fff' : '#f8fafc' }}>
-                                <td style={ERP_TD}>
-                                  <div style={{ fontWeight: '700' }}>{c.name}</div>
-                                  <div style={{ fontSize: '11px', color: '#64748b' }}>{c.scope}</div>
-                                </td>
-                                <td style={ERP_TD}><span style={{ fontSize: '11px', background: '#e2e8f0', padding: '2px 6px', borderRadius: '4px' }}>{c.costCode || 'Uncoded'}</span></td>
-                                <td style={{ ...ERP_TD, textAlign: 'right', fontWeight: '700' }}>${parseFloat(c.boqTotal || 0).toLocaleString()}</td>
-                                <td style={{ ...ERP_TD, textAlign: 'right', color: '#16a34a' }}>${parseFloat(c.paid || 0).toLocaleString()}</td>
-                                <td style={{ ...ERP_TD, textAlign: 'right', color: '#e59866' }}>${calculatedRetentionValue.toLocaleString()} ({c.retention}%)</td>
-                                <td style={{ ...ERP_TD, textAlign: 'right', fontWeight: '700', color: balanceOutstanding > 0 ? '#ef4444' : '#16a34a' }}>${balanceOutstanding.toLocaleString()}</td>
-                                <td style={ERP_TD}>{renderBadge(c.status)}</td>
-                                <td style={{ ...ERP_TD, textAlign: 'center' }}>
-                                  <button onClick={() => deleteContractor(c.id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><Trash2 size={14} /></button>
-                                </td>
-                              </tr>
+                              <React.Fragment key={c.id}>
+                                <tr style={{ background: idx % 2 === 0 ? '#fff' : '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                                  <td style={{ ...ERP_TD, cursor: 'pointer' }} onClick={() => setExpandedContractorId(isExpanded ? null : c.id)}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                      <span style={{ color: '#64748b', fontSize: '11px' }}>{isExpanded ? '▼' : '▶'}</span>
+                                      <div>
+                                        <div style={{ fontWeight: '700', color: '#0f172a' }}>{c.name}</div>
+                                        <div style={{ fontSize: '11px', color: '#64748b' }}>{c.scope}</div>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td style={ERP_TD}>
+                                    <span style={{ fontSize: '11px', background: '#e2e8f0', padding: '2px 6px', borderRadius: '4px' }}>{c.costCode || 'Uncoded'}</span>
+                                  </td>
+                                  <td style={{ ...ERP_TD, textAlign: 'right', color: '#475569' }}>
+                                    ${parseFloat(c.pricePerUnit || 0).toLocaleString()} / {c.unit}
+                                  </td>
+                                  <td style={{ ...ERP_TD, textAlign: 'center' }}>
+                                    <input 
+                                      type="number" 
+                                      value={c.quantity} 
+                                      onChange={(e) => updateContractorQuantity(c.id, e.target.value)} 
+                                      style={{ width: '80px', padding: '5px 8px', border: '1px solid #cbd5e1', borderRadius: '4px', textAlign: 'center', fontWeight: '600', background: '#fff' }} 
+                                    />
+                                  </td>
+                                  <td style={{ ...ERP_TD, textAlign: 'right', fontWeight: '700' }}>
+                                    ${parseFloat(c.boqTotal || 0).toLocaleString()}
+                                  </td>
+                                  <td style={{ ...ERP_TD, textAlign: 'right', color: '#16a34a', fontWeight: '600' }}>
+                                    ${dynamicPaid.toLocaleString()}
+                                  </td>
+                                  <td style={{ ...ERP_TD, textAlign: 'right', color: '#e59866' }}>
+                                    ${calculatedRetentionValue.toLocaleString()} ({c.retention}%)
+                                  </td>
+                                  <td style={{ ...ERP_TD, textAlign: 'right', fontWeight: '700', color: balanceOutstanding > 0 ? '#ef4444' : '#16a34a' }}>
+                                    ${balanceOutstanding.toLocaleString()}
+                                  </td>
+                                  <td style={ERP_TD}>{renderBadge(c.status)}</td>
+                                  <td style={{ ...ERP_TD, textAlign: 'center' }}>
+                                    <button onClick={() => deleteContractor(c.id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><Trash2 size={14} /></button>
+                                  </td>
+                                </tr>
+
+                                {/* Collapsible Drill Down Panel */}
+                                {isExpanded && (
+                                  <tr style={{ background: '#f8fafc' }}>
+                                    <td colSpan="10" style={{ padding: '12px 24px', borderBottom: '1px solid #cbd5e1' }}>
+                                      <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '16px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', borderBottom: '1px solid #f1f5f9', paddingBottom: '6px' }}>
+                                          <span style={{ fontWeight: '700', fontSize: '13px', color: '#0f172a' }}>Linked Financial Ledger Payments History</span>
+                                          <span style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>Vouchers Found: {contractorPayments.length}</span>
+                                        </div>
+                                        {contractorPayments.length === 0 ? (
+                                          <div style={{ color: '#94a3b8', fontSize: '12px', textAlign: 'center', fontStyle: 'italic', padding: '8px 0' }}>No invoice logs mapped in live execution terminal.</div>
+                                        ) : (
+                                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                                            <thead>
+                                              <tr style={{ borderBottom: '2px solid #e2e8f0', textAlign: 'left', color: '#475569', fontWeight: '600' }}>
+                                                <th style={{ padding: '6px 4px' }}>Transaction Date</th>
+                                                <th style={{ padding: '6px 4px' }}>Invoice Reference</th>
+                                                <th style={{ padding: '6px 4px' }}>Disbursement Channel</th>
+                                                <th style={{ padding: '6px 4px' }}>Internal Allocation Notes</th>
+                                                <th style={{ padding: '6px 4px' }}>Workflow Status</th>
+                                                <th style={{ padding: '6px 4px', textAlign: 'right' }}>Amount</th>
+                                              </tr>
+                                            </thead>
+                                            <tbody>
+                                              {contractorPayments.map(p => (
+                                                <tr key={p.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                                  <td style={{ padding: '8px 4px' }}>{p.date}</td>
+                                                  <td style={{ padding: '8px 4px', fontWeight: '700' }}>📄 {p.invoice || 'None Attached'}</td>
+                                                  <td style={{ padding: '8px 4px', color: '#64748b' }}>{p.method}</td>
+                                                  <td style={{ padding: '8px 4px', color: '#64748b' }}>{p.notes || '—'}</td>
+                                                  <td style={{ padding: '8px 4px' }}>{renderBadge(p.status)}</td>
+                                                  <td style={{ padding: '8px 4px', textAlign: 'right', fontWeight: '700', color: p.status === 'Paid' ? '#16a34a' : '#64748b' }}>${p.amount.toLocaleString()}</td>
+                                                </tr>
+                                              ))}
+                                            </tbody>
+                                          </table>
+                                        )}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                              </React.Fragment>
                             );
                           })}
                         </tbody>
@@ -1018,43 +1077,60 @@ ${contractorSummary}
                   </div>
                 )}
 
-                {/* ==================== VIEW 5: CHANGE MANAGEMENT & CONTROL ==================== */}
+                {/* ==================== VIEW 5: CHANGE MANAGEMENT ==================== */}
                 {activeTab === 'changeorders' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>Change Order Log & Exposure Tracking</h2>
+                    <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>Change Order Log & Cost Controls</h2>
+                    
                     <div style={{ background: '#fff', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      <div style={{ fontWeight: '700', fontSize: '13px', color: '#7c3aed' }}>+ Issue Proactive Change Item Request (PCO)</div>
+                      <div style={{ fontWeight: '700', fontSize: '13px', color: '#7c3aed' }}>+ Formulate Proactive Scope Field Change Request</div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px', alignItems: 'flex-end' }}>
                         <div>
-                          <label style={{ fontSize: '11px' }}>Adjustment Stream</label>
+                          <label style={{ fontSize: '11px', fontWeight: '700' }}>Adjustment Name Title</label>
+                          <input placeholder="e.g., Extended Foundation Core" value={newChangeOrder.title} onChange={e => setNewChangeOrder({...newChangeOrder, title: e.target.value})} style={inputStyle} />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '11px', fontWeight: '700' }}>Contractor Stream</label>
                           <select value={newChangeOrder.type} onChange={e => setNewChangeOrder({...newChangeOrder, type: e.target.value})} style={inputStyle}>
-                            <option value="Owner">Owner Change Order (Revenue Shift)</option>
-                            <option value="Subcontractor">Subcontractor Change Order (Expense Outflow)</option>
+                            <option value="Owner">Owner Change Order (OCO Revenue Increase)</option>
+                            <option value="Subcontractor">Subcontractor Change Order (SCO Cost Variance)</option>
                           </select>
                         </div>
-                        <input placeholder="Descriptive Item Title" value={newChangeOrder.title} onChange={e => setNewChangeOrder({...newChangeOrder, title: e.target.value})} style={inputStyle} />
-                        <select value={newChangeOrder.costCode} onChange={e => setNewChangeOrder({...newChangeOrder, costCode: e.target.value})} style={inputStyle}>
-                          <option value="">-- Targeted Division --</option>
-                          {costCodes.map(cc => <option key={cc.code} value={`${cc.code} ${cc.name}`}>{cc.code} {cc.name}</option>)}
-                        </select>
-                        <input placeholder="Financial Variance Vol ($)" type="number" value={newChangeOrder.amount} onChange={e => setNewChangeOrder({...newChangeOrder, amount: e.target.value})} style={inputStyle} />
-                        <input type="date" value={newChangeOrder.date} onChange={e => setNewChangeOrder({...newChangeOrder, date: e.target.value})} style={inputStyle} />
-                        <button onClick={addChangeOrder} style={flexBtn('#7c3aed')}><Plus size={15} /> Log Shift</button>
+                        <div>
+                          <label style={{ fontSize: '11px', fontWeight: '700' }}>Cost Code Alignment</label>
+                          <select value={newChangeOrder.costCode} onChange={e => setNewChangeOrder({...newChangeOrder, costCode: e.target.value})} style={inputStyle}>
+                            <option value="">-- Choose Division --</option>
+                            {costCodes.map(cc => <option key={cc.code} value={`${cc.code} ${cc.name}`}>{cc.code} {cc.name}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '11px', fontWeight: '700' }}>Financial Impact ($)</label>
+                          <input type="number" placeholder="0.00" value={newChangeOrder.amount} onChange={e => setNewChangeOrder({...newChangeOrder, amount: e.target.value})} style={inputStyle} />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '11px', fontWeight: '700' }}>Effective Issue Date</label>
+                          <input type="date" value={newChangeOrder.date} onChange={e => setNewChangeOrder({...newChangeOrder, date: e.target.value})} style={inputStyle} />
+                        </div>
+                        <button onClick={addChangeOrder} style={flexBtn('#7c3aed')}><Plus size={15} /> Bind Item</button>
                       </div>
                     </div>
+
                     <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
                           <tr>
-                            <th style={ERP_TH}>Change Item ID / Alignment</th>
-                            <th style={ERP_TH}>Stream Vector</th>
-                            <th style={ERP_TH}>WBS Code Allocation</th>
-                            <th style={{ ...ERP_TH, textAlign: 'right' }}>Amount Impact Valuation</th>
+                            <th style={ERP_TH}>Change Directive Item Description</th>
+                            <th style={ERP_TH}>Contract Class</th>
+                            <th style={ERP_TH}>WBS Division</th>
+                            <th style={{ ...ERP_TH, textAlign: 'right' }}>Financial Valuation</th>
                             <th style={ERP_TH}>Approval State</th>
-                            <th style={{ ...ERP_TH, textAlign: 'center' }}>Modify State</th>
+                            <th style={{ ...ERP_TH, textAlign: 'center' }}>Workflow Flags</th>
                           </tr>
                         </thead>
                         <tbody>
+                          {(activeProjectInstance.changeOrders || []).length === 0 && (
+                            <tr><td colSpan="6" style={{ ...ERP_TD, textAlign: 'center', color: '#94a3b8' }}>No modifications issued to date.</td></tr>
+                          )}
                           {(activeProjectInstance.changeOrders || []).map((co, idx) => (
                             <tr key={co.id} style={{ background: idx % 2 === 0 ? '#fff' : '#f8fafc' }}>
                               <td style={ERP_TD}>
@@ -1066,8 +1142,8 @@ ${contractorSummary}
                               <td style={{ ...ERP_TD, textAlign: 'right', fontWeight: '700' }}>${parseFloat(co.amount).toLocaleString()}</td>
                               <td style={ERP_TD}>{renderBadge(co.status)}</td>
                               <td style={{ ...ERP_TD, textAlign: 'center', display: 'flex', gap: '4px', justifyContent: 'center' }}>
-                                <button onClick={() => updateChangeOrderStatus(co.id, 'Approved')} style={{ background: '#d1fae5', color: '#065f46', border: 'none', padding: '4px 6px', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: '700' }}>Approve</button>
-                                <button onClick={() => deleteChangeOrder(co.id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><Trash2 size={14} /></button>
+                                <button onClick={() => updateChangeOrderStatus(co.id, 'Approved')} style={{ background: '#d1fae5', color: '#065f46', border: 'none', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}>Approve</button>
+                                <button onClick={() => deleteChangeOrder(co.id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}><Trash2 size={13} /></button>
                               </td>
                             </tr>
                           ))}
@@ -1077,128 +1153,148 @@ ${contractorSummary}
                   </div>
                 )}
 
-                {/* ==================== VIEW 6: PROGRESS BILLINGS & INVOICING HUB ==================== */}
+                {/* ==================== VIEW 6: PROGRESS INVOICING ==================== */}
                 {activeTab === 'billings' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>Progress Application for Payment & Billings Ledger</h2>
-                    <div style={{ background: '#fff', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      <div style={{ fontWeight: '700', fontSize: '13px', color: '#0891b2' }}>+ Process New Financial Draw Claim / Sub-Invoice</div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px', alignItems: 'flex-end' }}>
-                        <div>
-                          <label style={{ fontSize: '11px' }}>Instrument Classification</label>
-                          <select value={newBilling.type} onChange={e => setNewBilling({...newBilling, type: e.target.value})} style={inputStyle}>
-                            <option value="Subcontractor Invoice">Subcontractor Invoice (Outflow)</option>
-                            <option value="Owner Claim">Owner Claim Draw (Inflow Revenue)</option>
-                          </select>
-                        </div>
-                        <input placeholder="Entity/Partner Name" value={newBilling.partner} onChange={e => setNewBilling({...newBilling, partner: e.target.value})} style={inputStyle} />
-                        <input placeholder="Gross Value claimed ($)" type="number" value={newBilling.amount} onChange={e => setNewBilling({...newBilling, amount: e.target.value})} style={inputStyle} />
-                        <input placeholder="Retention Withheld ($)" type="number" value={newBilling.retentionWithheld} onChange={e => setNewBilling({...newBilling, retentionWithheld: e.target.value})} style={inputStyle} />
-                        <input type="date" value={newBilling.date} onChange={e => setNewBilling({...newBilling, date: e.target.value})} style={inputStyle} />
-                        <button onClick={addBilling} style={flexBtn('#0891b2')}><Plus size={15} /> Record Billing</button>
+                    <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>Progress Billing Certifications & Claims</h2>
+                    
+                    <div style={{ background: '#fff', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
+                      <div>
+                        <label style={{ fontSize: '11px', fontWeight: '700' }}>Invoice Type</label>
+                        <select value={newBilling.type} onChange={e => setNewBilling({...newBilling, type: e.target.value})} style={inputStyle}>
+                          <option value="Subcontractor Invoice">Subcontractor Progress Assessment Claim</option>
+                          <option value="Owner Claim">Owner Progress Draw Application</option>
+                        </select>
                       </div>
+                      <div>
+                        <label style={{ fontSize: '11px', fontWeight: '700' }}>Partner Vendor Entity</label>
+                        <input placeholder="Entity identifier name" value={newBilling.partner} onChange={e => setNewBilling({...newBilling, partner: e.target.value})} style={inputStyle} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '11px', fontWeight: '700' }}>WBS Alignment Code</label>
+                        <select value={newBilling.costCode} onChange={e => setNewBilling({...newBilling, costCode: e.target.value})} style={inputStyle}>
+                          <option value="">-- Select --</option>
+                          {costCodes.map(cc => <option key={cc.code} value={`${cc.code} ${cc.name}`}>{cc.code} {cc.name}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '11px', fontWeight: '700' }}>Gross Valuation Amount ($)</label>
+                        <input type="number" placeholder="0.00" value={newBilling.amount} onChange={e => setNewBilling({...newBilling, amount: e.target.value})} style={inputStyle} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '11px', fontWeight: '700' }}>Retention Withheld ($)</label>
+                        <input type="number" placeholder="Defaults to 10%" value={newBilling.retentionWithheld} onChange={e => setNewBilling({...newBilling, retentionWithheld: e.target.value})} style={inputStyle} />
+                      </div>
+                      <button onClick={addBilling} style={flexBtn('#0f172a')}><Plus size={15} /> Commit Billing</button>
                     </div>
+
                     <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
                           <tr>
-                            <th style={ERP_TH}>Transaction Partner / Instrument</th>
-                            <th style={ERP_TH}>Classification Type</th>
-                            <th style={{ ...ERP_TH, textAlign: 'right' }}>Gross Valuation Stated</th>
-                            <th style={{ ...ERP_TH, textAlign: 'right' }}>Retention Deducted</th>
-                            <th style={{ ...ERP_TH, textAlign: 'right' }}>Net Liquidated Cash</th>
-                            <th style={ERP_TH}>Date</th>
-                            <th style={ERP_TH}>State Status</th>
-                            <th style={{ ...ERP_TH, textAlign: 'center' }}>Purge</th>
+                            <th style={ERP_TH}>Billing Document Stream Type</th>
+                            <th style={ERP_TH}>Account Target Partner / Client</th>
+                            <th style={ERP_TH}>WBS Structural Subdivision</th>
+                            <th style={{ ...ERP_TH, textAlign: 'right' }}>Gross Certified Claims</th>
+                            <th style={{ ...ERP_TH, textAlign: 'right' }}>Retention Withheld Bound</th>
+                            <th style={ERP_TH}>Status Code</th>
+                            <th style={{ ...ERP_TH, textAlign: 'center' }}>Action</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {(activeProjectInstance.billings || []).map((b, idx) => {
-                            const netLiquidatedValue = parseFloat(b.amount) - parseFloat(b.retentionWithheld || 0);
-                            return (
-                              <tr key={b.id} style={{ background: idx % 2 === 0 ? '#fff' : '#f8fafc' }}>
-                                <td style={ERP_TD}>
-                                  <div style={{ fontWeight: '700' }}>{b.partner}</div>
-                                  <div style={{ fontSize: '11px', color: '#64748b' }}>{b.costCode || '—'}</div>
-                                </td>
-                                <td style={ERP_TD}>
-                                  <span style={{ fontSize: '12px', fontWeight: '600', color: b.type === 'Owner Claim' ? '#16a34a' : '#2563eb' }}>{b.type}</span>
-                                </td>
-                                <td style={{ ...ERP_TD, textAlign: 'right', fontWeight: '700' }}>${parseFloat(b.amount).toLocaleString()}</td>
-                                <td style={{ ...ERP_TD, textAlign: 'right', color: '#ef4444' }}>-${parseFloat(b.retentionWithheld || 0).toLocaleString()}</td>
-                                <td style={{ ...ERP_TD, textAlign: 'right', fontWeight: '800', color: b.type === 'Owner Claim' ? '#16a34a' : '#0f172a' }}>${netLiquidatedValue.toLocaleString()}</td>
-                                <td style={{ ...ERP_TD, color: '#64748b' }}>{b.date || '—'}</td>
-                                <td style={ERP_TD}>
-                                  <select value={b.status} onChange={e => {
-                                    const updatedBillings = activeProjectInstance.billings.map(item => item.id === b.id ? { ...item, status: e.target.value } : item);
-                                    setSites(sites.map(s => s.id === activeProjectInstance.id ? { ...s, billings: updatedBillings } : s));
-                                  }} style={{ ...inputStyle, padding: '4px', fontSize: '12px' }}>
-                                    <option value="Pending">Pending Validation</option>
-                                    <option value="Approved">Approved / Certified</option>
-                                    <option value="Paid">Disbursed / Paid</option>
-                                  </select>
-                                </td>
-                                <td style={{ ...ERP_TD, textAlign: 'center' }}>
-                                  <button onClick={() => deleteBilling(b.id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><Trash2 size={14} /></button>
-                                </td>
-                              </tr>
-                            );
-                          })}
+                          {(activeProjectInstance.billings || []).length === 0 && (
+                            <tr><td colSpan="7" style={{ ...ERP_TD, textAlign: 'center', color: '#94a3b8' }}>No commercial billing evaluations recorded.</td></tr>
+                          )}
+                          {(activeProjectInstance.billings || []).map((b, idx) => (
+                            <tr key={b.id} style={{ background: idx % 2 === 0 ? '#fff' : '#f8fafc' }}>
+                              <td style={ERP_TD}><div style={{ fontWeight: '700', color: b.type.includes('Owner') ? '#0284c7' : '#1e293b' }}>{b.type}</div></td>
+                              <td style={{ ...ERP_TD, fontWeight: '600' }}>{b.partner}</td>
+                              <td style={ERP_TD}><span style={{ fontSize: '11px', background: '#f1f5f9', padding: '2px 6px' }}>{b.costCode}</span></td>
+                              <td style={{ ...ERP_TD, textAlign: 'right', fontWeight: '700' }}>${b.amount.toLocaleString()}</td>
+                              <td style={{ ...ERP_TD, textAlign: 'right', color: '#ef4444' }}>${b.retentionWithheld.toLocaleString()}</td>
+                              <td style={ERP_TD}>{renderBadge(b.status)}</td>
+                              <td style={{ ...ERP_TD, textAlign: 'center' }}>
+                                <button onClick={() => deleteBilling(b.id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><Trash2 size={14} /></button>
+                              </td>
+                            </tr>
+                          ))}
                         </tbody>
                       </table>
                     </div>
                   </div>
                 )}
 
-                {/* ==================== VIEW 7: INVENTORY LOGS & MATERIAL TRACKING ==================== */}
+                {/* ==================== VIEW 7: INVENTORY LOGS ==================== */}
                 {activeTab === 'materials' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>Material Resource Logistics & Delivery Logs</h2>
-                    <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                      <div style={{ fontWeight: '700', color: '#7c3aed', fontSize: '13px' }}>+ Log Site Resource Cargo Acquisition</div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px' }}>
-                        <input placeholder="Material Name (e.g. Concrete)" value={newMaterial.name} onChange={e => setNewMaterial({...newMaterial, name: e.target.value})} style={inputStyle} />
-                        <select value={newMaterial.category} onChange={e => setNewMaterial({...newMaterial, category: e.target.value})} style={inputStyle}>
-                          <option value="">-- Cost Code Map --</option>
-                          {costCodes.map(cc => <option key={cc.code} value={`${cc.code} ${cc.name}`}>{cc.code} {cc.name}</option>)}
-                        </select>
-                        <input placeholder="Qty Received To Date" type="number" value={newMaterial.quantity} onChange={e => setNewMaterial({...newMaterial, quantity: e.target.value})} style={inputStyle} />
-                        <input placeholder="Total Purchase Commitment" type="number" value={newMaterial.totalQty} onChange={e => setNewMaterial({...newMaterial, totalQty: e.target.value})} style={inputStyle} />
-                        <input placeholder="Unit Label (m³, ton)" value={newMaterial.unit} onChange={e => setNewMaterial({...newMaterial, unit: e.target.value})} style={inputStyle} />
-                        <input placeholder="Rate / Price Unit" type="number" value={newMaterial.unitCost} onChange={e => setNewMaterial({...newMaterial, unitCost: e.target.value})} style={inputStyle} />
-                        <input placeholder="Supplier Entity" value={newMaterial.supplier} onChange={e => setNewMaterial({...newMaterial, supplier: e.target.value})} style={inputStyle} />
-                        <select value={newMaterial.condition} onChange={e => setNewMaterial({...newMaterial, condition: e.target.value})} style={inputStyle}>
-                          <option>Good</option><option>Acceptable</option><option>Damaged Tier Check</option>
-                        </select>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                        <button onClick={addMaterial} style={flexBtn('#7c3aed')}><Plus size={15} /> Log Material Manifest</button>
+                    <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>Material Procurements & Field Inventory Logs</h2>
+                    
+                    <div style={{ background: '#fff', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <div style={{ fontWeight: '700', fontSize: '13px', color: '#059669' }}>+ Post Material Consignment Manifest / PO Allocation</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px', alignItems: 'flex-end' }}>
+                        <div>
+                          <label style={{ fontSize: '11px', fontWeight: '700' }}>Material Item Descr</label>
+                          <input placeholder="e.g., Geopolymer Cement" value={newMaterial.name} onChange={e => setNewMaterial({...newMaterial, name: e.target.value})} style={inputStyle} />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '11px', fontWeight: '700' }}>Cost Code Alignment</label>
+                          <select value={newMaterial.category} onChange={e => setNewMaterial({...newMaterial, category: e.target.value})} style={inputStyle}>
+                            <option value="">-- Choose Division --</option>
+                            {costCodes.map(cc => <option key={cc.code} value={`${cc.code} ${cc.name}`}>{cc.code} {cc.name}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '11px', fontWeight: '700' }}>Qty Received</label>
+                          <input type="number" placeholder="0" value={newMaterial.quantity} onChange={e => setNewMaterial({...newMaterial, quantity: e.target.value})} style={inputStyle} />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '11px', fontWeight: '700' }}>Total Contract Qty</label>
+                          <input type="number" placeholder="0" value={newMaterial.totalQty} onChange={e => setNewMaterial({...newMaterial, totalQty: e.target.value})} style={inputStyle} />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '11px', fontWeight: '700' }}>Unit (m³, ton)</label>
+                          <input placeholder="m³" value={newMaterial.unit} onChange={e => setNewMaterial({...newMaterial, unit: e.target.value})} style={inputStyle} />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '11px', fontWeight: '700' }}>Unit Cost Rate ($)</label>
+                          <input type="number" placeholder="0.00" value={newMaterial.unitCost} onChange={e => setNewMaterial({...newMaterial, unitCost: e.target.value})} style={inputStyle} />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '11px', fontWeight: '700' }}>Supplier Vendor</label>
+                          <select value={newMaterial.supplier} onChange={e => setNewMaterial({...newMaterial, supplier: e.target.value})} style={inputStyle}>
+                            <option value="">-- Choose Supplier --</option>
+                            {PRESET_SUPPLIERS.map(s => <option key={s} value={s}>{s}</option>)}
+                          </select>
+                        </div>
+                        <button onClick={addMaterial} style={flexBtn('#059669')}><Plus size={15} /> Log Assets</button>
                       </div>
                     </div>
-                    <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', overflowX: 'auto' }}>
+
+                    <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
                           <tr>
-                            <th style={ERP_TH}>Material Resource Description</th>
-                            <th style={ERP_TH}>WBS Division Link</th>
-                            <th style={{ ...ERP_TH, textAlign: 'right' }}>Received Volume</th>
-                            <th style={{ ...ERP_TH, textAlign: 'right' }}>Total Binding Target</th>
-                            <th style={{ ...ERP_TH, textAlign: 'right' }}>Rate Cost Matrix</th>
-                            <th style={{ ...ERP_TH, textAlign: 'right' }}>Accrued Outflow</th>
-                            <th style={ERP_TH}>Condition State</th>
-                            <th style={{ ...ERP_TH, textAlign: 'center' }}>Purge</th>
+                            <th style={ERP_TH}>Material Asset Specification</th>
+                            <th style={ERP_TH}>WBS Allocation Division</th>
+                            <th style={{ ...ERP_TH, textAlign: 'right' }}>Qty Delivered / Pool Target</th>
+                            <th style={ERP_TH}>Supplier Chain Partner</th>
+                            <th style={{ ...ERP_TH, textAlign: 'right' }}>Unit Cost Rate</th>
+                            <th style={{ ...ERP_TH, textAlign: 'right' }}>Total JTD Evaluated</th>
+                            <th style={{ ...ERP_TH, textAlign: 'center' }}>Status Actions</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {activeProjectInstance.materials?.map((m, i) => (
-                            <tr key={m.id} style={{ background: i % 2 === 0 ? '#fff' : '#f8fafc' }}>
+                          {(activeProjectInstance.materials || []).length === 0 && (
+                            <tr><td colSpan="7" style={{ ...ERP_TD, textAlign: 'center', color: '#94a3b8' }}>No hardware logs stored for this project space.</td></tr>
+                          )}
+                          {(activeProjectInstance.materials || []).map((m, idx) => (
+                            <tr key={m.id} style={{ background: idx % 2 === 0 ? '#fff' : '#f8fafc' }}>
                               <td style={{ ...ERP_TD, fontWeight: '700' }}>{m.name}</td>
-                              <td style={ERP_TD}><span style={{ fontSize: '11px', background: '#e0e7ff', padding: '2px 6px' }}>{m.category}</span></td>
-                              <td style={{ ...ERP_TD, textAlign: 'right' }}>{m.quantity} {m.unit}</td>
-                              <td style={{ ...ERP_TD, textAlign: 'right' }}>{m.totalQty || m.quantity} {m.unit}</td>
-                              <td style={{ ...ERP_TD, textAlign: 'right' }}>${m.unitCost} / {m.unit}</td>
-                              <td style={{ ...ERP_TD, textAlign: 'right', fontWeight: '700', color: '#7c3aed' }}>${(m.quantity * m.unitCost).toLocaleString()}</td>
-                              <td style={ERP_TD}>{renderBadge(m.condition)}</td>
+                              <td style={ERP_TD}><span style={{ fontSize: '11px', background: '#f1f5f9', padding: '2px 6px' }}>{m.category}</span></td>
+                              <td style={{ ...ERP_TD, textAlign: 'right', fontWeight: '600' }}>{m.quantity} / {m.totalQty || m.quantity} <span style={{ fontSize: '11px', color: '#64748b' }}>{m.unit}</span></td>
+                              <td style={ERP_TD}>{m.supplier}</td>
+                              <td style={{ ...ERP_TD, textAlign: 'right', color: '#4b5563' }}>${parseFloat(m.unitCost).toLocaleString()}</td>
+                              <td style={{ ...ERP_TD, textAlign: 'right', fontWeight: '800', color: '#059669' }}>${(m.quantity * m.unitCost).toLocaleString()}</td>
                               <td style={{ ...ERP_TD, textAlign: 'center' }}>
                                 <button onClick={() => deleteMaterial(m.id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><Trash2 size={14} /></button>
                               </td>
@@ -1210,17 +1306,23 @@ ${contractorSummary}
                   </div>
                 )}
 
-                {/* ==================== VIEW 8: COMPREHENSIVE QUANT AI FINANCIAL ADVISOR ==================== */}
+                {/* ==================== VIEW 8: CORE AI QUANT COGNITIVE ENGINE ==================== */}
                 {activeTab === 'ai' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', height: '520px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
-                    <div style={{ padding: '16px 20px', background: '#0f172a', color: '#fff', borderBottom: '2px solid #f59e0b' }}>
-                      <div style={{ fontWeight: '800', fontSize: '15px' }}>🏗️ Procore-AI Financial Compliance Deep Interface</div>
-                      <span style={{ fontSize: '11px', color: '#94a3b8' }}>Context: BOQ · Payment History · Retention Pools · EAC · Change Orders · Contractor Status</span>
+                  <div style={{ background: '#ffffff', borderRadius: '8px', border: '1px solid #cbd5e1', overflow: 'hidden', display: 'flex', flexDirection: 'column', height: '560px' }}>
+                    <div style={{ background: '#0f172a', padding: '16px 20px', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{ width: '10px', height: '10px', background: '#10b981', borderRadius: '50%', animate: 'pulse 2s infinite' }} />
+                        <div>
+                          <div style={{ fontSize: '14px', fontWeight: '800', letterSpacing: '0.3px' }}>Cognitive Core Quant Engine v4.6</div>
+                          <div style={{ fontSize: '11px', color: '#94a3b8' }}>Context vectors synchronized perfectly with Live Financial Arrays</div>
+                        </div>
+                      </div>
                     </div>
-                    <div style={{ flex: 1, padding: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', background: '#f8fafc' }}>
-                      {messages.map((msg, index) => (
-                        <div key={index} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
-                          <div style={{ maxWidth: '75%', padding: '12px 16px', borderRadius: '8px', fontSize: '13px', lineHeight: '1.5', background: msg.role === 'user' ? '#f59e0b' : '#ffffff', color: msg.role === 'user' ? '#fff' : '#334155', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', border: msg.role === 'user' ? 'none' : '1px solid #e2e8f0' }}>
+
+                    <div style={{ flex: 1, padding: '20px', overflowY: 'auto', background: '#f8fafc', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                      {messages.map((msg, i) => (
+                        <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                          <div style={{ maxWidth: '75%', padding: '12px 16px', borderRadius: '10px', fontSize: '13px', lineHeight: '1.5', background: msg.role === 'user' ? '#f59e0b' : '#ffffff', color: msg.role === 'user' ? '#fff' : '#334155', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', border: msg.role === 'user' ? 'none' : '1px solid #e2e8f0' }}>
                             {msg.content}
                           </div>
                         </div>
@@ -1228,6 +1330,7 @@ ${contractorSummary}
                       {loading && <div style={{ fontSize: '12px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px' }}>🤔 Evaluating Work Breakdown Structure variance bounds...</div>}
                       <div ref={messagesEndRef} />
                     </div>
+
                     <div style={{ padding: '12px', borderTop: '1px solid #e2e8f0', display: 'flex', gap: '8px', background: '#fff' }}>
                       <input value={input} onChange={e => setInput(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleSendAIRequest()} placeholder="Ask: how much retention am I holding? Which contractors are underpaid vs BOQ?" style={inputStyle} disabled={loading} />
                       <button onClick={handleSendAIRequest} disabled={loading || !input.trim()} style={flexBtn(loading || !input.trim() ? '#94a3b8' : '#0f172a')}>
@@ -1236,7 +1339,6 @@ ${contractorSummary}
                     </div>
                   </div>
                 )}
-
               </>
             )}
           </div>
@@ -1247,5 +1349,3 @@ ${contractorSummary}
 };
 
 export default ConstructionFinanceApp;
-ENDOFFILE
-echo "Done"
