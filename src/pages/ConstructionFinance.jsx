@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+cat > /mnt/user-data/outputs/ConstructionFinanceApp.jsx << 'ENDOFFILE'
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Download, Trash2, Plus, Send, FileText, DollarSign, Home, Users, 
   Package, Map, MessageCircle, Tag, X, Edit2, Check, TrendingUp, 
   AlertTriangle, Layers, Briefcase, Clock, ArrowUpRight, ArrowDownLeft, Shield 
 } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 const DEFAULT_COST_CODES = [
   { code: '01-000', name: 'General Requirements / Project Management' },
@@ -27,6 +29,16 @@ const PRESET_CONTRACTORS = [
   'Nile Infrastructure',
 ];
 
+const PRESET_SUPPLIERS = [
+  'BuildCo Supply',
+  'Steel Ltd',
+  'Gulf Materials',
+  'AlSafwa Trading',
+  'Delta Supplies',
+];
+
+const PAYMENT_METHODS = ['Bank Transfer', 'Cheque', 'Cash', 'Letter of Credit'];
+
 const CONTRACTOR_SCOPES = [
   'Foundation Work',
   'Structural Works',
@@ -35,6 +47,39 @@ const CONTRACTOR_SCOPES = [
   'Finishing Works',
   'Earthworks & Grading',
   'Steel Fabrication',
+];
+
+const INITIAL_SITES = [
+  {
+    id: 1,
+    name: 'Downtown Office Complex',
+    location: 'Downtown Core',
+    status: 'In Progress',
+    startDate: '2024-01-15',
+    budget: 750000,
+    projectedRevenue: 880000,
+    materials: [
+      { id: 'm1', name: 'Ultra-High Performance Concrete', category: '03-000 Concrete & Masonry', quantity: 250, unit: 'm³', unitCost: 150, totalQty: 300, supplier: 'BuildCo Supply', deliveryDate: '2024-02-01', condition: 'Good', notes: 'Ready-mix batch' },
+      { id: 'm2', name: 'Structural Grade Steel Rebar', category: '05-000 Steel & Structural Metal', quantity: 50, unit: 'ton', unitCost: 800, totalQty: 50, supplier: 'Steel Ltd', deliveryDate: '2024-02-05', condition: 'Good', notes: 'Grade 60 TMT' },
+    ],
+    contractors: [
+      { id: 'c1', name: 'Al Bayan Contracting', scope: 'Foundation Work', costCode: '03-000 Concrete & Masonry', unit: 'm²', pricePerUnit: 400, quantity: 300, boqTotal: 120000, paid: 75000, retention: 10, startDate: '2024-01-20', endDate: '2024-04-20', status: 'In Progress', contact: '+966 50 000 0001', notes: 'Phase 1 substructure complete' },
+      { id: 'c2', name: 'Al Masa Engineering', scope: 'MEP Works', costCode: '22-000 Plumbing & Drainage', unit: 'Lump Sum', pricePerUnit: 45000, quantity: 1, boqTotal: 45000, paid: 15000, retention: 5, startDate: '2024-03-01', endDate: '2024-08-15', status: 'In Progress', contact: '+966 50 000 0002', notes: 'Rough-ins ongoing' }
+    ],
+    changeOrders: [
+      { id: 'co1', title: 'Subgrade Rock Excavation Overrun', type: 'Owner', costCode: '02-000 Earthworks & Site Clearance', amount: 35000, status: 'Approved', date: '2024-02-10', description: 'Encountered unexpected bedrock tier' },
+      { id: 'co2', title: 'Additional Reinforcement Flange', type: 'Subcontractor', contractId: 'c1', costCode: '05-000 Steel & Structural Metal', amount: 12000, status: 'Pending', date: '2024-03-02', description: 'Structural engineer adjustment request' }
+    ],
+    billings: [
+      { id: 'b1', type: 'Subcontractor Invoice', partner: 'Al Bayan Contracting', costCode: '03-000 Concrete & Masonry', amount: 40000, retentionWithheld: 4000, status: 'Approved', date: '2024-02-28' },
+      { id: 'b2', type: 'Owner Claim', partner: 'Municipality Asset Corp', costCode: '01-000 General Requirements / Project Management', amount: 110000, retentionWithheld: 11000, status: 'Paid', date: '2024-03-05' }
+    ],
+    payments: [
+      { id: 'p1', date: '2024-02-15', type: 'Contractor', reference: 'Al Bayan Contracting', amount: 45000, method: 'Bank Transfer', invoice: 'INV-001', status: 'Paid', notes: 'Phase 1 milestone' },
+      { id: 'p2', date: '2024-03-01', type: 'Material', reference: 'BuildCo Supply', amount: 37500, method: 'Bank Transfer', invoice: 'PO-001', status: 'Paid', notes: 'Concrete batch 1' },
+      { id: 'p3', date: '2024-03-10', type: 'Contractor', reference: 'Al Masa Engineering', amount: 15000, method: 'Cheque', invoice: 'INV-002', status: 'Paid', notes: 'MEP rough-in advance' },
+    ]
+  }
 ];
 
 const ConstructionFinanceApp = () => {
@@ -46,56 +91,36 @@ const ConstructionFinanceApp = () => {
 
   const [sites, setSites] = useState(() => {
     const saved = localStorage.getItem('constructionSitesERP');
-    return saved ? JSON.parse(saved) : [
-      {
-        id: 1,
-        name: 'Downtown Office Complex',
-        location: 'Downtown Core',
-        status: 'In Progress',
-        startDate: '2024-01-15',
-        budget: 750000,
-        projectedRevenue: 880000, // Client Prime Contract Value
-        materials: [
-          { id: 'm1', name: 'Ultra-High Performance Concrete', category: '03-000 Concrete & Masonry', quantity: 250, unit: 'm³', unitCost: 150, totalQty: 300, supplier: 'BuildCo Supply', deliveryDate: '2024-02-01', condition: 'Good', notes: 'Ready-mix batch' },
-          { id: 'm2', name: 'Structural Grade Steel Rebar', category: '05-000 Steel & Structural Metal', quantity: 50, unit: 'ton', unitCost: 800, totalQty: 50, supplier: 'Steel Ltd', deliveryDate: '2024-02-05', condition: 'Good', notes: 'Grade 60 TMT' },
-        ],
-        contractors: [
-          { id: 'c1', name: 'Al Bayan Contracting', scope: 'Foundation Work', costCode: '03-000 Concrete & Masonry', unit: 'm²', pricePerUnit: 400, quantity: 300, boqTotal: 120000, paid: 75000, retention: 10, startDate: '2024-01-20', endDate: '2024-04-20', status: 'In Progress', contact: '+966 50 000 0001', notes: 'Phase 1 substructure complete' },
-          { id: 'c2', name: 'Al Masa Engineering', scope: 'MEP Works', costCode: '22-000 Plumbing & Drainage', unit: 'Lump Sum', pricePerUnit: 45000, quantity: 1, boqTotal: 45000, paid: 15000, retention: 5, startDate: '2024-03-01', endDate: '2024-08-15', status: 'In Progress', contact: '+966 50 000 0002', notes: 'Rough-ins ongoing' }
-        ],
-        changeOrders: [
-          { id: 'co1', title: 'Subgrade Rock Excavation Overrun', type: 'Owner', costCode: '02-000 Earthworks & Site Clearance', amount: 35000, status: 'Approved', date: '2024-02-10', description: 'Encountered unexpected bedrock tier' },
-          { id: 'co2', title: 'Additional Reinforcement Flange', type: 'Subcontractor', contractId: 'c1', costCode: '05-000 Steel & Structural Metal', amount: 12000, status: 'Pending', date: '2024-03-02', description: 'Structural engineer adjustment request' }
-        ],
-        billings: [
-          { id: 'b1', type: 'Subcontractor Invoice', partner: 'Al Bayan Contracting', costCode: '03-000 Concrete & Masonry', amount: 40000, retentionWithheld: 4000, status: 'Approved', date: '2024-02-28' },
-          { id: 'b2', type: 'Owner Claim', partner: 'Municipality Asset Corp', costCode: '01-000 General Requirements / Project Management', amount: 110000, retentionWithheld: 11000, status: 'Paid', date: '2024-03-05' }
-        ]
-      }
-    ];
+    if (saved) {
+      // Migrate old data: add payments array if missing
+      const parsed = JSON.parse(saved);
+      return parsed.map(s => ({ ...s, payments: s.payments || [] }));
+    }
+    return INITIAL_SITES;
   });
 
   const [currentSiteId, setCurrentSiteId] = useState(sites[0]?.id || null);
   const [activeTab, setActiveTab] = useState('overview');
 
-  // AI Assistant Communication State
+  // AI Assistant
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: 'System Initialized. Procore & Sage-compliant data pipelines active. I can analyze your Cost Codes, dynamic Earned Value indices, Estimate at Completion (EAC), Change Order exposure risk, or contract retention strategies.' }
+    { role: 'assistant', content: 'System Initialized. I now have full context: BOQ data, payment history, retention pools, and EAC vectors. Ask me about cash flow, retention held, contractor payment status, or any financial exposure.' }
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef(null);
 
-  // Structural Entry Forms States
+  // Entry Form States
   const [newSite, setNewSite] = useState({ name: '', location: '', budget: '', projectedRevenue: '', startDate: '' });
   const [newMaterial, setNewMaterial] = useState({ name: '', category: '', quantity: '', unit: '', unitCost: '', totalQty: '', supplier: '', deliveryDate: '', condition: 'Good', notes: '' });
   const [newContractor, setNewContractor] = useState({ name: '', scope: '', costCode: '', unit: '', pricePerUnit: '', quantity: '', paid: '', retention: '10', startDate: '', endDate: '', status: 'Pending', contact: '', notes: '' });
   const [newChangeOrder, setNewChangeOrder] = useState({ title: '', type: 'Owner', contractId: '', costCode: '', amount: '', status: 'Pending', date: '', description: '' });
   const [newBilling, setNewBilling] = useState({ type: 'Subcontractor Invoice', partner: '', costCode: '', amount: '', retentionWithheld: '', status: 'Pending', date: '' });
+  const [newPayment, setNewPayment] = useState({ date: '', type: 'Contractor', reference: '', amount: '', method: 'Bank Transfer', invoice: '', status: 'Pending', notes: '' });
   const [newCodeInput, setNewCodeInput] = useState({ code: '', name: '' });
 
   const [materialCategoryFilter, setMaterialCategoryFilter] = useState('All');
-  const [contractorNameMode, setContractorNameMode] = useState('preset'); 
+  const [contractorNameMode, setContractorNameMode] = useState('preset');
   const [customContractorName, setCustomContractorName] = useState('');
 
   // Auto Persistence
@@ -111,13 +136,13 @@ const ConstructionFinanceApp = () => {
       origBudget: 0, approvedOwnerCO: 0, pendingOwnerCO: 0, revisedBudget: 0,
       committed: 0, uncommitted: 0, actualCost: 0, etc: 0, eac: 0, variance: 0,
       pctUtilized: '0.0', approvedSubCO: 0, subPaid: 0, subRetention: 0, balanceDue: 0,
-      grossProfit: 0, profitMarginPct: '0.0', revenueRealized: 0, ownerRetentionHeld: 0
+      grossProfit: 0, profitMarginPct: '0.0', revenueRealized: 0, ownerRetentionHeld: 0,
+      cashPaidOut: 0, subBOQTotal: 0, contractorCompletionRate: 0
     };
 
     const origBudget = site.budget || 0;
-    const baseRevenue = site.projectedRevenue || (origBudget * 1.15); // Fallback markup
+    const baseRevenue = site.projectedRevenue || (origBudget * 1.15);
 
-    // Parse Change Orders
     const cos = site.changeOrders || [];
     const approvedOwnerCO = cos.filter(c => c.type === 'Owner' && c.status === 'Approved').reduce((s, c) => s + parseFloat(c.amount || 0), 0);
     const pendingOwnerCO = cos.filter(c => c.type === 'Owner' && c.status === 'Pending').reduce((s, c) => s + parseFloat(c.amount || 0), 0);
@@ -127,29 +152,24 @@ const ConstructionFinanceApp = () => {
     const revisedBudget = origBudget + approvedOwnerCO;
     const revisedRevenue = baseRevenue + approvedOwnerCO;
 
-    // Materials Calculations
     const matActualCosts = site.materials?.reduce((s, m) => s + (parseFloat(m.quantity || 0) * parseFloat(m.unitCost || 0)), 0) || 0;
     const matCommittedCosts = site.materials?.reduce((s, m) => s + (parseFloat(m.totalQty || m.quantity || 0) * parseFloat(m.unitCost || 0)), 0) || 0;
 
-    // Subcontractor Commitments
-    const subBaseCommitted = site.contractors?.reduce((s, c) => s + parseFloat(c.boqTotal || 0), 0) || 0;
-    const totalCommitted = subBaseCommitted + matCommittedCosts + approvedSubCO;
-    
+    const subBOQTotal = site.contractors?.reduce((s, c) => s + parseFloat(c.boqTotal || 0), 0) || 0;
+    const totalCommitted = subBOQTotal + matCommittedCosts + approvedSubCO;
+
     const subPaid = site.contractors?.reduce((s, c) => s + parseFloat(c.paid || 0), 0) || 0;
     const subRetention = site.contractors?.reduce((s, c) => s + ((parseFloat(c.boqTotal || 0) * parseFloat(c.retention || 0)) / 100), 0) || 0;
 
-    // Actual Job-To-Date (JTD) Cost
     const actualCost = matActualCosts + subPaid;
 
-    // Financial Forecasts (EAC / ETC)
     const uncommittedBudget = Math.max(0, revisedBudget - totalCommitted);
-    const etc = (totalCommitted - subPaid) + uncommittedBudget; 
+    const etc = (totalCommitted - subPaid) + uncommittedBudget;
     const eac = actualCost + etc;
-    
+
     const variance = revisedBudget - eac;
     const pctUtilized = revisedBudget ? ((actualCost / revisedBudget) * 100).toFixed(1) : '0.0';
 
-    // Inflow Ledger Parse
     const ownerBillings = site.billings?.filter(b => b.type === 'Owner Claim' && b.status === 'Paid') || [];
     const revenueRealized = ownerBillings.reduce((s, b) => s + parseFloat(b.amount || 0), 0);
     const ownerRetentionHeld = ownerBillings.reduce((s, b) => s + parseFloat(b.retentionWithheld || 0), 0);
@@ -157,23 +177,34 @@ const ConstructionFinanceApp = () => {
     const projectedGrossProfit = revisedRevenue - eac;
     const profitMarginPct = revisedRevenue ? ((projectedGrossProfit / revisedRevenue) * 100).toFixed(1) : '0.0';
 
+    // Payment ledger metrics
+    const payments = site.payments || [];
+    const cashPaidOut = payments.filter(p => p.status === 'Paid').reduce((s, p) => s + parseFloat(p.amount || 0), 0);
+
+    // Contractor completion rate
+    const completedContractors = (site.contractors || []).filter(c => c.status === 'Completed').length;
+    const contractorCompletionRate = site.contractors?.length
+      ? Math.round((completedContractors / site.contractors.length) * 100)
+      : 0;
+
     return {
       origBudget, approvedOwnerCO, pendingOwnerCO, revisedBudget,
       committed: totalCommitted, uncommitted: uncommittedBudget, actualCost,
       etc, eac, variance, pctUtilized, approvedSubCO, pendingSubCO,
       subPaid, subRetention, balanceDue: Math.max(0, totalCommitted - subPaid),
-      revisedRevenue, projectedGrossProfit, profitMarginPct, revenueRealized, ownerRetentionHeld
+      revisedRevenue, projectedGrossProfit, profitMarginPct, revenueRealized, ownerRetentionHeld,
+      cashPaidOut, subBOQTotal, contractorCompletionRate
     };
   };
 
   const calcGlobalRollup = () => {
     let globalBudget = 0, globalSpent = 0, globalRevenue = 0, globalEAC = 0;
     sites.forEach(s => {
-      const metrics = calcDetailedMetrics(s);
-      globalBudget += metrics.revisedBudget;
-      globalSpent += metrics.actualCost;
-      globalRevenue += metrics.revisedRevenue;
-      globalEAC += metrics.eac;
+      const m = calcDetailedMetrics(s);
+      globalBudget += m.revisedBudget;
+      globalSpent += m.actualCost;
+      globalRevenue += m.revisedRevenue;
+      globalEAC += m.eac;
     });
     return {
       globalBudget, globalSpent, globalRevenue, globalEAC,
@@ -182,7 +213,33 @@ const ConstructionFinanceApp = () => {
     };
   };
 
-  // ==================== STATE MUTATIONS / ACTIONS ====================
+  // ==================== PAYMENT CHART HELPERS ====================
+  const getMonthlyPaymentData = (site) => {
+    const payments = (site?.payments || []).filter(p => p.status === 'Paid');
+    const byMonth = {};
+    payments.forEach(p => {
+      const m = p.date ? p.date.substring(0, 7) : 'Unknown';
+      if (!byMonth[m]) byMonth[m] = { month: m, Contractor: 0, Material: 0, Other: 0 };
+      byMonth[m][p.type] = (byMonth[m][p.type] || 0) + parseFloat(p.amount || 0);
+    });
+    return Object.values(byMonth).sort((a, b) => a.month.localeCompare(b.month));
+  };
+
+  const getContractorPaymentStatus = (site) => {
+    return (site?.contractors || []).map(c => {
+      const ret = parseFloat(c.boqTotal || 0) * parseFloat(c.retention || 0) / 100;
+      const paid = parseFloat(c.paid || 0);
+      const outstanding = Math.max(0, parseFloat(c.boqTotal || 0) - paid);
+      return {
+        name: c.name.split(' ').slice(0, 2).join(' '),
+        paid,
+        retention: ret,
+        outstanding
+      };
+    });
+  };
+
+  // ==================== STATE MUTATIONS ====================
   const addSite = () => {
     if (!newSite.name || !newSite.budget) return;
     const s = {
@@ -193,7 +250,7 @@ const ConstructionFinanceApp = () => {
       startDate: newSite.startDate || new Date().toISOString().split('T')[0],
       budget: parseFloat(newSite.budget),
       projectedRevenue: parseFloat(newSite.projectedRevenue) || parseFloat(newSite.budget) * 1.15,
-      materials: [], contractors: [], changeOrders: [], billings: []
+      materials: [], contractors: [], changeOrders: [], billings: [], payments: []
     };
     setSites([...sites, s]);
     setCurrentSiteId(s.id);
@@ -228,7 +285,6 @@ const ConstructionFinanceApp = () => {
     const qty = parseFloat(newContractor.quantity) || 0;
     const ppu = parseFloat(newContractor.pricePerUnit) || 0;
     if (!finalName || !newContractor.scope || !qty || !ppu) return;
-
     setSites(sites.map(s => s.id !== currentSiteId ? s : {
       ...s,
       contractors: [...s.contractors, {
@@ -263,7 +319,7 @@ const ConstructionFinanceApp = () => {
   const addBilling = () => {
     if (!newBilling.partner || !newBilling.amount) return;
     const amt = parseFloat(newBilling.amount);
-    const calculatedRetention = newBilling.retentionWithheld ? parseFloat(newBilling.retentionWithheld) : (amt * 0.1); // default 10%
+    const calculatedRetention = newBilling.retentionWithheld ? parseFloat(newBilling.retentionWithheld) : (amt * 0.1);
     setSites(sites.map(s => s.id !== currentSiteId ? s : {
       ...s,
       billings: [...(s.billings || []), {
@@ -274,6 +330,50 @@ const ConstructionFinanceApp = () => {
       }]
     }));
     setNewBilling({ type: 'Subcontractor Invoice', partner: '', costCode: '', amount: '', retentionWithheld: '', status: 'Pending', date: '' });
+  };
+
+  const addPayment = () => {
+    if (!newPayment.reference || !newPayment.amount || !newPayment.date) return;
+    const payment = {
+      id: `pay-${Date.now()}`,
+      ...newPayment,
+      amount: parseFloat(newPayment.amount)
+    };
+    setSites(sites.map(s => {
+      if (s.id !== currentSiteId) return s;
+      let contractors = s.contractors;
+      // Auto-update contractor paid amount when a Contractor payment is marked Paid
+      if (payment.type === 'Contractor' && payment.status === 'Paid') {
+        contractors = contractors.map(c =>
+          c.name === payment.reference
+            ? { ...c, paid: Math.min(parseFloat(c.boqTotal || 0), parseFloat(c.paid || 0) + payment.amount) }
+            : c
+        );
+      }
+      return { ...s, payments: [...(s.payments || []), payment], contractors };
+    }));
+    setNewPayment({ date: '', type: 'Contractor', reference: '', amount: '', method: 'Bank Transfer', invoice: '', status: 'Pending', notes: '' });
+  };
+
+  const updatePaymentStatus = (payId, newStatus) => {
+    setSites(sites.map(s => {
+      if (s.id !== currentSiteId) return s;
+      const payment = (s.payments || []).find(p => p.id === payId);
+      let contractors = s.contractors;
+      // Auto-update BOQ paid when status changes to Paid
+      if (payment && payment.type === 'Contractor' && newStatus === 'Paid' && payment.status !== 'Paid') {
+        contractors = contractors.map(c =>
+          c.name === payment.reference
+            ? { ...c, paid: Math.min(parseFloat(c.boqTotal || 0), parseFloat(c.paid || 0) + parseFloat(payment.amount || 0)) }
+            : c
+        );
+      }
+      return {
+        ...s,
+        payments: s.payments.map(p => p.id === payId ? { ...p, status: newStatus } : p),
+        contractors
+      };
+    }));
   };
 
   const addCostCode = () => {
@@ -287,6 +387,7 @@ const ConstructionFinanceApp = () => {
   const deleteContractor = id => setSites(sites.map(s => s.id !== currentSiteId ? s : { ...s, contractors: s.contractors.filter(c => c.id !== id) }));
   const deleteChangeOrder = id => setSites(sites.map(s => s.id !== currentSiteId ? s : { ...s, changeOrders: s.changeOrders.filter(co => co.id !== id) }));
   const deleteBilling = id => setSites(sites.map(s => s.id !== currentSiteId ? s : { ...s, billings: s.billings.filter(b => b.id !== id) }));
+  const deletePayment = id => setSites(sites.map(s => s.id !== currentSiteId ? s : { ...s, payments: (s.payments || []).filter(p => p.id !== id) }));
 
   const updateChangeOrderStatus = (coId, newStatus) => {
     setSites(sites.map(s => s.id !== currentSiteId ? s : {
@@ -295,10 +396,20 @@ const ConstructionFinanceApp = () => {
     }));
   };
 
-  // ==================== RESTRUCTURING THE DATA FOR INTUATIVE AI INTERACTION ====================
+  // ==================== AI CONTEXT ====================
   const buildAISystemContext = () => {
     const activeProject = getCurrentSite();
     const data = calcDetailedMetrics(activeProject);
+    const payments = activeProject?.payments || [];
+    const paidPayments = payments.filter(p => p.status === 'Paid');
+    const cashPaidOut = paidPayments.reduce((s, p) => s + parseFloat(p.amount || 0), 0);
+    const contractorPayments = paidPayments.filter(p => p.type === 'Contractor').reduce((s, p) => s + parseFloat(p.amount || 0), 0);
+    const materialPayments = paidPayments.filter(p => p.type === 'Material').reduce((s, p) => s + parseFloat(p.amount || 0), 0);
+    const pendingPayments = payments.filter(p => p.status === 'Pending').reduce((s, p) => s + parseFloat(p.amount || 0), 0);
+    const contractorSummary = (activeProject?.contractors || [])
+      .map(c => `  - ${c.name}: BOQ $${parseFloat(c.boqTotal||0).toLocaleString()}, Paid $${parseFloat(c.paid||0).toLocaleString()}, Retention ${c.retention}%, Status: ${c.status}`)
+      .join('\n');
+
     return `
       You are an elite, Sage-300 & Procore compliant Construction Financial Principal Advisor. 
       Analyze the current live project space accurately. Provide strict numerical, highly quantitative risk feedback.
@@ -308,6 +419,7 @@ const ConstructionFinanceApp = () => {
       - Base Original Budget Target: $${data.origBudget.toLocaleString()}
       - Approved Owner Adjustments (OCO): $${data.approvedOwnerCO.toLocaleString()}
       - Revised Target Commitment Ceiling: $${data.revisedBudget.toLocaleString()}
+      - BOQ Total (Subcontracts): $${data.subBOQTotal.toLocaleString()}
       - Prime Contract Projected Revenue Pipeline: $${data.revisedRevenue.toLocaleString()}
       
       LIVE ACCRUAL INDEX METRICS:
@@ -315,54 +427,73 @@ const ConstructionFinanceApp = () => {
       - JTD Cash Burn (Actual Cost Incurred): $${data.actualCost.toLocaleString()}
       - Estimate to Complete (ETC Forecast Window): $${data.etc.toLocaleString()}
       - Dynamic Estimate at Completion (EAC Value): $${data.eac.toLocaleString()}
-      - Cost Variance Index (Overrun/Slippage Check): $${data.variance >= 0 ? 'SAVINGS' : 'OVERRUN'} of $${Math.abs(data.variance).toLocaleString()}
+      - Cost Variance Index: $${data.variance >= 0 ? 'SAVINGS' : 'OVERRUN'} of $${Math.abs(data.variance).toLocaleString()}
       - Current Estimated Profit Margin Vector: $${data.projectedGrossProfit.toLocaleString()} (${data.profitMarginPct}%)
+      
+      PAYMENT LEDGER SUMMARY:
+      - Total Cash Paid Out (from ledger): $${cashPaidOut.toLocaleString()}
+      - Contractor Payments Disbursed: $${contractorPayments.toLocaleString()}
+      - Material Payments Disbursed: $${materialPayments.toLocaleString()}
+      - Pending Payments (not yet paid): $${pendingPayments.toLocaleString()}
+      - Total Payment Records: ${payments.length}
+      
+      RETENTION POOLS:
+      - Sub-Retention Withheld: $${data.subRetention.toLocaleString()}
+      - Client-Held Retention: $${data.ownerRetentionHeld.toLocaleString()}
+      
+      CONTRACTOR STATUS:
+${contractorSummary}
+      - Contractor Completion Rate: ${data.contractorCompletionRate}%
       
       BREAKDOWN MATRICES:
       - Material Supplier Log Size: ${activeProject?.materials?.length || 0} entries.
       - Committed Contractor Base Count: ${activeProject?.contractors?.length || 0} entities.
-      - Liquid Retention Pool Cash Bound: Sub-Retention: $${data.subRetention.toLocaleString()} | Client-Held-Retention: $${data.ownerRetentionHeld.toLocaleString()}
     `;
   };
 
   const handleSendAIRequest = async () => {
     if (!input.trim()) return;
-    const currentPrompt = input; 
+    const currentPrompt = input;
     setInput('');
     setMessages(prev => [...prev, { role: 'user', content: currentPrompt }]);
     setLoading(true);
-
     try {
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-6', 
+          model: 'claude-sonnet-4-6',
           max_tokens: 700,
           system: buildAISystemContext(),
           messages: messages.filter(m => m.role !== 'system').concat([{ role: 'user', content: currentPrompt }])
         })
       });
       const resData = await response.json();
-      setMessages(p => [...p, { role: 'assistant', content: resData.content[0]?.text || 'System parsing error. Ensure downstream keys match.' }]);
+      setMessages(p => [...p, { role: 'assistant', content: resData.content[0]?.text || 'System parsing error.' }]);
     } catch (err) {
-      setMessages(p => [...p, { role: 'assistant', content: `Local Integration Pipeline Interruption: ${err.message}` }]);
+      setMessages(p => [...p, { role: 'assistant', content: `Pipeline Interruption: ${err.message}` }]);
     } finally { setLoading(false); }
   };
 
-  // ==================== EXPORT UTILITIES ====================
+  // ==================== EXPORT ====================
   const executeCSVDownload = () => {
     const site = getCurrentSite();
     const metrics = calcDetailedMetrics(site);
     let raw = `COMPREHENSIVE FINANCIAL ERP REPORT - ${site.name.toUpperCase()}\n`;
-    raw += `METRIC,VALUE\nOriginal Budget,$${metrics.origBudget}\nApproved Adjustments,$${metrics.approvedOwnerCO}\nRevised Cost Ceiling,$${metrics.revisedBudget}\nJob Actual Cost To Date,$${metrics.actualCost}\nEstimate At Completion (EAC),$${metrics.eac}\nForecasted Cost Variance,$${metrics.variance}\nProjected Profit Margin,%${metrics.profitMarginPct}\n\n`;
-    
-    raw += `COST BREAKDOWN BY DIVISIONS (WBS)\nCode Name,Original Allocation,Forecasted EAC,Cost Slippage\n`;
+    raw += `METRIC,VALUE\nOriginal Budget,$${metrics.origBudget}\nApproved Adjustments,$${metrics.approvedOwnerCO}\nRevised Cost Ceiling,$${metrics.revisedBudget}\nBOQ Total,$${metrics.subBOQTotal}\nCash Paid Out (Ledger),$${metrics.cashPaidOut}\nJob Actual Cost To Date,$${metrics.actualCost}\nEstimate At Completion (EAC),$${metrics.eac}\nForecasted Cost Variance,$${metrics.variance}\nRetention Held (Sub),$${metrics.subRetention}\nProjected Profit Margin,%${metrics.profitMarginPct}\n\n`;
+
+    raw += `PAYMENTS LEDGER\nDate,Type,Reference,Amount,Method,Invoice,Status\n`;
+    (site.payments || []).forEach(p => {
+      raw += `${p.date},${p.type},"${p.reference}",$${p.amount},${p.method},${p.invoice || ''},${p.status}\n`;
+    });
+
+    raw += `\nCOST BREAKDOWN BY DIVISIONS (WBS)\nCode Name,Committed,JTD Actual\n`;
     costCodes.forEach(cc => {
       const codeLabel = `${cc.code} ${cc.name}`;
       const codeMatCost = site.materials.filter(m => m.category === codeLabel).reduce((s, m) => s + (m.quantity * m.unitCost), 0);
-      const codeSubCost = site.contractors.filter(c => c.costCode === codeLabel).reduce((s, c) => s + (c.boqTotal), 0);
-      raw += `"${codeLabel}",$${(site.budget / costCodes.length).toFixed(0)},$${codeMatCost + codeSubCost},$--\n`;
+      const codeSubCost = site.contractors.filter(c => c.costCode === codeLabel).reduce((s, c) => s + c.boqTotal, 0);
+      const codeActual = site.contractors.filter(c => c.costCode === codeLabel).reduce((s, c) => s + c.paid, 0) + codeMatCost;
+      raw += `"${codeLabel}",$${codeMatCost + codeSubCost},$${codeActual}\n`;
     });
 
     const blob = new Blob([raw], { type: 'text/csv' });
@@ -372,7 +503,7 @@ const ConstructionFinanceApp = () => {
     link.click();
   };
 
-  // ==================== INTERFACE ELEMENTS & INLINE STYLES ====================
+  // ==================== RENDER HELPERS ====================
   const activeProjectInstance = getCurrentSite();
   const metrics = calcDetailedMetrics(activeProjectInstance);
   const rollup = calcGlobalRollup();
@@ -383,21 +514,32 @@ const ConstructionFinanceApp = () => {
   const flexBtn = (bgColor, textColor = '#fff') => ({ padding: '10px 16px', background: bgColor, color: textColor, border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '8px', transition: 'opacity 0.2s' });
 
   const renderBadge = (status) => {
-    const scheme = { Approved: ['#d1fae5', '#065f46'], Completed: ['#d1fae5', '#065f46'], 'In Progress': ['#fef3c7', '#92400e'], Pending: ['#fee2e2', '#991b1b'] };
+    const scheme = { Approved: ['#d1fae5', '#065f46'], Completed: ['#d1fae5', '#065f46'], Paid: ['#d1fae5', '#065f46'], 'In Progress': ['#fef3c7', '#92400e'], Pending: ['#fee2e2', '#991b1b'] };
     const [bg, fg] = scheme[status] || ['#f3f4f6', '#374151'];
     return <span style={{ background: bg, color: fg, padding: '4px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: '700', whiteSpace: 'nowrap' }}>{status}</span>;
   };
 
+  const getPaymentReferenceOptions = () => {
+    const contractors = (activeProjectInstance?.contractors || []).map(c => c.name);
+    const suppliers = [...new Set([...PRESET_SUPPLIERS, ...(activeProjectInstance?.materials || []).map(m => m.supplier).filter(Boolean)])];
+    return { contractors: [...new Set(contractors)], suppliers };
+  };
+
+  const refOpts = getPaymentReferenceOptions();
+  const monthlyPaymentData = getMonthlyPaymentData(activeProjectInstance);
+  const contractorPayStatus = getContractorPaymentStatus(activeProjectInstance);
+  const recentPayments = (activeProjectInstance?.payments || []).slice().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 3);
+
   return (
     <div style={{ minHeight: '100vh', background: '#f4f5f7', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-      
+
       {/* GLOBAL ENTERPRISE TOP BANNER */}
       <div style={{ background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)', color: '#fff', padding: '24px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '4px solid #f59e0b' }}>
         <div>
           <h1 style={{ margin: 0, fontSize: '24px', fontWeight: '800', letterSpacing: '-0.5px', display: 'flex', alignItems: 'center', gap: '10px' }}>
             <Shield size={28} style={{ color: '#f59e0b' }} /> Digiations 360 Core ERP <span style={{ fontSize: '12px', background: '#334155', padding: '4px 8px', borderRadius: '4px', color: '#cbd5e1' }}>رقمنة الرقمية</span>
           </h1>
-          <p style={{ margin: '4px 0 0', opacity: 0.7, fontSize: '13px' }}>Enterprise Commercial Controls · WBS Cost Codes · Change Management · Cost-To-Complete Forecasting</p>
+          <p style={{ margin: '4px 0 0', opacity: 0.7, fontSize: '13px' }}>Enterprise Commercial Controls · WBS Cost Codes · Change Management · Payments · Cost-To-Complete Forecasting</p>
         </div>
         <div style={{ textAlign: 'right' }}>
           <span style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase' }}>Cross-Project Cash Outflow</span>
@@ -406,13 +548,12 @@ const ConstructionFinanceApp = () => {
       </div>
 
       <div style={{ display: 'flex', minHeight: 'calc(100vh - 88px)' }}>
-        
-        {/* LEFT NAV PANEL - SITES CONTROL WING */}
+
+        {/* LEFT NAV PANEL */}
         <div style={{ width: '280px', background: '#ffffff', borderRight: '1px solid #e2e8f0', padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <div style={{ fontSize: '11px', fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
             Active Cost Centers / Projects
           </div>
-
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto', flex: 1 }}>
             {sites.map(s => {
               const sMetrics = calcDetailedMetrics(s);
@@ -430,8 +571,6 @@ const ConstructionFinanceApp = () => {
               );
             })}
           </div>
-
-          {/* PROJECT ACQUISITION MODULE */}
           <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '8px', border: '1px dashed #cbd5e1' }}>
             <div style={{ fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '10px' }}>+ Initialize New Center</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -444,13 +583,14 @@ const ConstructionFinanceApp = () => {
           </div>
         </div>
 
-        {/* MAIN WORKSPACE - NAVIGATION & VIEWPORT PANELS */}
+        {/* MAIN WORKSPACE */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-          
-          {/* HORIZONTAL ERP NAVIGATION WINGS */}
+
+          {/* NAVIGATION TABS */}
           <div style={{ display: 'flex', background: '#ffffff', borderBottom: '1px solid #e2e8f0', overflowX: 'auto', padding: '0 16px' }}>
             {[
               { id: 'overview', label: '📊 Executive Analytics' },
+              { id: 'payments', label: '💳 Payments' },
               { id: 'wbs', label: '🗂️ WBS & Cost Codes' },
               { id: 'commitments', label: '👷 Commitments & BOQ' },
               { id: 'changeorders', label: '🔄 Change Control' },
@@ -467,7 +607,7 @@ const ConstructionFinanceApp = () => {
           <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
             {(!activeProjectInstance) ? <div style={{ color: '#64748b' }}>Initialize a project sequence to start tracking.</div> : (
               <>
-                
+
                 {/* ==================== VIEW 1: EXECUTIVE ANALYTICS ==================== */}
                 {activeTab === 'overview' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -476,23 +616,34 @@ const ConstructionFinanceApp = () => {
                         <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: '#0f172a' }}>{activeProjectInstance.name} — Command Center</h2>
                         <span style={{ fontSize: '13px', color: '#64748b' }}>Real-time valuation analytics derived from live contract data structures.</span>
                       </div>
-                      <button onClick={() => deleteSite(activeProjectInstance.id)} style={flexBtn('#ef4444')}><Trash2 size={16} /> Wreck Center</button>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button onClick={executeCSVDownload} style={flexBtn('#16a34a')}><Download size={15} /> Export CSV</button>
+                        <button onClick={() => deleteSite(activeProjectInstance.id)} style={flexBtn('#ef4444')}><Trash2 size={16} /> Wreck Center</button>
+                      </div>
                     </div>
 
-                    {/* TOP ERP INDUSTRIAL KPI CARDS GRID */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+                    {/* KPI CARDS — now includes Payments, BOQ, Retention, Completion */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
                       {[
-                        { label: 'Original Cost Baseline', value: `$${metrics.origBudget.toLocaleString()}`, color: '#475569' },
-                        { label: 'Revised Cost Ceiling', value: `$${metrics.revisedBudget.toLocaleString()}`, color: '#0f172a' },
-                        { label: 'Job-To-Date (JTD) Accrual', value: `$${metrics.actualCost.toLocaleString()}`, color: '#2563eb' },
+                        { label: 'BOQ Total', value: `$${metrics.subBOQTotal.toLocaleString()}`, color: '#0f172a' },
+                        { label: 'Cash Paid Out', value: `$${metrics.cashPaidOut.toLocaleString()}`, color: '#2563eb', desc: 'from payment ledger' },
+                        { label: 'Retention Held (Sub)', value: `$${metrics.subRetention.toLocaleString()}`, color: '#d97706' },
+                        { label: 'Outstanding Balance', value: `$${metrics.balanceDue.toLocaleString()}`, color: '#ef4444' },
+                        { label: 'Revised Cost Ceiling', value: `$${metrics.revisedBudget.toLocaleString()}`, color: '#475569' },
                         { label: 'Estimate At Completion (EAC)', value: `$${metrics.eac.toLocaleString()}`, color: '#7c3aed' },
-                        { 
-                          label: 'Cost Variance (CV)', 
-                          value: `$${metrics.variance.toLocaleString()}`, 
+                        {
+                          label: 'Cost Variance (CV)',
+                          value: `$${metrics.variance.toLocaleString()}`,
                           color: metrics.variance >= 0 ? '#16a34a' : '#dc2626',
                           desc: metrics.variance >= 0 ? 'Under target ceiling' : 'Accruing cost slippage'
                         },
                         { label: 'Projected Net Margin', value: `$${metrics.projectedGrossProfit.toLocaleString()} (${metrics.profitMarginPct}%)`, color: '#0891b2' },
+                        {
+                          label: 'Contractor Completion Rate',
+                          value: `${metrics.contractorCompletionRate}%`,
+                          color: metrics.contractorCompletionRate === 100 ? '#16a34a' : '#f59e0b',
+                          desc: `${(activeProjectInstance.contractors || []).filter(c => c.status === 'Completed').length} of ${(activeProjectInstance.contractors || []).length} completed`
+                        },
                       ].map((card, idx) => (
                         <div key={idx} style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', border: '1px solid #e2e8f0' }}>
                           <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', marginBottom: '8px' }}>{card.label}</div>
@@ -502,10 +653,10 @@ const ConstructionFinanceApp = () => {
                       ))}
                     </div>
 
-                    {/* LINEAR COST GRAPH SEGMENT */}
+                    {/* BUDGET UTILIZATION BAR */}
                     <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '13px', fontWeight: '700', color: '#334155' }}>
-                        <span>accrued JTD cost vs target ceiling ratio</span>
+                        <span>Accrued JTD Cost vs Target Ceiling Ratio</span>
                         <span>{metrics.pctUtilized}% Expended</span>
                       </div>
                       <div style={{ height: '12px', background: '#e2e8f0', borderRadius: '6px', overflow: 'hidden' }}>
@@ -513,18 +664,17 @@ const ConstructionFinanceApp = () => {
                       </div>
                     </div>
 
-                    {/* QUICK LOOK BALANCES SPLIT MATRIX */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                      {/* COMMITMENTS */}
                       <div style={{ background: '#fff', padding: '18px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                        <div style={{ fontWeight: '700', fontSize: '14px', color: '#0f172a', marginBottom: '12px', display: 'flex', justify: 'space-between' }}>
-                          <span>Committed Backlogs vs Uncommitted</span>
-                        </div>
+                        <div style={{ fontWeight: '700', fontSize: '14px', color: '#0f172a', marginBottom: '12px' }}>Committed vs Uncommitted</div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Absolute Binding Commitments:</span><span style={{ fontWeight: '700' }}>${metrics.committed.toLocaleString()}</span></div>
                           <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Uncommitted Fluid Reserves:</span><span style={{ fontWeight: '700', color: '#16a34a' }}>${metrics.uncommitted.toLocaleString()}</span></div>
                         </div>
                       </div>
 
+                      {/* RETENTION POOLS */}
                       <div style={{ background: '#fff', padding: '18px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
                         <div style={{ fontWeight: '700', fontSize: '14px', color: '#0f172a', marginBottom: '12px' }}>Retention Accounting Pools</div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
@@ -533,10 +683,196 @@ const ConstructionFinanceApp = () => {
                         </div>
                       </div>
                     </div>
+
+                    {/* RECENT PAYMENTS PREVIEW */}
+                    <div style={{ background: '#fff', padding: '18px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                        <div style={{ fontWeight: '700', fontSize: '14px', color: '#0f172a' }}>Recent Payments</div>
+                        <button onClick={() => setActiveTab('payments')} style={{ background: 'none', border: 'none', color: '#2563eb', fontSize: '12px', cursor: 'pointer', fontWeight: '600' }}>View All Payments →</button>
+                      </div>
+                      {recentPayments.length === 0 ? (
+                        <div style={{ color: '#94a3b8', fontSize: '13px' }}>No payments recorded yet. Go to the Payments tab to add one.</div>
+                      ) : recentPayments.map(p => (
+                        <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #f1f5f9', fontSize: '13px' }}>
+                          <div>
+                            <div style={{ fontWeight: '600', color: '#0f172a' }}>{p.reference}</div>
+                            <div style={{ fontSize: '11px', color: '#64748b' }}>{p.date} · {p.type} · {p.method}</div>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontWeight: '700', color: '#0f172a' }}>${parseFloat(p.amount).toLocaleString()}</span>
+                            {renderBadge(p.status)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
 
-                {/* ==================== VIEW 2: WBS & DIVISION COST CODES ==================== */}
+                {/* ==================== VIEW 2: PAYMENTS TAB ==================== */}
+                {activeTab === 'payments' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>Payment Ledger</h2>
+
+                    {/* ENTRY FORM */}
+                    <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                      <div style={{ fontWeight: '700', fontSize: '13px', color: '#2563eb' }}>+ Record New Payment</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px', alignItems: 'flex-end' }}>
+                        <div>
+                          <label style={{ fontSize: '11px', fontWeight: '700', color: '#4b5563' }}>Date</label>
+                          <input type="date" value={newPayment.date} onChange={e => setNewPayment({...newPayment, date: e.target.value})} style={{ ...inputStyle, marginTop: '4px' }} />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '11px', fontWeight: '700', color: '#4b5563' }}>Type</label>
+                          <select value={newPayment.type} onChange={e => setNewPayment({...newPayment, type: e.target.value, reference: ''})} style={{ ...inputStyle, marginTop: '4px' }}>
+                            <option value="Contractor">Contractor</option>
+                            <option value="Material">Material</option>
+                            <option value="Other">Other</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '11px', fontWeight: '700', color: '#4b5563' }}>Reference</label>
+                          {newPayment.type === 'Contractor' ? (
+                            <select value={newPayment.reference} onChange={e => setNewPayment({...newPayment, reference: e.target.value})} style={{ ...inputStyle, marginTop: '4px' }}>
+                              <option value="">-- Select Contractor --</option>
+                              {refOpts.contractors.map(n => <option key={n} value={n}>{n}</option>)}
+                            </select>
+                          ) : newPayment.type === 'Material' ? (
+                            <select value={newPayment.reference} onChange={e => setNewPayment({...newPayment, reference: e.target.value})} style={{ ...inputStyle, marginTop: '4px' }}>
+                              <option value="">-- Select Supplier --</option>
+                              {refOpts.suppliers.map(n => <option key={n} value={n}>{n}</option>)}
+                            </select>
+                          ) : (
+                            <input placeholder="Reference name" value={newPayment.reference} onChange={e => setNewPayment({...newPayment, reference: e.target.value})} style={{ ...inputStyle, marginTop: '4px' }} />
+                          )}
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '11px', fontWeight: '700', color: '#4b5563' }}>Amount ($)</label>
+                          <input type="number" placeholder="0.00" value={newPayment.amount} onChange={e => setNewPayment({...newPayment, amount: e.target.value})} style={{ ...inputStyle, marginTop: '4px' }} />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '11px', fontWeight: '700', color: '#4b5563' }}>Method</label>
+                          <select value={newPayment.method} onChange={e => setNewPayment({...newPayment, method: e.target.value})} style={{ ...inputStyle, marginTop: '4px' }}>
+                            {PAYMENT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '11px', fontWeight: '700', color: '#4b5563' }}>Invoice #</label>
+                          <input placeholder="INV-XXX" value={newPayment.invoice} onChange={e => setNewPayment({...newPayment, invoice: e.target.value})} style={{ ...inputStyle, marginTop: '4px' }} />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '11px', fontWeight: '700', color: '#4b5563' }}>Status</label>
+                          <select value={newPayment.status} onChange={e => setNewPayment({...newPayment, status: e.target.value})} style={{ ...inputStyle, marginTop: '4px' }}>
+                            <option value="Pending">Pending</option>
+                            <option value="Paid">Paid</option>
+                          </select>
+                        </div>
+                        <button onClick={addPayment} style={{ ...flexBtn('#2563eb'), marginTop: '18px' }}><Plus size={15} /> Record Payment</button>
+                      </div>
+                    </div>
+
+                    {/* MONTHLY PAYMENT FLOW CHART */}
+                    {monthlyPaymentData.length > 0 && (
+                      <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                        <div style={{ fontWeight: '700', fontSize: '14px', color: '#0f172a', marginBottom: '16px' }}>Monthly Payment Flow</div>
+                        <ResponsiveContainer width="100%" height={220}>
+                          <BarChart data={monthlyPaymentData} margin={{ top: 0, right: 16, left: 10, bottom: 0 }}>
+                            <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                            <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} />
+                            <Tooltip formatter={v => `$${parseFloat(v).toLocaleString()}`} />
+                            <Legend />
+                            <Bar dataKey="Contractor" fill="#2563eb" stackId="a" />
+                            <Bar dataKey="Material" fill="#7c3aed" stackId="a" />
+                            <Bar dataKey="Other" fill="#d97706" stackId="a" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+
+                    {/* CONTRACTOR PAYMENT STATUS CHART */}
+                    {contractorPayStatus.length > 0 && (
+                      <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                        <div style={{ fontWeight: '700', fontSize: '14px', color: '#0f172a', marginBottom: '16px' }}>Contractor Payment Status vs BOQ</div>
+                        <ResponsiveContainer width="100%" height={Math.max(180, contractorPayStatus.length * 55)}>
+                          <BarChart data={contractorPayStatus} layout="vertical" margin={{ top: 0, right: 16, left: 90, bottom: 0 }}>
+                            <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} />
+                            <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} />
+                            <Tooltip formatter={v => `$${parseFloat(v).toLocaleString()}`} />
+                            <Legend />
+                            <Bar dataKey="paid" name="Paid" fill="#16a34a" stackId="b" />
+                            <Bar dataKey="retention" name="Retention Held" fill="#d97706" stackId="b" />
+                            <Bar dataKey="outstanding" name="Outstanding" fill="#ef4444" stackId="b" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+
+                    {/* PAYMENT LEDGER TABLE */}
+                    <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead>
+                          <tr>
+                            <th style={ERP_TH}>Date</th>
+                            <th style={ERP_TH}>Type</th>
+                            <th style={ERP_TH}>Reference</th>
+                            <th style={{ ...ERP_TH, textAlign: 'right' }}>Amount</th>
+                            <th style={ERP_TH}>Method</th>
+                            <th style={ERP_TH}>Invoice</th>
+                            <th style={ERP_TH}>BOQ Link</th>
+                            <th style={ERP_TH}>Status</th>
+                            <th style={{ ...ERP_TH, textAlign: 'center' }}>Purge</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(activeProjectInstance.payments || []).length === 0 && (
+                            <tr><td colSpan="9" style={{ ...ERP_TD, textAlign: 'center', color: '#94a3b8' }}>No payments recorded. Add one above.</td></tr>
+                          )}
+                          {(activeProjectInstance.payments || []).map((p, i) => {
+                            const matchedContractor = p.type === 'Contractor'
+                              ? (activeProjectInstance.contractors || []).find(c => c.name === p.reference)
+                              : null;
+                            const boqPct = matchedContractor
+                              ? Math.round((parseFloat(p.amount) / parseFloat(matchedContractor.boqTotal)) * 100)
+                              : null;
+                            return (
+                              <tr key={p.id} style={{ background: i % 2 === 0 ? '#fff' : '#f8fafc' }}>
+                                <td style={ERP_TD}>{p.date}</td>
+                                <td style={ERP_TD}>
+                                  <span style={{ fontSize: '11px', background: p.type === 'Contractor' ? '#dbeafe' : p.type === 'Material' ? '#ede9fe' : '#fef3c7', color: p.type === 'Contractor' ? '#1e40af' : p.type === 'Material' ? '#5b21b6' : '#92400e', padding: '2px 8px', borderRadius: '10px', fontWeight: '700' }}>
+                                    {p.type}
+                                  </span>
+                                </td>
+                                <td style={{ ...ERP_TD, fontWeight: '600' }}>{p.reference}</td>
+                                <td style={{ ...ERP_TD, textAlign: 'right', fontWeight: '700' }}>${parseFloat(p.amount).toLocaleString()}</td>
+                                <td style={{ ...ERP_TD, color: '#64748b' }}>{p.method}</td>
+                                <td style={{ ...ERP_TD, fontSize: '12px', color: '#64748b' }}>{p.invoice || '—'}</td>
+                                <td style={ERP_TD}>
+                                  {boqPct !== null ? (
+                                    <span style={{ fontSize: '11px', background: '#f0fdf4', color: '#166534', padding: '2px 8px', borderRadius: '10px', fontWeight: '700' }}>{boqPct}% of BOQ</span>
+                                  ) : <span style={{ color: '#94a3b8', fontSize: '12px' }}>—</span>}
+                                </td>
+                                <td style={ERP_TD}>
+                                  <select
+                                    value={p.status}
+                                    onChange={e => updatePaymentStatus(p.id, e.target.value)}
+                                    style={{ ...inputStyle, padding: '4px 8px', fontSize: '12px', width: 'auto' }}
+                                  >
+                                    <option value="Pending">Pending</option>
+                                    <option value="Paid">Paid</option>
+                                  </select>
+                                </td>
+                                <td style={{ ...ERP_TD, textAlign: 'center' }}>
+                                  <button onClick={() => deletePayment(p.id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}><Trash2 size={14} /></button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* ==================== VIEW 3: WBS & DIVISION COST CODES ==================== */}
                 {activeTab === 'wbs' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -546,8 +882,6 @@ const ConstructionFinanceApp = () => {
                       </div>
                       <button onClick={executeCSVDownload} style={flexBtn('#16a34a')}><Download size={15} /> Export Master Sheet</button>
                     </div>
-
-                    {/* DIVISION INJECTOR */}
                     <div style={{ background: '#fff', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
                       <div style={{ flex: '0 0 120px' }}>
                         <label style={{ fontSize: '11px', fontWeight: '700', color: '#4b5563' }}>CSI Div Code</label>
@@ -559,7 +893,6 @@ const ConstructionFinanceApp = () => {
                       </div>
                       <button onClick={addCostCode} style={flexBtn('#0f172a')}><Plus size={15} /> Bind Code</button>
                     </div>
-
                     <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
@@ -574,14 +907,11 @@ const ConstructionFinanceApp = () => {
                         <tbody>
                           {costCodes.map((cc, idx) => {
                             const combinedLabel = `${cc.code} ${cc.name}`;
-                            // Accrual parsing
                             const matchMats = activeProjectInstance.materials?.filter(m => m.category === combinedLabel) || [];
                             const matchSubs = activeProjectInstance.contractors?.filter(c => c.costCode === combinedLabel) || [];
-                            
-                            const allocation = activeProjectInstance.budget / costCodes.length; // Theoretical even allocation split for mock display
+                            const allocation = activeProjectInstance.budget / costCodes.length;
                             const committedVal = matchSubs.reduce((s, c) => s + c.boqTotal, 0) + matchMats.reduce((s, m) => s + (m.totalQty * m.unitCost), 0);
                             const actualVal = matchSubs.reduce((s, c) => s + c.paid, 0) + matchMats.reduce((s, m) => s + (m.quantity * m.unitCost), 0);
-
                             return (
                               <tr key={idx} style={{ background: idx % 2 === 0 ? '#fff' : '#f8fafc' }}>
                                 <td style={{ ...ERP_TD, fontWeight: '700' }}>{cc.code} — {cc.name}</td>
@@ -600,15 +930,12 @@ const ConstructionFinanceApp = () => {
                   </div>
                 )}
 
-                {/* ==================== VIEW 3: COMMITMENTS & CONTRACTOR BOQ ==================== */}
+                {/* ==================== VIEW 4: COMMITMENTS & CONTRACTOR BOQ ==================== */}
                 {activeTab === 'commitments' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                     <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>Subcontract Commitment Control & BOQs</h2>
-
-                    {/* ENTRY INTERFACE */}
                     <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                       <div style={{ fontWeight: '700', fontSize: '13px', color: '#2563eb' }}>+ Bind Binding Subcontract Framework</div>
-                      
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                         <div>
                           <label style={{ fontSize: '11px', color: '#4b5563' }}>Contractor Identity Selection</label>
@@ -624,7 +951,6 @@ const ConstructionFinanceApp = () => {
                             <button onClick={() => setContractorNameMode(contractorNameMode === 'preset' ? 'new' : 'preset')} style={{ ...flexBtn('#64748b'), padding: '10px' }}>Swap</button>
                           </div>
                         </div>
-
                         <div>
                           <label style={{ fontSize: '11px', color: '#4b5563' }}>Cost Code Alignment</label>
                           <select value={newContractor.costCode} onChange={e => setNewContractor({...newContractor, costCode: e.target.value})} style={{ ...inputStyle, marginTop: '4px' }}>
@@ -633,7 +959,6 @@ const ConstructionFinanceApp = () => {
                           </select>
                         </div>
                       </div>
-
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px' }}>
                         <input placeholder="Scope / Deliverable" value={newContractor.scope} onChange={e => setNewContractor({...newContractor, scope: e.target.value})} style={inputStyle} />
                         <input placeholder="Unit (e.g. m², LS)" value={newContractor.unit} onChange={e => setNewContractor({...newContractor, unit: e.target.value})} style={inputStyle} />
@@ -641,14 +966,16 @@ const ConstructionFinanceApp = () => {
                         <input placeholder="Quantity Matrix" type="number" value={newContractor.quantity} onChange={e => setNewContractor({...newContractor, quantity: e.target.value})} style={inputStyle} />
                         <input placeholder="Retention Value (%)" type="number" value={newContractor.retention} onChange={e => setNewContractor({...newContractor, retention: e.target.value})} style={inputStyle} />
                         <input placeholder="Accrued Paid To Date" type="number" value={newContractor.paid} onChange={e => setNewContractor({...newContractor, paid: e.target.value})} style={inputStyle} />
+                        <select value={newContractor.status} onChange={e => setNewContractor({...newContractor, status: e.target.value})} style={inputStyle}>
+                          <option value="Pending">Pending</option>
+                          <option value="In Progress">In Progress</option>
+                          <option value="Completed">Completed</option>
+                        </select>
                       </div>
-
                       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                         <button onClick={addContractor} style={flexBtn('#2563eb')}><Plus size={15} /> Commit Subcontract to Ledger</button>
                       </div>
                     </div>
-
-                    {/* DATA DISPLAY GRID */}
                     <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', overflowX: 'auto' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
@@ -691,11 +1018,10 @@ const ConstructionFinanceApp = () => {
                   </div>
                 )}
 
-                {/* ==================== VIEW 4: CHANGE MANAGEMENT & CONTROL ==================== */}
+                {/* ==================== VIEW 5: CHANGE MANAGEMENT & CONTROL ==================== */}
                 {activeTab === 'changeorders' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                     <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>Change Order Log & Exposure Tracking</h2>
-
                     <div style={{ background: '#fff', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       <div style={{ fontWeight: '700', fontSize: '13px', color: '#7c3aed' }}>+ Issue Proactive Change Item Request (PCO)</div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px', alignItems: 'flex-end' }}>
@@ -712,10 +1038,10 @@ const ConstructionFinanceApp = () => {
                           {costCodes.map(cc => <option key={cc.code} value={`${cc.code} ${cc.name}`}>{cc.code} {cc.name}</option>)}
                         </select>
                         <input placeholder="Financial Variance Vol ($)" type="number" value={newChangeOrder.amount} onChange={e => setNewChangeOrder({...newChangeOrder, amount: e.target.value})} style={inputStyle} />
+                        <input type="date" value={newChangeOrder.date} onChange={e => setNewChangeOrder({...newChangeOrder, date: e.target.value})} style={inputStyle} />
                         <button onClick={addChangeOrder} style={flexBtn('#7c3aed')}><Plus size={15} /> Log Shift</button>
                       </div>
                     </div>
-
                     <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
@@ -751,11 +1077,10 @@ const ConstructionFinanceApp = () => {
                   </div>
                 )}
 
-                {/* ==================== VIEW 5: PROGRESS BILLINGS & INVOICING HUB ==================== */}
+                {/* ==================== VIEW 6: PROGRESS BILLINGS & INVOICING HUB ==================== */}
                 {activeTab === 'billings' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                     <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>Progress Application for Payment & Billings Ledger</h2>
-
                     <div style={{ background: '#fff', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       <div style={{ fontWeight: '700', fontSize: '13px', color: '#0891b2' }}>+ Process New Financial Draw Claim / Sub-Invoice</div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px', alignItems: 'flex-end' }}>
@@ -769,10 +1094,10 @@ const ConstructionFinanceApp = () => {
                         <input placeholder="Entity/Partner Name" value={newBilling.partner} onChange={e => setNewBilling({...newBilling, partner: e.target.value})} style={inputStyle} />
                         <input placeholder="Gross Value claimed ($)" type="number" value={newBilling.amount} onChange={e => setNewBilling({...newBilling, amount: e.target.value})} style={inputStyle} />
                         <input placeholder="Retention Withheld ($)" type="number" value={newBilling.retentionWithheld} onChange={e => setNewBilling({...newBilling, retentionWithheld: e.target.value})} style={inputStyle} />
+                        <input type="date" value={newBilling.date} onChange={e => setNewBilling({...newBilling, date: e.target.value})} style={inputStyle} />
                         <button onClick={addBilling} style={flexBtn('#0891b2')}><Plus size={15} /> Record Billing</button>
                       </div>
                     </div>
-
                     <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
@@ -782,6 +1107,7 @@ const ConstructionFinanceApp = () => {
                             <th style={{ ...ERP_TH, textAlign: 'right' }}>Gross Valuation Stated</th>
                             <th style={{ ...ERP_TH, textAlign: 'right' }}>Retention Deducted</th>
                             <th style={{ ...ERP_TH, textAlign: 'right' }}>Net Liquidated Cash</th>
+                            <th style={ERP_TH}>Date</th>
                             <th style={ERP_TH}>State Status</th>
                             <th style={{ ...ERP_TH, textAlign: 'center' }}>Purge</th>
                           </tr>
@@ -793,7 +1119,7 @@ const ConstructionFinanceApp = () => {
                               <tr key={b.id} style={{ background: idx % 2 === 0 ? '#fff' : '#f8fafc' }}>
                                 <td style={ERP_TD}>
                                   <div style={{ fontWeight: '700' }}>{b.partner}</div>
-                                  <div style={{ fontSize: '11px', color: '#64748b' }}>Processed on context window timeline.</div>
+                                  <div style={{ fontSize: '11px', color: '#64748b' }}>{b.costCode || '—'}</div>
                                 </td>
                                 <td style={ERP_TD}>
                                   <span style={{ fontSize: '12px', fontWeight: '600', color: b.type === 'Owner Claim' ? '#16a34a' : '#2563eb' }}>{b.type}</span>
@@ -801,6 +1127,7 @@ const ConstructionFinanceApp = () => {
                                 <td style={{ ...ERP_TD, textAlign: 'right', fontWeight: '700' }}>${parseFloat(b.amount).toLocaleString()}</td>
                                 <td style={{ ...ERP_TD, textAlign: 'right', color: '#ef4444' }}>-${parseFloat(b.retentionWithheld || 0).toLocaleString()}</td>
                                 <td style={{ ...ERP_TD, textAlign: 'right', fontWeight: '800', color: b.type === 'Owner Claim' ? '#16a34a' : '#0f172a' }}>${netLiquidatedValue.toLocaleString()}</td>
+                                <td style={{ ...ERP_TD, color: '#64748b' }}>{b.date || '—'}</td>
                                 <td style={ERP_TD}>
                                   <select value={b.status} onChange={e => {
                                     const updatedBillings = activeProjectInstance.billings.map(item => item.id === b.id ? { ...item, status: e.target.value } : item);
@@ -823,21 +1150,18 @@ const ConstructionFinanceApp = () => {
                   </div>
                 )}
 
-                {/* ==================== VIEW 6: INVENTORY LOGS & MATERIAL TRACKING ==================== */}
+                {/* ==================== VIEW 7: INVENTORY LOGS & MATERIAL TRACKING ==================== */}
                 {activeTab === 'materials' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                     <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>Material Resource Logistics & Delivery Logs</h2>
-
                     <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '14px' }}>
                       <div style={{ fontWeight: '700', color: '#7c3aed', fontSize: '13px' }}>+ Log Site Resource Cargo Acquisition</div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px' }}>
                         <input placeholder="Material Name (e.g. Concrete)" value={newMaterial.name} onChange={e => setNewMaterial({...newMaterial, name: e.target.value})} style={inputStyle} />
-                        
                         <select value={newMaterial.category} onChange={e => setNewMaterial({...newMaterial, category: e.target.value})} style={inputStyle}>
                           <option value="">-- Cost Code Map --</option>
                           {costCodes.map(cc => <option key={cc.code} value={`${cc.code} ${cc.name}`}>{cc.code} {cc.name}</option>)}
                         </select>
-
                         <input placeholder="Qty Received To Date" type="number" value={newMaterial.quantity} onChange={e => setNewMaterial({...newMaterial, quantity: e.target.value})} style={inputStyle} />
                         <input placeholder="Total Purchase Commitment" type="number" value={newMaterial.totalQty} onChange={e => setNewMaterial({...newMaterial, totalQty: e.target.value})} style={inputStyle} />
                         <input placeholder="Unit Label (m³, ton)" value={newMaterial.unit} onChange={e => setNewMaterial({...newMaterial, unit: e.target.value})} style={inputStyle} />
@@ -851,7 +1175,6 @@ const ConstructionFinanceApp = () => {
                         <button onClick={addMaterial} style={flexBtn('#7c3aed')}><Plus size={15} /> Log Material Manifest</button>
                       </div>
                     </div>
-
                     <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0', overflowX: 'auto' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
@@ -887,14 +1210,13 @@ const ConstructionFinanceApp = () => {
                   </div>
                 )}
 
-                {/* ==================== VIEW 7: COMPREHENSIVE QUANT AI FINANCIAL ADVISOR ==================== */}
+                {/* ==================== VIEW 8: COMPREHENSIVE QUANT AI FINANCIAL ADVISOR ==================== */}
                 {activeTab === 'ai' && (
                   <div style={{ display: 'flex', flexDirection: 'column', height: '520px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
                     <div style={{ padding: '16px 20px', background: '#0f172a', color: '#fff', borderBottom: '2px solid #f59e0b' }}>
                       <div style={{ fontWeight: '800', fontSize: '15px' }}>🏗️ Procore-AI Financial Compliance Deep Interface</div>
-                      <span style={{ fontSize: '11px', color: '#94a3b8' }}>Dynamic analysis driven by current Estimate at Completion (EAC) vectors and active retention indices.</span>
+                      <span style={{ fontSize: '11px', color: '#94a3b8' }}>Context: BOQ · Payment History · Retention Pools · EAC · Change Orders · Contractor Status</span>
                     </div>
-
                     <div style={{ flex: 1, padding: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', background: '#f8fafc' }}>
                       {messages.map((msg, index) => (
                         <div key={index} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
@@ -906,9 +1228,8 @@ const ConstructionFinanceApp = () => {
                       {loading && <div style={{ fontSize: '12px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '6px' }}>🤔 Evaluating Work Breakdown Structure variance bounds...</div>}
                       <div ref={messagesEndRef} />
                     </div>
-
                     <div style={{ padding: '12px', borderTop: '1px solid #e2e8f0', display: 'flex', gap: '8px', background: '#fff' }}>
-                      <input value={input} onChange={e => setInput(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleSendAIRequest()} placeholder="Query project financial overruns, EAC shifts, or material purchase margins..." style={inputStyle} disabled={loading} />
+                      <input value={input} onChange={e => setInput(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleSendAIRequest()} placeholder="Ask: how much retention am I holding? Which contractors are underpaid vs BOQ?" style={inputStyle} disabled={loading} />
                       <button onClick={handleSendAIRequest} disabled={loading || !input.trim()} style={flexBtn(loading || !input.trim() ? '#94a3b8' : '#0f172a')}>
                         <Send size={15} /> Execute
                       </button>
@@ -919,7 +1240,6 @@ const ConstructionFinanceApp = () => {
               </>
             )}
           </div>
-
         </div>
       </div>
     </div>
@@ -927,3 +1247,5 @@ const ConstructionFinanceApp = () => {
 };
 
 export default ConstructionFinanceApp;
+ENDOFFILE
+echo "Done"
