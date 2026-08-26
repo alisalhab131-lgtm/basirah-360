@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
 import { API_BASE, THEME, STYLES } from '../utils/theme';
@@ -234,6 +234,18 @@ export default function MaterialsPage({ materials, contractors, syncSystemData }
   const [newContractorForm, setNewContractorForm] = useState({ contact_person: '', company_name: '' });
   const [matMsg, setMatMsg] = useState(null);
   const [conMsg, setConMsg] = useState(null);
+
+  // ── Auto-refresh polling for background updates (e.g. OneDrive) ──────────
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (typeof syncSystemData === 'function') {
+        syncSystemData();
+      }
+    }, 10000); // Refreshes every 10 seconds
+
+    return () => clearInterval(interval);
+  }, [syncSystemData]);
+  // ─────────────────────────────────────────────────────────────────────────
 
   const handleAddMaterial = async (e) => {
     e.preventDefault();
