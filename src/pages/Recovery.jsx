@@ -8,6 +8,7 @@ export default function RecoveryPage({ materials, contractors, loans, returns, g
   const [loanMsg, setLoanMsg] = useState(null);
   const [selectedLoan, setSelectedLoan] = useState(null);
   const [returnCondition, setReturnCondition] = useState('Good');
+  const [returnQuantity, setReturnQuantity] = useState('');
   const [returnMsg, setReturnMsg] = useState(null);
   const [dropdownKey, setDropdownKey] = useState(0);
 
@@ -18,17 +19,46 @@ export default function RecoveryPage({ materials, contractors, loans, returns, g
       label: `[${l.site_name || 'General'}] ${l.material_name} — ${l.contact_person} (${getLoanRemainingQty(l.id)} remaining)`,
     }));
 
+  const selectedLoanRemaining = selectedLoan ? getLoanRemainingQty(selectedLoan.value) : 0;
+
+  const handleLoanSelect = (opt) => {
+    setSelectedLoan(opt);
+    // Default the quantity field to the full remaining amount, editable by the user
+    setReturnQuantity(opt ? String(getLoanRemainingQty(opt.value)) : '');
+    setReturnMsg(null);
+  };
+
   const handleReturnSubmit = async (e) => {
     e.preventDefault();
     if (!selectedLoan) { setReturnMsg({ type: 'error', text: 'Please select an active loan.' }); return; }
+
+    const qty = parseInt(returnQuantity, 10);
+    if (isNaN(qty) || qty <= 0) {
+      setReturnMsg({ type: 'error', text: 'Enter a quantity greater than 0.' });
+      return;
+    }
+    if (qty > selectedLoanRemaining) {
+      setReturnMsg({ type: 'error', text: `Only ${selectedLoanRemaining} units remain on this loan.` });
+      return;
+    }
+
     try {
-      await axios.post(`${API_BASE}/api/returns`, {
-        loan_id: selectedLoan.value, returned_condition: returnCondition,
-        damaged: returnCondition === 'Damaged', notes: `Returned in ${returnCondition} condition`,
+      const { data } = await axios.post(`${API_BASE}/api/returns`, {
+        loan_id: selectedLoan.value,
+        returned_condition: returnCondition,
+        damaged: returnCondition === 'Damaged',
+        notes: `Returned in ${returnCondition} condition`,
+        returned_quantity: qty,
       });
-      setSelectedLoan(null); setReturnCondition('Good'); setDropdownKey(k => k + 1);
+      setSelectedLoan(null); setReturnCondition('Good'); setReturnQuantity(''); setDropdownKey(k => k + 1);
       await syncSystemData();
-      setReturnMsg({ type: 'success', text: 'Return processed! Stock has been restored.' });
+      const isFullyClosed = data.loan_status === 'Returned';
+      setReturnMsg({
+        type: 'success',
+        text: isFullyClosed
+          ? `Return processed — loan fully closed. ${qty} unit(s) restored to stock.`
+          : `Partial return processed — ${qty} unit(s) restored. ${data.remaining_quantity} unit(s) still outstanding on this loan.`,
+      });
     } catch (err) {
       setReturnMsg({ type: 'error', text: err.response?.data?.error || 'Failed to process return.' });
     }
@@ -92,24 +122,52 @@ export default function RecoveryPage({ materials, contractors, loans, returns, g
         <div style={STYLES.box}>
           <div style={{ ...STYLES.label, fontSize: '13px', marginBottom: '8px' }}>Process Material Return</div>
           <p style={{ fontSize: '12px', color: THEME.textMuted, marginBottom: '16px', lineHeight: '1.5' }}>
-            Select the active loan to close. The full dispatched quantity will be returned to stock.
+            Select the active loan. Enter how many units are actually being returned — partial returns are supported, the rest stays outstanding on the loan.
           </p>
           <form onSubmit={handleReturnSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <div>
               <label style={STYLES.label}>Active Loan to Return</label>
               <Select key={dropdownKey} options={activeLoanOptions} styles={STYLES.customSelect}
-                onChange={opt => setSelectedLoan(opt)} placeholder="Search active loans..." isClearable
+                onChange={handleLoanSelect} placeholder="Search active loans..." isClearable
                 noOptionsMessage={() => 'No active loans found'} />
               {activeLoanOptions.length === 0 && <div style={{ fontSize: '12px', color: THEME.textMuted, marginTop: '6px' }}>All loans have been returned.</div>}
             </div>
+
             {selectedLoan && (() => {
               const loan = loans.find(l => l.id === selectedLoan.value);
               return loan ? (
                 <div style={{ padding: '12px 14px', borderRadius: '8px', backgroundColor: `${THEME.accentBlue}0f`, border: `1px solid ${THEME.accentBlue}33`, fontSize: '13px', color: THEME.textMuted }}>
-                  Returning <strong style={{ color: THEME.textMain }}>{getLoanRemainingQty(loan.id)} units</strong> of <strong style={{ color: THEME.textMain }}>{loan.material_name}</strong> from <strong style={{ color: THEME.textMain }}>{loan.site_name || 'Field'}</strong>
+                  <strong style={{ color: THEME.textMain }}>{selectedLoanRemaining} units</strong> still outstanding of <strong style={{ color: THEME.textMain }}>{loan.material_name}</strong> from <strong style={{ color: THEME.textMain }}>{loan.site_name || 'Field'}</strong>
                 </div>
               ) : null;
             })()}
+
+            {selectedLoan && (
+              <div>
+                <label style={STYLES.label}>Quantity to Return</label>
+                <input
+                  type="number"
+                  style={STYLES.input}
+                  value={returnQuantity}
+                  onChange={e => setReturnQuantity(e.target.value)}
+                  min="1"
+                  max={selectedLoanRemaining}
+                  placeholder={`Up to ${selectedLoanRemaining}`}
+                  required
+                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px' }}>
+                  <span style={{ fontSize: '11px', color: THEME.textMuted }}>Max: {selectedLoanRemaining}</span>
+                  <button
+                    type="button"
+                    onClick={() => setReturnQuantity(String(selectedLoanRemaining))}
+                    style={{ fontSize: '11px', color: THEME.accentBlue, background: 'none', border: 'none', cursor: 'pointer', fontWeight: '600', padding: 0 }}
+                  >
+                    Return all {selectedLoanRemaining}
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div>
               <label style={STYLES.label}>Condition on Return</label>
               <select style={STYLES.input} value={returnCondition} onChange={e => setReturnCondition(e.target.value)}>
@@ -121,7 +179,7 @@ export default function RecoveryPage({ materials, contractors, loans, returns, g
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', borderRadius: '6px', backgroundColor: `${CONDITION_COLORS[returnCondition]}11`, border: `1px solid ${CONDITION_COLORS[returnCondition]}33` }}>
               <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: CONDITION_COLORS[returnCondition] }} />
               <span style={{ fontSize: '12px', color: CONDITION_COLORS[returnCondition], fontWeight: '600' }}>
-                {returnCondition === 'Good' && 'Stock will be fully restored to available inventory'}
+                {returnCondition === 'Good' && 'Stock will be restored to available inventory'}
                 {returnCondition === 'Worn' && 'Stock restored — flagged for service review'}
                 {returnCondition === 'Damaged' && 'Stock restored — flagged as damaged/scrap'}
               </span>
@@ -144,13 +202,20 @@ export default function RecoveryPage({ materials, contractors, loans, returns, g
               ? <tr><td colSpan={7} style={{ ...STYLES.td, textAlign: 'center', color: THEME.textMuted }}>No active loans</td></tr>
               : loans.filter(l => getLoanRemainingQty(l.id) > 0).map(l => {
                 const isOverdue = l.expected_return_date && new Date(l.expected_return_date) < new Date();
+                const remaining = getLoanRemainingQty(l.id);
+                const isPartial = remaining < Number(l.quantity) && remaining > 0;
                 return (
                   <tr key={l.id}>
                     <td style={STYLES.td}>{l.material_name}</td><td style={STYLES.td}>{l.contact_person}</td>
                     <td style={STYLES.td}>{l.site_name || '—'}</td><td style={STYLES.td}>{l.quantity}</td>
-                    <td style={{ ...STYLES.td, fontWeight: '700', color: THEME.accentAmber }}>{getLoanRemainingQty(l.id)}</td>
+                    <td style={{ ...STYLES.td, fontWeight: '700', color: THEME.accentAmber }}>{remaining}</td>
                     <td style={STYLES.td}>{l.expected_return_date || '—'}</td>
-                    <td style={STYLES.td}><span style={{ color: isOverdue ? THEME.accentCrimson : THEME.accentEmerald, fontWeight: '700', fontSize: '12px' }}>{isOverdue ? '⚠ OVERDUE' : 'ACTIVE'}</span></td>
+                    <td style={STYLES.td}>
+                      <span style={{ color: isOverdue ? THEME.accentCrimson : THEME.accentEmerald, fontWeight: '700', fontSize: '12px' }}>
+                        {isOverdue ? '⚠ OVERDUE' : 'ACTIVE'}
+                      </span>
+                      {isPartial && <span style={{ marginLeft: '6px', color: THEME.accentCyan, fontWeight: '700', fontSize: '11px' }}>· PARTIAL</span>}
+                    </td>
                   </tr>
                 );
               })}
@@ -163,14 +228,16 @@ export default function RecoveryPage({ materials, contractors, loans, returns, g
         <table style={STYLES.table}>
           <thead><tr>
             <th style={STYLES.th}>Material</th><th style={STYLES.th}>Contractor</th>
+            <th style={STYLES.th}>Qty Returned</th>
             <th style={STYLES.th}>Return Date</th><th style={STYLES.th}>Condition</th>
           </tr></thead>
           <tbody>
             {returns.length === 0
-              ? <tr><td colSpan={4} style={{ ...STYLES.td, textAlign: 'center', color: THEME.textMuted }}>No returns yet</td></tr>
+              ? <tr><td colSpan={5} style={{ ...STYLES.td, textAlign: 'center', color: THEME.textMuted }}>No returns yet</td></tr>
               : returns.map(r => (
                 <tr key={r.id}>
                   <td style={STYLES.td}>{r.material_name}</td><td style={STYLES.td}>{r.contact_person}</td>
+                  <td style={{ ...STYLES.td, fontWeight: '700', color: THEME.accentEmerald }}>{r.quantity ?? r.loan_quantity ?? '—'}</td>
                   <td style={STYLES.td}>{r.return_date || '—'}</td>
                   <td style={STYLES.td}><span style={{ color: CONDITION_COLORS[r.returned_condition] || THEME.textMuted, fontWeight: '700', fontSize: '12px' }}>{r.returned_condition || '—'}</span></td>
                 </tr>
