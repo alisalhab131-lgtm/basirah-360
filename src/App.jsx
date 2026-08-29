@@ -43,7 +43,11 @@ export default function App({ setToken: setParentToken }) {
     const loan = loans.find(l => l.id === loanId);
     if (!loan) return 0;
     if (loan.status === 'Returned') return 0;
-    return Number(loan.quantity || 0);
+    // Sum actual quantity returned so far (supports partial returns)
+    const totalReturned = returns
+      .filter(r => r.loan_id === loanId)
+      .reduce((sum, r) => sum + Number(r.quantity || 0), 0);
+    return Math.max(0, Number(loan.quantity || 0) - totalReturned);
   };
 
   const handleLogout = () => {
