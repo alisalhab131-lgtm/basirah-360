@@ -15,6 +15,7 @@ import { API_BASE, THEME } from './utils/theme.js';
 export default function App({ setToken: setParentToken }) {
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [assetsFilter, setAssetsFilter] = useState('ALL');
+  const [analyticsDrill, setAnalyticsDrill] = useState(null); // { type, value } | null
   const [materials, setMaterials] = useState([]);
   const [contractors, setContractors] = useState([]);
   const [loans, setLoans] = useState([]);
@@ -74,9 +75,9 @@ export default function App({ setToken: setParentToken }) {
         onLogout={handleLogout}
       />
       <div style={{ flex: 1, padding: '40px 48px', overflowY: 'auto', maxWidth: '1400px' }}>
-        {currentPage === 'dashboard'            && <DashboardPage         {...sharedProps} navigateToAssets={(filter) => { setAssetsFilter(filter); setCurrentPage('assets'); }} />}
+        {currentPage === 'dashboard'            && <DashboardPage         {...sharedProps} navigateToAssets={(filter) => { setAssetsFilter(filter); setCurrentPage('assets'); }} navigateToAnalytics={(type, value) => { setAnalyticsDrill(type ? { type, value } : null); setCurrentPage('analytics'); }} />}
         {currentPage === 'assets'               && <AssetTrackingPage    {...sharedProps} initialFilter={assetsFilter} />}
-        {currentPage === 'analytics'            && <AnalyticsPage         {...sharedProps} />}
+        {currentPage === 'analytics'            && <AnalyticsPage         {...sharedProps} initialDrill={analyticsDrill} />}
         {currentPage === 'materials'            && <MaterialsPage         {...sharedProps} />}
         {currentPage === 'returns_page'         && <RecoveryPage          {...sharedProps} />}
         {currentPage === 'construction_finance' && <ConstructionFinancePage />}
