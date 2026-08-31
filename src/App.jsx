@@ -5,6 +5,7 @@ import DashboardPage from './pages/Dashboard.jsx';
 import AnalyticsPage from './pages/Analytics.jsx';
 import MaterialsPage from './pages/Materials.jsx';
 import RecoveryPage from './pages/Recovery.jsx';
+import AssetTrackingPage from './pages/AssetTracking.jsx';
 import ConstructionFinancePage from './pages/ConstructionFinance.jsx';
 import AssetChatbotPage from './pages/AssetChatbot.jsx';
 import Sidebar from './components/Sidebar.jsx';
@@ -13,6 +14,7 @@ import { API_BASE, THEME } from './utils/theme.js';
 
 export default function App({ setToken: setParentToken }) {
   const [currentPage, setCurrentPage] = useState('dashboard');
+  const [assetsFilter, setAssetsFilter] = useState('ALL');
   const [materials, setMaterials] = useState([]);
   const [contractors, setContractors] = useState([]);
   const [loans, setLoans] = useState([]);
@@ -72,7 +74,8 @@ export default function App({ setToken: setParentToken }) {
         onLogout={handleLogout}
       />
       <div style={{ flex: 1, padding: '40px 48px', overflowY: 'auto', maxWidth: '1400px' }}>
-        {currentPage === 'dashboard'            && <DashboardPage         {...sharedProps} />}
+        {currentPage === 'dashboard'            && <DashboardPage         {...sharedProps} navigateToAssets={(filter) => { setAssetsFilter(filter); setCurrentPage('assets'); }} />}
+        {currentPage === 'assets'               && <AssetTrackingPage    {...sharedProps} initialFilter={assetsFilter} />}
         {currentPage === 'analytics'            && <AnalyticsPage         {...sharedProps} />}
         {currentPage === 'materials'            && <MaterialsPage         {...sharedProps} />}
         {currentPage === 'returns_page'         && <RecoveryPage          {...sharedProps} />}
