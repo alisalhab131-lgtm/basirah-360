@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  CartesianGrid, PieChart, Pie, Cell, Legend
+  CartesianGrid, PieChart, Pie, Cell, Legend, LineChart, Line
 } from 'recharts';
-import { MapPin, Users, ChevronRight, ChevronLeft, Download, Trash2 } from 'lucide-react';
+import { MapPin, Users, ChevronRight, ChevronLeft, Download, Trash2, AlertTriangle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import axios from 'axios';
 import { API_BASE, THEME, CONDITION_COLORS, STYLES } from '../utils/theme';
@@ -23,18 +23,467 @@ const msgStyle = (type) => ({
 
 const returnQty = (r) => Number(r.quantity || 0);
 
-export default function AnalyticsPage({ materials, contractors, loans, returns, getLoanRemainingQty, syncSystemData }) {
-  const [drillType, setDrillType] = useState(null);   // 'site' | 'contractor' | 'condition' | null
-  const [drillValue, setDrillValue] = useState(null);
+// ── Shared aggregation helpers (used across drill-downs) ────────────────────
+function monthKey(dateStr) {
+  if (!dateStr) return 'Unknown';
+  const d = new Date(dateStr);
+  if (isNaN(d)) return 'Unknown';
+  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+}
+function buildSingleTrend(recordsList) {
+  const map = {};
+  recordsList.forEach(r => {
+    const key = monthKey(r.return_date);
+    if (!map[key]) map[key] = { month: key, qty: 0 };
+    map[key].qty += returnQty(r);
+  });
+  return Object.values(map).sort((a, b) => new Date(a.month) - new Date(b.month));
+}
+function buildShareTrend(allReturns, conditionValue) {
+  const totalMap = {};
+  const condMap = {};
+  allReturns.forEach(r => {
+    const key = monthKey(r.return_date);
+    totalMap[key] = (totalMap[key] || 0) + returnQty(r);
+    if (r.returned_condition === conditionValue) condMap[key] = (condMap[key] || 0) + returnQty(r);
+  });
+  return Object.keys(totalMap).map(key => ({
+    month: key,
+    sharePct: totalMap[key] > 0 ? Math.round(((condMap[key] || 0) / totalMap[key]) * 100) : 0,
+  })).sort((a, b) => new Date(a.month) - new Date(b.month));
+}
+
+function buildTopBy(recordsList, keyFn, limit = 8) {
+  const map = {};
+  recordsList.forEach(r => {
+    const name = keyFn(r) || 'Unknown';
+    if (!map[name]) map[name] = { name, qty: 0 };
+    map[name].qty += returnQty(r);
+  });
+  return Object.values(map).sort((a, b) => b.qty - a.qty).slice(0, limit);
+}
+
+// ── Material Condition Diagnostics — reusable for global or contractor scope ─
+function MaterialConditionBreakdown({ returns, onMaterialClick, showTable = true }) {
+  const map = {};
+  returns.forEach(r => {
+    const name = r.material_name || 'Unknown';
+    if (!map[name]) map[name] = { name, good: 0, worn: 0, damaged: 0 };
+    const q = returnQty(r);
+    if (r.returned_condition === 'Good') map[name].good += q;
+    else if (r.returned_condition === 'Worn') map[name].worn += q;
+    else if (r.returned_condition === 'Damaged') map[name].damaged += q;
+  });
+  const rows = Object.values(map).map(m => {
+    const total = m.good + m.worn + m.damaged;
+    const problemRate = total > 0 ? Math.round(((m.worn + m.damaged) / total) * 100) : 0;
+    return { ...m, total, problemRate };
+  }).sort((a, b) => b.problemRate - a.problemRate || b.total - a.total);
+
+  if (rows.length === 0) return <div style={{ color: THEME.textMuted, fontSize: '13px', padding: '20px 0' }}>No return data yet</div>;
+
+  const barClick = (data) => { if (onMaterialClick && data && data.name) onMaterialClick(data.name); };
+
+  return (
+    <div>
+      {onMaterialClick && (
+        <div style={{ fontSize: '11px', color: THEME.textMuted, marginBottom: '10px', fontStyle: 'italic' }}>
+          Click any bar to see the detailed records for that material
+        </div>
+      )}
+      <div style={{ height: Math.max(220, rows.length * 36) }}>
+        <ResponsiveContainer>
+          <BarChart data={rows} layout="vertical" margin={{ left: 10, right: 20 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke={THEME.border} />
+            <XAxis type="number" stroke={THEME.textMuted} tick={{ fontSize: 10 }} />
+            <YAxis type="category" dataKey="name" stroke={THEME.textMuted} tick={{ fontSize: 11 }} width={150} />
+            <Tooltip contentStyle={{ backgroundColor: THEME.cardBg, borderColor: THEME.border, color: '#fff' }} />
+            <Legend />
+            <Bar dataKey="good" name="Good" stackId="a" fill={CONDITION_COLORS.Good} onClick={barClick} cursor={onMaterialClick ? 'pointer' : 'default'} />
+            <Bar dataKey="worn" name="Worn" stackId="a" fill={CONDITION_COLORS.Worn} onClick={barClick} cursor={onMaterialClick ? 'pointer' : 'default'} />
+            <Bar dataKey="damaged" name="Damaged" stackId="a" fill={CONDITION_COLORS.Damaged} radius={[0, 4, 4, 0]} onClick={barClick} cursor={onMaterialClick ? 'pointer' : 'default'} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+      {showTable && (
+        <table style={{ ...STYLES.table, marginTop: '16px' }}>
+          <thead><tr>
+            <th style={STYLES.th}>Material</th><th style={STYLES.th}>Good</th><th style={STYLES.th}>Worn</th>
+            <th style={STYLES.th}>Damaged</th><th style={STYLES.th}>Total</th><th style={STYLES.th}>Problem Rate</th>
+          </tr></thead>
+          <tbody>
+            {rows.map(m => (
+              <tr key={m.name} style={onMaterialClick ? { cursor: 'pointer' } : {}} onClick={() => barClick(m)}>
+                <td style={STYLES.td}><strong>{m.name}</strong></td>
+                <td style={{ ...STYLES.td, color: THEME.accentEmerald }}>{m.good}</td>
+                <td style={{ ...STYLES.td, color: THEME.accentAmber }}>{m.worn}</td>
+                <td style={{ ...STYLES.td, color: THEME.accentCrimson }}>{m.damaged}</td>
+                <td style={STYLES.td}>{m.total}</td>
+                <td style={STYLES.td}>
+                  <span style={{ fontWeight: '700', color: m.problemRate >= 50 ? THEME.accentCrimson : m.problemRate >= 20 ? THEME.accentAmber : THEME.accentEmerald }}>
+                    {m.problemRate}%
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+
+function FilterChip({ label, onRemove }) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: `${THEME.accentBlue}18`, color: THEME.accentBlue, border: `1px solid ${THEME.accentBlue}44`, borderRadius: '20px', padding: '4px 6px 4px 12px', fontSize: '12px', fontWeight: '600' }}>
+      {label}
+      <button onClick={onRemove} style={{ background: 'none', border: 'none', color: THEME.accentBlue, cursor: 'pointer', fontSize: '15px', lineHeight: 1, padding: '0 4px' }}>×</button>
+    </span>
+  );
+}
+
+// ── Interactive explorer: grouped bar (Loaned vs Returned) + clickable donut ──
+// + search/dropdown filters + filter chips + reactive Loan History & Return tables
+// ── Per-material condition breakdown as a stacked VERTICAL bar chart ────────
+// Columns = materials, each column split into Good/Worn/Damaged (green/amber/red)
+// Tooltip shows both the raw count and the percentage. Clicking a segment filters.
+function MaterialConditionStackedChart({ returns, onMaterialClick }) {
+  const map = {};
+  returns.forEach(r => {
+    const name = r.material_name || 'Unknown';
+    if (!map[name]) map[name] = { name, Good: 0, Worn: 0, Damaged: 0 };
+    const q = returnQty(r);
+    if (r.returned_condition === 'Good') map[name].Good += q;
+    else if (r.returned_condition === 'Worn') map[name].Worn += q;
+    else if (r.returned_condition === 'Damaged') map[name].Damaged += q;
+  });
+  const rows = Object.values(map).map(m => {
+    const total = m.Good + m.Worn + m.Damaged;
+    return {
+      ...m, total,
+      GoodPct: total > 0 ? Math.round((m.Good / total) * 100) : 0,
+      WornPct: total > 0 ? Math.round((m.Worn / total) * 100) : 0,
+      DamagedPct: total > 0 ? Math.round((m.Damaged / total) * 100) : 0,
+    };
+  }).sort((a, b) => b.total - a.total);
+
+  if (rows.length === 0) return <div style={{ color: THEME.textMuted, fontSize: '13px', padding: '20px 0' }}>No condition data yet</div>;
+
+  const CustomTooltip = ({ active, payload, label }) => {
+    if (!active || !payload || !payload.length) return null;
+    const row = rows.find(r => r.name === label);
+    if (!row) return null;
+    return (
+      <div style={{ backgroundColor: THEME.cardBg, border: `1px solid ${THEME.border}`, borderRadius: '8px', padding: '10px 14px', fontSize: '12px' }}>
+        <div style={{ fontWeight: '700', color: THEME.textMain, marginBottom: '6px' }}>{label}</div>
+        {payload.map((p, i) => (
+          <div key={i} style={{ color: p.color, display: 'flex', justifyContent: 'space-between', gap: '20px' }}>
+            <span>{p.dataKey}:</span>
+            <span style={{ fontWeight: '700' }}>{p.value} ({row[p.dataKey + 'Pct']}%)</span>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const barClick = (data) => { if (onMaterialClick && data && data.name) onMaterialClick(data.name); };
+
+  return (
+    <div>
+      {onMaterialClick && (
+        <div style={{ fontSize: '11px', color: THEME.textMuted, marginBottom: '10px', fontStyle: 'italic' }}>
+          Hover a column for exact numbers and percentages · click to filter the table below
+        </div>
+      )}
+      <div style={{ height: 300 }}>
+        <ResponsiveContainer>
+          <BarChart data={rows} margin={{ bottom: 50, top: 10 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke={THEME.border} />
+            <XAxis dataKey="name" stroke={THEME.textMuted} tick={{ fontSize: 10 }} angle={-30} textAnchor="end" interval={0} height={60} />
+            <YAxis stroke={THEME.textMuted} tick={{ fontSize: 10 }} />
+            <Tooltip content={<CustomTooltip />} />
+            <Legend />
+            <Bar dataKey="Good" name="Good" stackId="cond" fill={CONDITION_COLORS.Good} onClick={barClick} cursor={onMaterialClick ? 'pointer' : 'default'} />
+            <Bar dataKey="Worn" name="Worn" stackId="cond" fill={CONDITION_COLORS.Worn} onClick={barClick} cursor={onMaterialClick ? 'pointer' : 'default'} />
+            <Bar dataKey="Damaged" name="Damaged" stackId="cond" fill={CONDITION_COLORS.Damaged} radius={[4, 4, 0, 0]} onClick={barClick} cursor={onMaterialClick ? 'pointer' : 'default'} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+// ── Interactive explorer: grouped bar (Loaned vs Returned) + clickable donut ──
+// + condition stacked chart + search/dropdown filters + filter chips +
+// collapsible totals that expand into reactive, filterable, searchable tables
+function ReturnRecordsExplorer({ scopedLoans, scopedReturns, scopeType, onDeleteReturn, deletingId }) {
+  const [filters, setFilters] = useState({ search: '', material: 'All', condition: 'All', site: 'All' });
+  const [showLoanTable, setShowLoanTable] = useState(false);
+  const [showReturnTable, setShowReturnTable] = useState(false);
+
+  const uniqueMaterials = [...new Set(scopedLoans.map(l => l.material_name).filter(Boolean))];
+  const uniqueSites = scopeType === 'contractor' ? [...new Set(scopedLoans.map(l => l.site_name).filter(Boolean))] : [];
+
+  const barData = (() => {
+    const map = {};
+    scopedLoans.forEach(l => {
+      const name = l.material_name || 'Unknown';
+      if (!map[name]) map[name] = { name, loaned: 0, returned: 0 };
+      map[name].loaned += Number(l.quantity || 0);
+    });
+    scopedReturns.forEach(r => {
+      const name = r.material_name || 'Unknown';
+      if (!map[name]) map[name] = { name, loaned: 0, returned: 0 };
+      map[name].returned += returnQty(r);
+    });
+    return Object.values(map).sort((a, b) => b.loaned - a.loaned);
+  })();
+
+  const goodQty = scopedReturns.filter(r => r.returned_condition === 'Good').reduce((s, r) => s + returnQty(r), 0);
+  const wornQty = scopedReturns.filter(r => r.returned_condition === 'Worn').reduce((s, r) => s + returnQty(r), 0);
+  const damagedQty = scopedReturns.filter(r => r.returned_condition === 'Damaged').reduce((s, r) => s + returnQty(r), 0);
+  const donutData = [
+    { name: 'Good', value: goodQty },
+    { name: 'Worn', value: wornQty },
+    { name: 'Damaged', value: damagedQty },
+  ].filter(d => d.value > 0);
+
+  const filteredReturns = scopedReturns.filter(r => {
+    if (filters.material !== 'All' && r.material_name !== filters.material) return false;
+    if (filters.condition !== 'All' && r.returned_condition !== filters.condition) return false;
+    if (filters.site !== 'All' && (r.site_name || '') !== filters.site) return false;
+    if (filters.search.trim()) {
+      const q = filters.search.trim().toLowerCase();
+      const haystack = `${r.material_name || ''} ${r.site_name || ''} ${r.contact_person || ''} ${r.returned_condition || ''} ${r.return_date || ''}`.toLowerCase();
+      if (!haystack.includes(q)) return false;
+    }
+    return true;
+  });
+
+  const filteredLoans = scopedLoans.filter(l => {
+    if (filters.material !== 'All' && l.material_name !== filters.material) return false;
+    if (filters.site !== 'All' && (l.site_name || '') !== filters.site) return false;
+    if (filters.search.trim()) {
+      const q = filters.search.trim().toLowerCase();
+      const haystack = `${l.material_name || ''} ${l.site_name || ''} ${l.contact_person || ''} ${l.expected_return_date || ''}`.toLowerCase();
+      if (!haystack.includes(q)) return false;
+    }
+    return true;
+  });
+
+  const hasActiveFilters = filters.material !== 'All' || filters.condition !== 'All' || filters.site !== 'All' || filters.search.trim() !== '';
+  const clearAll = () => setFilters({ search: '', material: 'All', condition: 'All', site: 'All' });
+
+  const onChartMaterialClick = (name) => { setFilters(f => ({ ...f, material: name })); setShowReturnTable(true); setShowLoanTable(true); };
+
+  return (
+    <div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '20px', marginBottom: '20px' }}>
+        <div style={STYLES.box}>
+          <div style={STYLES.label}>Material Return Status — Loaned vs Returned</div>
+          <div style={{ fontSize: '11px', color: THEME.textMuted, marginBottom: '10px', fontStyle: 'italic' }}>Click a bar to filter the tables below</div>
+          <div style={{ height: Math.max(220, barData.length * 40) }}>
+            <ResponsiveContainer>
+              <BarChart data={barData} layout="vertical" margin={{ left: 10, right: 20 }}
+                onClick={(e) => { if (e && e.activePayload && e.activePayload[0]) onChartMaterialClick(e.activePayload[0].payload.name); }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={THEME.border} />
+                <XAxis type="number" stroke={THEME.textMuted} tick={{ fontSize: 10 }} />
+                <YAxis type="category" dataKey="name" stroke={THEME.textMuted} tick={{ fontSize: 11 }} width={140} />
+                <Tooltip contentStyle={{ backgroundColor: THEME.cardBg, borderColor: THEME.border, color: '#fff' }} />
+                <Legend />
+                <Bar dataKey="loaned" name="Loaned" fill={THEME.accentBlue} cursor="pointer" />
+                <Bar dataKey="returned" name="Returned" fill={THEME.accentEmerald} radius={[0, 4, 4, 0]} cursor="pointer" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+        <div style={STYLES.box}>
+          <div style={STYLES.label}>Condition Breakdown</div>
+          <div style={{ fontSize: '11px', color: THEME.textMuted, marginBottom: '10px', fontStyle: 'italic' }}>Click a slice to filter the tables below</div>
+          {donutData.length > 0 ? (
+            <div style={{ height: 220 }}>
+              <ResponsiveContainer>
+                <PieChart>
+                  <Pie
+                    data={donutData} cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={4} dataKey="value"
+                    onClick={(data) => { setFilters(f => ({ ...f, condition: data.name })); setShowReturnTable(true); }}
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}
+                  >
+                    {donutData.map((entry, i) => <Cell key={i} fill={CONDITION_COLORS[entry.name]} cursor="pointer" />)}
+                  </Pie>
+                  <Tooltip contentStyle={{ backgroundColor: THEME.cardBg, borderColor: THEME.border, color: '#fff' }} />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          ) : <div style={{ color: THEME.textMuted, fontSize: '13px', padding: '20px 0' }}>No returns yet</div>}
+        </div>
+      </div>
+
+      <div style={{ ...STYLES.box, marginBottom: '20px' }}>
+        <div style={STYLES.label}>Condition Breakdown per Material</div>
+        <MaterialConditionStackedChart returns={scopedReturns} onMaterialClick={onChartMaterialClick} />
+      </div>
+
+      <div style={{ ...STYLES.box, marginBottom: '20px' }}>
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: hasActiveFilters ? '14px' : 0 }}>
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <label style={STYLES.label}>Search</label>
+            <input style={STYLES.input} value={filters.search} onChange={e => setFilters(f => ({ ...f, search: e.target.value }))} placeholder="Search material, site, condition, date..." />
+          </div>
+          <div>
+            <label style={STYLES.label}>Material</label>
+            <select style={STYLES.input} value={filters.material} onChange={e => setFilters(f => ({ ...f, material: e.target.value }))}>
+              <option value="All">All Materials</option>
+              {uniqueMaterials.map(m => <option key={m} value={m}>{m}</option>)}
+            </select>
+          </div>
+          {scopeType === 'contractor' && (
+            <div>
+              <label style={STYLES.label}>Site</label>
+              <select style={STYLES.input} value={filters.site} onChange={e => setFilters(f => ({ ...f, site: e.target.value }))}>
+                <option value="All">All Sites</option>
+                {uniqueSites.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+          )}
+          <div>
+            <label style={STYLES.label}>Condition</label>
+            <select style={STYLES.input} value={filters.condition} onChange={e => setFilters(f => ({ ...f, condition: e.target.value }))}>
+              <option value="All">All Conditions</option>
+              <option value="Good">Good</option>
+              <option value="Worn">Worn</option>
+              <option value="Damaged">Damaged</option>
+            </select>
+          </div>
+        </div>
+        {hasActiveFilters && (
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+            {filters.material !== 'All' && <FilterChip label={`Material: ${filters.material}`} onRemove={() => setFilters(f => ({ ...f, material: 'All' }))} />}
+            {filters.condition !== 'All' && <FilterChip label={`Condition: ${filters.condition}`} onRemove={() => setFilters(f => ({ ...f, condition: 'All' }))} />}
+            {filters.site !== 'All' && <FilterChip label={`Site: ${filters.site}`} onRemove={() => setFilters(f => ({ ...f, site: 'All' }))} />}
+            {filters.search.trim() && <FilterChip label={`Search: "${filters.search}"`} onRemove={() => setFilters(f => ({ ...f, search: '' }))} />}
+            <button onClick={clearAll} style={{ background: 'none', border: `1px solid ${THEME.border}`, borderRadius: '6px', padding: '5px 12px', color: THEME.accentCrimson, cursor: 'pointer', fontSize: '12px', fontWeight: '600' }}>
+              Clear All Filters
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+        <div onClick={() => setShowLoanTable(v => !v)} style={{ ...STYLES.box, marginBottom: 0, cursor: 'pointer', textAlign: 'left', border: `1px solid ${showLoanTable ? THEME.accentBlue : THEME.border}` }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={STYLES.label}>Loan History</div>
+            <ChevronRight size={16} color={THEME.accentBlue} style={{ transform: showLoanTable ? 'rotate(90deg)' : 'none' }} />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
+            <span style={{ fontSize: '32px', fontWeight: '800', color: THEME.accentBlue }}>{filteredLoans.length}</span>
+            <span style={{ fontSize: '12px', color: THEME.textMuted }}>loan records</span>
+          </div>
+          <div style={{ fontSize: '13px', marginTop: '4px' }}><strong>{filteredLoans.reduce((sum, l) => sum + Number(l.quantity || 0), 0)}</strong> units loaned</div>
+          <div style={{ fontSize: '11px', color: THEME.textMuted, marginTop: '5px' }}>{hasActiveFilters ? `Filtered from ${scopedLoans.length} records` : 'Total for this site · click to view details'}</div>
+        </div>
+        <div onClick={() => setShowReturnTable(v => !v)} style={{ ...STYLES.box, marginBottom: 0, cursor: 'pointer', textAlign: 'left', border: `1px solid ${showReturnTable ? THEME.accentEmerald : THEME.border}` }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={STYLES.label}>Individual Return Records</div>
+            <ChevronRight size={16} color={THEME.accentEmerald} style={{ transform: showReturnTable ? 'rotate(90deg)' : 'none' }} />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
+            <span style={{ fontSize: '32px', fontWeight: '800', color: THEME.accentEmerald }}>{filteredReturns.length}</span>
+            <span style={{ fontSize: '12px', color: THEME.textMuted }}>return records</span>
+          </div>
+          <div style={{ fontSize: '13px', marginTop: '4px' }}><strong>{filteredReturns.reduce((sum, r) => sum + returnQty(r), 0)}</strong> units returned</div>
+          <div style={{ fontSize: '11px', color: THEME.textMuted, marginTop: '5px' }}>{hasActiveFilters ? `Filtered from ${scopedReturns.length} records` : 'Total for this site · click to view details'}</div>
+        </div>
+      </div>
+
+      {showLoanTable && (
+        <div style={{ ...STYLES.box, marginBottom: '20px' }}>
+          <div style={STYLES.label}>Loan History ({filteredLoans.length})</div>
+          <table style={STYLES.table}>
+            <thead><tr>
+              {scopeType === 'site' && <th style={STYLES.th}>Contractor</th>}
+              {scopeType === 'contractor' && <th style={STYLES.th}>Site</th>}
+              <th style={STYLES.th}>Material</th>
+              <th style={STYLES.th}>Qty</th><th style={STYLES.th}>Returned</th>
+              <th style={STYLES.th}>Remaining</th><th style={STYLES.th}>Due</th>
+            </tr></thead>
+            <tbody>
+              {filteredLoans.length === 0
+                ? <tr><td colSpan={6} style={{ ...STYLES.td, color: THEME.textMuted, textAlign: 'center' }}>No matching loans</td></tr>
+                : filteredLoans.map(l => {
+                  const isOverdue = l.expected_return_date && new Date(l.expected_return_date) < new Date() && l.remaining > 0;
+                  return (
+                    <tr key={l.id}>
+                      {scopeType === 'site' && <td style={STYLES.td}>{l.contact_person}</td>}
+                      {scopeType === 'contractor' && <td style={STYLES.td}>{l.site_name || '—'}</td>}
+                      <td style={STYLES.td}>{l.material_name}</td>
+                      <td style={STYLES.td}>{l.quantity}</td>
+                      <td style={STYLES.td}>{l.retQty}</td>
+                      <td style={STYLES.td}>{l.remaining}</td>
+                      <td style={{ ...STYLES.td, color: isOverdue ? THEME.accentCrimson : THEME.textMuted, fontWeight: isOverdue ? '700' : '400' }}>
+                        {l.expected_return_date || '—'}{isOverdue ? ' ⚠' : ''}
+                      </td>
+                    </tr>
+                  );
+                })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {showReturnTable && (
+        <div style={STYLES.box}>
+          <div style={STYLES.label}>Individual Return Records ({filteredReturns.length} of {scopedReturns.length})</div>
+          <table style={STYLES.table}>
+            <thead><tr>
+              <th style={STYLES.th}>Material</th>
+              {scopeType === 'contractor' && <th style={STYLES.th}>Site</th>}
+              {scopeType === 'site' && <th style={STYLES.th}>Contractor</th>}
+              <th style={STYLES.th}>Qty</th><th style={STYLES.th}>Condition</th><th style={STYLES.th}>Date</th><th style={STYLES.th}></th>
+            </tr></thead>
+            <tbody>
+              {filteredReturns.length === 0
+                ? <tr><td colSpan={6} style={{ ...STYLES.td, color: THEME.textMuted, textAlign: 'center' }}>No matching records</td></tr>
+                : filteredReturns.map(r => (
+                  <tr key={r.id}>
+                    <td style={STYLES.td}>{r.material_name}</td>
+                    {scopeType === 'contractor' && <td style={STYLES.td}>{r.site_name || '—'}</td>}
+                    {scopeType === 'site' && <td style={STYLES.td}>{r.contact_person}</td>}
+                    <td style={{ ...STYLES.td, fontWeight: '700', color: THEME.accentEmerald }}>{returnQty(r)}</td>
+                    <td style={STYLES.td}>{BADGE(CONDITION_COLORS[r.returned_condition] || THEME.textMuted, r.returned_condition || '—')}</td>
+                    <td style={STYLES.td}>{r.return_date || '—'}</td>
+                    <td style={STYLES.td}>
+                      <button onClick={() => onDeleteReturn(r.id)} disabled={deletingId === r.id} style={{ padding: '4px 10px', borderRadius: '5px', border: `1px solid ${THEME.accentCrimson}55`, backgroundColor: `${THEME.accentCrimson}10`, color: THEME.accentCrimson, fontSize: '11px', cursor: deletingId === r.id ? 'not-allowed' : 'pointer', fontWeight: '600', opacity: deletingId === r.id ? 0.5 : 1 }}>
+                        {deletingId === r.id ? '...' : 'Delete'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function AnalyticsPage({ materials, contractors, loans, returns, getLoanRemainingQty, syncSystemData, initialDrill }) {
+  const [drillType, setDrillType] = useState(initialDrill ? initialDrill.type : null);   // 'site' | 'contractor' | 'condition' | null
+  const [drillValue, setDrillValue] = useState(initialDrill ? initialDrill.value : null);
+
+  // Sync when Dashboard (or another page) deep-links here with a specific drill target
+  useEffect(() => {
+    if (initialDrill) { setDrillType(initialDrill.type); setDrillValue(initialDrill.value); }
+  }, [initialDrill]);
   const [deletingId, setDeletingId] = useState(null);
   const [deleteMsg, setDeleteMsg] = useState(null);
 
-  // Report filter state
   const [reportSite, setReportSite] = useState('All');
   const [reportMaterial, setReportMaterial] = useState('All');
   const [reportContractor, setReportContractor] = useState('All');
 
-  // ── Delete a return record (reverses stock + loan status on the backend) ──
   const handleDeleteReturn = async (returnId) => {
     if (!window.confirm('Delete this return record? The quantity it restored to stock will be reversed and the loan may reopen.')) return;
     setDeletingId(returnId); setDeleteMsg(null);
@@ -62,7 +511,6 @@ export default function AnalyticsPage({ materials, contractors, loans, returns, 
   const globalWornQty = returns.filter(r => r.returned_condition === 'Worn').reduce((s, r) => s + returnQty(r), 0);
   const globalDamagedQty = returns.filter(r => r.returned_condition === 'Damaged').reduce((s, r) => s + returnQty(r), 0);
   const globalConditionTotal = globalGoodQty + globalWornQty + globalDamagedQty;
-  const pct = (n) => globalConditionTotal > 0 ? Math.round((n / globalConditionTotal) * 100) : 0;
 
   // ── Site stats (quantity-based) ─────────────────────────────────────────
   const siteStats = Object.values(
@@ -149,7 +597,6 @@ export default function AnalyticsPage({ materials, contractors, loans, returns, 
     ? returns.filter(r => selectedContractor.loanIds.includes(Number(r.loan_id)))
     : [];
 
-  // Global condition drill (click a Good/Worn/Damaged % card)
   const conditionRecords = drillType === 'condition'
     ? returns.filter(r => r.returned_condition === drillValue)
     : [];
@@ -211,25 +658,14 @@ export default function AnalyticsPage({ materials, contractors, loans, returns, 
     const fReturns = buildFilteredReturns();
 
     const loanSheet = fLoans.map(l => ({
-      Material: l.material_name,
-      Contractor: l.contact_person,
-      Company: l.company_name,
-      Site: l.site_name || '—',
-      'Qty Loaned': l.quantity,
-      'Qty Remaining': getLoanRemainingQty(l.id),
+      Material: l.material_name, Contractor: l.contact_person, Company: l.company_name,
+      Site: l.site_name || '—', 'Qty Loaned': l.quantity, 'Qty Remaining': getLoanRemainingQty(l.id),
       'Due Date': l.expected_return_date || '—',
-      Status: getLoanRemainingQty(l.id) > 0
-        ? (l.expected_return_date && new Date(l.expected_return_date) < new Date() ? 'Overdue' : 'Active')
-        : 'Closed',
+      Status: getLoanRemainingQty(l.id) > 0 ? (l.expected_return_date && new Date(l.expected_return_date) < new Date() ? 'Overdue' : 'Active') : 'Closed',
     }));
-
     const returnSheet = fReturns.map(r => ({
-      Material: r.material_name,
-      Contractor: r.contact_person,
-      Site: r.site_name || '—',
-      'Qty Returned': returnQty(r),
-      Condition: r.returned_condition,
-      'Return Date': r.return_date,
+      Material: r.material_name, Contractor: r.contact_person, Site: r.site_name || '—',
+      'Qty Returned': returnQty(r), Condition: r.returned_condition, 'Return Date': r.return_date,
     }));
 
     const wb = XLSX.utils.book_new();
@@ -238,14 +674,8 @@ export default function AnalyticsPage({ materials, contractors, loans, returns, 
 
     const parts = [];
     if (reportSite !== 'All') parts.push(reportSite);
-    if (reportContractor !== 'All') {
-      const c = contractors.find(c => String(c.id) === String(reportContractor));
-      if (c) parts.push(c.company_name || c.contact_person);
-    }
-    if (reportMaterial !== 'All') {
-      const m = materials.find(m => String(m.id) === String(reportMaterial));
-      if (m) parts.push(m.name);
-    }
+    if (reportContractor !== 'All') { const c = contractors.find(c => String(c.id) === String(reportContractor)); if (c) parts.push(c.company_name || c.contact_person); }
+    if (reportMaterial !== 'All') { const m = materials.find(m => String(m.id) === String(reportMaterial)); if (m) parts.push(m.name); }
     const suffix = parts.length ? '_' + parts.join('_').replace(/\s+/g, '-') : '_All';
     XLSX.writeFile(wb, `Basirah_Report${suffix}_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
@@ -257,27 +687,21 @@ export default function AnalyticsPage({ materials, contractors, loans, returns, 
         <div style={{ ...STYLES.label, marginBottom: 0 }}>Download Filtered Report</div>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px', marginBottom: '16px' }}>
-        <div>
-          <label style={STYLES.label}>Site</label>
+        <div><label style={STYLES.label}>Site</label>
           <select style={STYLES.input} value={reportSite} onChange={e => setReportSite(e.target.value)}>
             <option value="All">All Sites</option>
             {uniqueSites.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </div>
-        <div>
-          <label style={STYLES.label}>Material</label>
+          </select></div>
+        <div><label style={STYLES.label}>Material</label>
           <select style={STYLES.input} value={reportMaterial} onChange={e => setReportMaterial(e.target.value)}>
             <option value="All">All Materials</option>
             {materials.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-          </select>
-        </div>
-        <div>
-          <label style={STYLES.label}>Contractor</label>
+          </select></div>
+        <div><label style={STYLES.label}>Contractor</label>
           <select style={STYLES.input} value={reportContractor} onChange={e => setReportContractor(e.target.value)}>
             <option value="All">All Contractors</option>
             {contractors.map(c => <option key={c.id} value={c.id}>{c.contact_person} — {c.company_name}</option>)}
-          </select>
-        </div>
+          </select></div>
       </div>
       <div style={{ fontSize: '12px', color: THEME.textMuted, marginBottom: '14px' }}>
         {buildFilteredLoans().length} matching loan(s), {buildFilteredReturns().length} matching return(s) will be included.
@@ -297,17 +721,14 @@ export default function AnalyticsPage({ materials, contractors, loans, returns, 
       ].map(c => {
         const p = total > 0 ? Math.round((c.qty / total) * 100) : 0;
         return (
-          <div
-            key={c.label}
-            onClick={() => { setDrillType('condition'); setDrillValue(c.label); }}
-            style={{ ...STYLES.box, marginBottom: 0, padding: '18px', cursor: 'pointer', border: `1px solid ${c.color}44`, transition: 'transform 0.1s' }}
-          >
+          <div key={c.label} onClick={() => { setDrillType('condition'); setDrillValue(c.label); }}
+            style={{ ...STYLES.box, marginBottom: 0, padding: '18px', cursor: 'pointer', border: `1px solid ${c.color}44` }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={STYLES.label}>{c.label} Returns</div>
               <ChevronRight size={14} color={THEME.textMuted} />
             </div>
             <div style={{ fontSize: '28px', fontWeight: '800', color: c.color }}>{p}%</div>
-            <div style={{ fontSize: '12px', color: THEME.textMuted }}>{c.qty} unit(s) · click to see details</div>
+            <div style={{ fontSize: '12px', color: THEME.textMuted }}>{c.qty} unit(s) · click for full diagnostics</div>
           </div>
         );
       })}
@@ -315,224 +736,177 @@ export default function AnalyticsPage({ materials, contractors, loans, returns, 
   );
 
   // ═══════════════════════════════════════════════════════════════════════
-  // DRILL VIEW: Global condition (click a Good/Worn/Damaged card)
+  // DRILL VIEW: Global condition — now with material/contractor/trend charts
   // ═══════════════════════════════════════════════════════════════════════
-  if (drillType === 'condition') return (
-    <div>
-      <BackBtn />
-      <h2 style={{ fontSize: '22px', fontWeight: '700', marginBottom: '6px' }}>Returns marked: {drillValue}</h2>
-      <p style={{ color: THEME.textMuted, fontSize: '13px', marginBottom: '24px' }}>
-        {conditionRecords.length} record(s) · {conditionRecords.reduce((s, r) => s + returnQty(r), 0)} unit(s) total
-      </p>
-      {deleteMsg && <div style={{ ...msgStyle(deleteMsg.type), marginBottom: '16px' }}>{deleteMsg.text}</div>}
-      <div style={STYLES.box}>
-        <table style={STYLES.table}>
-          <thead><tr>
-            <th style={STYLES.th}>Material</th><th style={STYLES.th}>Contractor</th><th style={STYLES.th}>Site</th>
-            <th style={STYLES.th}>Qty Returned</th><th style={STYLES.th}>Return Date</th><th style={STYLES.th}></th>
-          </tr></thead>
-          <tbody>
-            {conditionRecords.length === 0
-              ? <tr><td colSpan={6} style={{ ...STYLES.td, textAlign: 'center', color: THEME.textMuted }}>No records</td></tr>
-              : conditionRecords.map(r => (
-                <tr key={r.id}>
-                  <td style={STYLES.td}>{r.material_name}</td>
-                  <td style={STYLES.td}>{r.contact_person}</td>
-                  <td style={STYLES.td}>{r.site_name || '—'}</td>
-                  <td style={{ ...STYLES.td, fontWeight: '700', color: THEME.accentEmerald }}>{returnQty(r)}</td>
-                  <td style={STYLES.td}>{r.return_date || '—'}</td>
-                  <td style={STYLES.td}><DeleteReturnBtn id={r.id} /></td>
-                </tr>
-              ))}
-          </tbody>
-        </table>
+  if (drillType === 'condition') {
+    const materialTotals = buildTopBy(conditionRecords, r => r.material_name);
+    const contractorTotals = buildTopBy(conditionRecords, r => r.contact_person);
+    const trend = buildSingleTrend(conditionRecords);
+    const shareTrend = buildShareTrend(returns, drillValue);
+    const color = CONDITION_COLORS[drillValue] || THEME.textMuted;
+
+    return (
+      <div>
+        <BackBtn />
+        <h2 style={{ fontSize: '22px', fontWeight: '700', marginBottom: '6px' }}>Returns marked: {drillValue}</h2>
+        <p style={{ color: THEME.textMuted, fontSize: '13px', marginBottom: '24px' }}>
+          {conditionRecords.length} record(s) · {conditionRecords.reduce((s, r) => s + returnQty(r), 0)} unit(s) total
+        </p>
+        {deleteMsg && <div style={{ ...msgStyle(deleteMsg.type), marginBottom: '16px' }}>{deleteMsg.text}</div>}
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+          <div style={STYLES.box}>
+            <div style={STYLES.label}>Top Materials — {drillValue}</div>
+            <div style={{ height: 260 }}>
+              <ResponsiveContainer>
+                <BarChart data={materialTotals} layout="vertical" margin={{ left: 10, right: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={THEME.border} />
+                  <XAxis type="number" stroke={THEME.textMuted} tick={{ fontSize: 10 }} />
+                  <YAxis type="category" dataKey="name" stroke={THEME.textMuted} tick={{ fontSize: 11 }} width={140} />
+                  <Tooltip contentStyle={{ backgroundColor: THEME.cardBg, borderColor: THEME.border, color: '#fff' }} />
+                  <Bar dataKey="qty" name={`${drillValue} qty`} fill={color} radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+          <div style={STYLES.box}>
+            <div style={STYLES.label}>Top Contractors — {drillValue}</div>
+            <div style={{ height: 260 }}>
+              <ResponsiveContainer>
+                <BarChart data={contractorTotals} layout="vertical" margin={{ left: 10, right: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={THEME.border} />
+                  <XAxis type="number" stroke={THEME.textMuted} tick={{ fontSize: 10 }} />
+                  <YAxis type="category" dataKey="name" stroke={THEME.textMuted} tick={{ fontSize: 11 }} width={140} />
+                  <Tooltip contentStyle={{ backgroundColor: THEME.cardBg, borderColor: THEME.border, color: '#fff' }} />
+                  <Bar dataKey="qty" name={`${drillValue} qty`} fill={color} radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+          <div style={STYLES.box}>
+            <div style={STYLES.label}>{drillValue} Volume Over Time</div>
+            <div style={{ height: 220 }}>
+              <ResponsiveContainer>
+                <LineChart data={trend}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={THEME.border} />
+                  <XAxis dataKey="month" stroke={THEME.textMuted} tick={{ fontSize: 10 }} />
+                  <YAxis stroke={THEME.textMuted} tick={{ fontSize: 10 }} />
+                  <Tooltip contentStyle={{ backgroundColor: THEME.cardBg, borderColor: THEME.border, color: '#fff' }} />
+                  <Line type="monotone" dataKey="qty" name={`${drillValue} qty`} stroke={color} strokeWidth={2} dot={{ r: 3 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+          <div style={STYLES.box}>
+            <div style={STYLES.label}>{drillValue} Share of All Returns (%)</div>
+            <p style={{ fontSize: '11px', color: THEME.textMuted, marginBottom: '8px' }}>
+              Is {drillValue.toLowerCase()} becoming a bigger problem, or just growing with volume?
+            </p>
+            <div style={{ height: 190 }}>
+              <ResponsiveContainer>
+                <LineChart data={shareTrend}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={THEME.border} />
+                  <XAxis dataKey="month" stroke={THEME.textMuted} tick={{ fontSize: 10 }} />
+                  <YAxis domain={[0, 100]} stroke={THEME.textMuted} tick={{ fontSize: 10 }} />
+                  <Tooltip contentStyle={{ backgroundColor: THEME.cardBg, borderColor: THEME.border, color: '#fff' }} formatter={v => `${v}%`} />
+                  <Line type="monotone" dataKey="sharePct" name="% share" stroke={THEME.accentPurple} strokeWidth={2} dot={{ r: 3 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+
+        <div style={STYLES.box}>
+          <div style={STYLES.label}>Detail Records</div>
+          <table style={STYLES.table}>
+            <thead><tr>
+              <th style={STYLES.th}>Material</th><th style={STYLES.th}>Contractor</th><th style={STYLES.th}>Site</th>
+              <th style={STYLES.th}>Qty Returned</th><th style={STYLES.th}>Return Date</th><th style={STYLES.th}></th>
+            </tr></thead>
+            <tbody>
+              {conditionRecords.length === 0
+                ? <tr><td colSpan={6} style={{ ...STYLES.td, textAlign: 'center', color: THEME.textMuted }}>No records</td></tr>
+                : conditionRecords.map(r => (
+                  <tr key={r.id}>
+                    <td style={STYLES.td}>{r.material_name}</td>
+                    <td style={STYLES.td}>{r.contact_person}</td>
+                    <td style={STYLES.td}>{r.site_name || '—'}</td>
+                    <td style={{ ...STYLES.td, fontWeight: '700', color }}>{returnQty(r)}</td>
+                    <td style={STYLES.td}>{r.return_date || '—'}</td>
+                    <td style={STYLES.td}><DeleteReturnBtn id={r.id} /></td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
 
   // ═══════════════════════════════════════════════════════════════════════
   // DRILL VIEW: Site
   // ═══════════════════════════════════════════════════════════════════════
-  if (drillType === 'site' && selectedSite) return (
-    <div>
-      <BackBtn />
-      <h2 style={{ fontSize: '22px', fontWeight: '700', marginBottom: '6px' }}>Site: {selectedSite.name}</h2>
-      <p style={{ color: THEME.textMuted, fontSize: '13px', marginBottom: '24px' }}>Full utilization and condition breakdown</p>
-      <StatGrid stats={[
-        { label: 'Total Loaned (qty)', value: selectedSite.loaned, color: THEME.accentBlue },
-        { label: 'Total Returned (qty)', value: selectedSite.returnedQty, color: THEME.accentEmerald },
-        { label: 'Remaining (qty)', value: selectedSite.remaining, color: THEME.accentAmber },
-        { label: 'Overdue (qty)', value: selectedSite.overdue, color: THEME.accentCrimson },
-        { label: 'Return Rate', value: `${selectedSite.returnRate}%`, color: THEME.accentPurple },
-        { label: 'Health Rate', value: selectedSite.healthRate !== null ? `${selectedSite.healthRate}%` : 'N/A', color: THEME.accentEmerald },
-      ]} />
-      {deleteMsg && <div style={{ ...msgStyle(deleteMsg.type), marginBottom: '16px' }}>{deleteMsg.text}</div>}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '20px', marginBottom: '20px' }}>
-        <div style={STYLES.box}>
-          <div style={STYLES.label}>Loan History</div>
-          <table style={STYLES.table}>
-            <thead><tr>
-              <th style={STYLES.th}>Material</th><th style={STYLES.th}>Contractor</th>
-              <th style={STYLES.th}>Qty</th><th style={STYLES.th}>Returned</th>
-              <th style={STYLES.th}>Remaining</th><th style={STYLES.th}>Due</th>
-            </tr></thead>
-            <tbody>
-              {siteLoanHistory.length === 0
-                ? <tr><td colSpan={6} style={{ ...STYLES.td, color: THEME.textMuted, textAlign: 'center' }}>No loans</td></tr>
-                : siteLoanHistory.map(l => {
-                  const isOverdue = l.expected_return_date && new Date(l.expected_return_date) < new Date() && l.remaining > 0;
-                  return (
-                    <tr key={l.id}>
-                      <td style={STYLES.td}>{l.material_name}</td>
-                      <td style={STYLES.td}>{l.contact_person}</td>
-                      <td style={STYLES.td}>{l.quantity}</td>
-                      <td style={STYLES.td}>{l.retQty}</td>
-                      <td style={STYLES.td}>{l.remaining}</td>
-                      <td style={{ ...STYLES.td, color: isOverdue ? THEME.accentCrimson : THEME.textMuted, fontWeight: isOverdue ? '700' : '400' }}>
-                        {l.expected_return_date || '—'}{isOverdue ? ' ⚠' : ''}
-                      </td>
-                    </tr>
-                  );
-                })}
-            </tbody>
-          </table>
-        </div>
-        <div style={STYLES.box}>
-          <div style={STYLES.label}>Condition Breakdown (qty)</div>
-          {selectedSite.returnedQty > 0 ? (
-            <div style={{ height: 220 }}>
-              <ResponsiveContainer>
-                <PieChart>
-                  <Pie data={condPieQty(selectedSite.goodQty, selectedSite.wornQty, selectedSite.damagedQty)} cx="50%" cy="50%" innerRadius={55} outerRadius={80} paddingAngle={4} dataKey="value">
-                    <Cell fill={CONDITION_COLORS.Good} /><Cell fill={CONDITION_COLORS.Worn} /><Cell fill={CONDITION_COLORS.Damaged} />
-                  </Pie>
-                  <Tooltip contentStyle={{ backgroundColor: THEME.cardBg, borderColor: THEME.border, color: '#fff' }} />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          ) : <div style={{ color: THEME.textMuted, fontSize: '13px', padding: '20px 0' }}>No returns yet</div>}
-        </div>
+  if (drillType === 'site' && selectedSite) {
+    return (
+      <div>
+        <BackBtn />
+        <h2 style={{ fontSize: '22px', fontWeight: '700', marginBottom: '6px' }}>Site: {selectedSite.name}</h2>
+        <p style={{ color: THEME.textMuted, fontSize: '13px', marginBottom: '24px' }}>Interactive material return status and condition analysis</p>
+        <StatGrid stats={[
+          { label: 'Total Loaned (qty)', value: selectedSite.loaned, color: THEME.accentBlue },
+          { label: 'Total Returned (qty)', value: selectedSite.returnedQty, color: THEME.accentEmerald },
+          { label: 'Remaining (qty)', value: selectedSite.remaining, color: THEME.accentAmber },
+          { label: 'Overdue (qty)', value: selectedSite.overdue, color: THEME.accentCrimson },
+          { label: 'Return Rate', value: `${selectedSite.returnRate}%`, color: THEME.accentPurple },
+          { label: 'Health Rate', value: selectedSite.healthRate !== null ? `${selectedSite.healthRate}%` : 'N/A', color: THEME.accentEmerald },
+        ]} />
+        {deleteMsg && <div style={{ ...msgStyle(deleteMsg.type), marginBottom: '16px' }}>{deleteMsg.text}</div>}
+
+        <ReturnRecordsExplorer
+          key={selectedSite.name}
+          scopedLoans={siteLoanHistory}
+          scopedReturns={siteReturnRecords}
+          scopeType="site"
+          onDeleteReturn={handleDeleteReturn}
+          deletingId={deletingId}
+        />
       </div>
-      <div style={STYLES.box}>
-        <div style={STYLES.label}>Individual Return Records ({siteReturnRecords.length})</div>
-        <table style={STYLES.table}>
-          <thead><tr>
-            <th style={STYLES.th}>Material</th><th style={STYLES.th}>Contractor</th>
-            <th style={STYLES.th}>Qty</th><th style={STYLES.th}>Condition</th><th style={STYLES.th}>Date</th><th style={STYLES.th}></th>
-          </tr></thead>
-          <tbody>
-            {siteReturnRecords.length === 0
-              ? <tr><td colSpan={6} style={{ ...STYLES.td, color: THEME.textMuted, textAlign: 'center' }}>No returns yet</td></tr>
-              : siteReturnRecords.map(r => (
-                <tr key={r.id}>
-                  <td style={STYLES.td}>{r.material_name}</td>
-                  <td style={STYLES.td}>{r.contact_person}</td>
-                  <td style={{ ...STYLES.td, fontWeight: '700', color: THEME.accentEmerald }}>{returnQty(r)}</td>
-                  <td style={STYLES.td}>{BADGE(CONDITION_COLORS[r.returned_condition] || THEME.textMuted, r.returned_condition || '—')}</td>
-                  <td style={STYLES.td}>{r.return_date || '—'}</td>
-                  <td style={STYLES.td}><DeleteReturnBtn id={r.id} /></td>
-                </tr>
-              ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
+    );
+  }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // DRILL VIEW: Contractor
+  // DRILL VIEW: Contractor — now includes material-level diagnostics
   // ═══════════════════════════════════════════════════════════════════════
-  if (drillType === 'contractor' && selectedContractor) return (
-    <div>
-      <BackBtn />
-      <h2 style={{ fontSize: '22px', fontWeight: '700', marginBottom: '6px' }}>{selectedContractor.contact_person} — {selectedContractor.company_name}</h2>
-      <p style={{ color: THEME.textMuted, fontSize: '13px', marginBottom: '24px' }}>Sites: {selectedContractor.sites.join(', ') || 'None'}</p>
-      <StatGrid stats={[
-        { label: 'Total Loaned (qty)', value: selectedContractor.loaned, color: THEME.accentBlue },
-        { label: 'Total Returned (qty)', value: selectedContractor.returnedQty, color: THEME.accentEmerald },
-        { label: 'Still Out (qty)', value: selectedContractor.stillOut, color: THEME.accentAmber },
-        { label: 'Overdue (qty)', value: selectedContractor.overdue, color: THEME.accentCrimson },
-        { label: 'Return Rate', value: `${selectedContractor.returnRate}%`, color: THEME.accentPurple },
-        { label: 'Health Rate', value: selectedContractor.healthRate !== null ? `${selectedContractor.healthRate}%` : 'N/A', color: THEME.accentEmerald },
-        { label: 'Good Qty', value: selectedContractor.goodQty, color: THEME.accentEmerald },
-        { label: 'Damaged Qty', value: selectedContractor.damagedQty, color: THEME.accentCrimson },
-      ]} />
-      {deleteMsg && <div style={{ ...msgStyle(deleteMsg.type), marginBottom: '16px' }}>{deleteMsg.text}</div>}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '20px', marginBottom: '20px' }}>
-        <div style={STYLES.box}>
-          <div style={STYLES.label}>Loan History</div>
-          <table style={STYLES.table}>
-            <thead><tr>
-              <th style={STYLES.th}>Material</th><th style={STYLES.th}>Site</th>
-              <th style={STYLES.th}>Qty</th><th style={STYLES.th}>Returned</th>
-              <th style={STYLES.th}>Remaining</th><th style={STYLES.th}>Status</th>
-            </tr></thead>
-            <tbody>
-              {contractorLoanHistory.length === 0
-                ? <tr><td colSpan={6} style={{ ...STYLES.td, color: THEME.textMuted, textAlign: 'center' }}>No history</td></tr>
-                : contractorLoanHistory.map(l => {
-                  const isOverdue = l.expected_return_date && new Date(l.expected_return_date) < new Date() && l.remaining > 0;
-                  return (
-                    <tr key={l.id}>
-                      <td style={STYLES.td}>{l.material_name}</td>
-                      <td style={STYLES.td}>{l.site_name || '—'}</td>
-                      <td style={STYLES.td}>{l.quantity}</td>
-                      <td style={STYLES.td}>{l.retQty}</td>
-                      <td style={STYLES.td}>{l.remaining}</td>
-                      <td style={STYLES.td}>
-                        {l.remaining > 0
-                          ? BADGE(isOverdue ? THEME.accentCrimson : THEME.accentAmber, isOverdue ? 'OVERDUE' : 'OUT')
-                          : BADGE(THEME.accentEmerald, 'CLOSED')}
-                      </td>
-                    </tr>
-                  );
-                })}
-            </tbody>
-          </table>
-        </div>
-        <div style={STYLES.box}>
-          <div style={STYLES.label}>Condition Breakdown (qty)</div>
-          {selectedContractor.returnedQty > 0 ? (
-            <div style={{ height: 220 }}>
-              <ResponsiveContainer>
-                <PieChart>
-                  <Pie data={condPieQty(selectedContractor.goodQty, selectedContractor.wornQty, selectedContractor.damagedQty)} cx="50%" cy="50%" innerRadius={55} outerRadius={80} paddingAngle={4} dataKey="value">
-                    <Cell fill={CONDITION_COLORS.Good} /><Cell fill={CONDITION_COLORS.Worn} /><Cell fill={CONDITION_COLORS.Damaged} />
-                  </Pie>
-                  <Tooltip contentStyle={{ backgroundColor: THEME.cardBg, borderColor: THEME.border, color: '#fff' }} />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          ) : <div style={{ color: THEME.textMuted, fontSize: '13px', padding: '20px 0' }}>No returns yet</div>}
-        </div>
+  if (drillType === 'contractor' && selectedContractor) {
+    return (
+      <div>
+        <BackBtn />
+        <h2 style={{ fontSize: '22px', fontWeight: '700', marginBottom: '6px' }}>{selectedContractor.contact_person} — {selectedContractor.company_name}</h2>
+        <p style={{ color: THEME.textMuted, fontSize: '13px', marginBottom: '24px' }}>Sites: {selectedContractor.sites.join(', ') || 'None'}</p>
+        <StatGrid stats={[
+          { label: 'Total Loaned (qty)', value: selectedContractor.loaned, color: THEME.accentBlue },
+          { label: 'Total Returned (qty)', value: selectedContractor.returnedQty, color: THEME.accentEmerald },
+          { label: 'Still Out (qty)', value: selectedContractor.stillOut, color: THEME.accentAmber },
+          { label: 'Overdue (qty)', value: selectedContractor.overdue, color: THEME.accentCrimson },
+          { label: 'Return Rate', value: `${selectedContractor.returnRate}%`, color: THEME.accentPurple },
+          { label: 'Health Rate', value: selectedContractor.healthRate !== null ? `${selectedContractor.healthRate}%` : 'N/A', color: THEME.accentEmerald },
+        ]} />
+        {deleteMsg && <div style={{ ...msgStyle(deleteMsg.type), marginBottom: '16px' }}>{deleteMsg.text}</div>}
+
+        <ReturnRecordsExplorer
+          key={selectedContractor.id}
+          scopedLoans={contractorLoanHistory}
+          scopedReturns={contractorReturnRecords}
+          scopeType="contractor"
+          onDeleteReturn={handleDeleteReturn}
+          deletingId={deletingId}
+        />
       </div>
-      <div style={STYLES.box}>
-        <div style={STYLES.label}>Individual Return Records ({contractorReturnRecords.length})</div>
-        <table style={STYLES.table}>
-          <thead><tr>
-            <th style={STYLES.th}>Material</th><th style={STYLES.th}>Site</th>
-            <th style={STYLES.th}>Qty</th><th style={STYLES.th}>Condition</th><th style={STYLES.th}>Date</th><th style={STYLES.th}></th>
-          </tr></thead>
-          <tbody>
-            {contractorReturnRecords.length === 0
-              ? <tr><td colSpan={6} style={{ ...STYLES.td, color: THEME.textMuted, textAlign: 'center' }}>No returns yet</td></tr>
-              : contractorReturnRecords.map(r => (
-                <tr key={r.id}>
-                  <td style={STYLES.td}>{r.material_name}</td>
-                  <td style={STYLES.td}>{r.site_name || '—'}</td>
-                  <td style={{ ...STYLES.td, fontWeight: '700', color: THEME.accentEmerald }}>{returnQty(r)}</td>
-                  <td style={STYLES.td}>{BADGE(CONDITION_COLORS[r.returned_condition] || THEME.textMuted, r.returned_condition || '—')}</td>
-                  <td style={STYLES.td}>{r.return_date || '—'}</td>
-                  <td style={STYLES.td}><DeleteReturnBtn id={r.id} /></td>
-                </tr>
-              ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
+    );
+  }
 
   // ═══════════════════════════════════════════════════════════════════════
   // MAIN VIEW
@@ -540,7 +914,7 @@ export default function AnalyticsPage({ materials, contractors, loans, returns, 
   return (
     <div>
       <h2 style={{ fontSize: '22px', fontWeight: '700', marginBottom: '6px' }}>KPI Analytics</h2>
-      <p style={{ color: THEME.textMuted, fontSize: '13px', marginBottom: '28px' }}>Click any row, condition card, or site/contractor to drill into full history</p>
+      <p style={{ color: THEME.textMuted, fontSize: '13px', marginBottom: '28px' }}>Click any row, condition card, or site/contractor to drill into full charts and history</p>
 
       <StatGrid stats={[
         { label: 'Total Loaned (qty)', value: totalLoanedQty, color: THEME.accentBlue },
@@ -551,6 +925,17 @@ export default function AnalyticsPage({ materials, contractors, loans, returns, 
 
       <div style={{ marginBottom: '8px', ...STYLES.label }}>Return Condition Overview (click to drill down)</div>
       <ConditionOverviewCards good={globalGoodQty} worn={globalWornQty} damaged={globalDamagedQty} total={globalConditionTotal} />
+
+      <div style={{ ...STYLES.box, marginBottom: '32px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+          <AlertTriangle size={15} color={THEME.accentAmber} />
+          <div style={{ ...STYLES.label, marginBottom: 0 }}>Material Diagnostics — All Contractors</div>
+        </div>
+        <p style={{ fontSize: '12px', color: THEME.textMuted, marginBottom: '12px' }}>
+          System-wide: which materials consistently come back Good vs Worn/Damaged, regardless of contractor. High problem rates may indicate a material quality issue rather than a handling issue.
+        </p>
+        <MaterialConditionBreakdown returns={returns} />
+      </div>
 
       <div style={{ marginBottom: '32px' }}>
         <ReportPanel />
