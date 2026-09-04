@@ -1,4 +1,5 @@
-﻿import { useNavigate } from 'react-router-dom';
+﻿var totalStock = 0;
+import { useNavigate } from 'react-router-dom';
 import React, { useState, useEffect } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -1125,3 +1126,4 @@ export default function AnalyticsPage({ materials, contractors, loans, returns, 
     </div>
   );
 }
+
