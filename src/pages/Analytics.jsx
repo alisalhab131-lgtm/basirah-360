@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import React, { useState, useEffect } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -84,7 +85,16 @@ function MaterialConditionBreakdown({ returns, onMaterialClick, showTable = true
 
   const barClick = (data) => { if (onMaterialClick && data && data.name) onMaterialClick(data.name); };
 
-  return (
+  
+  const totalStock = materials.reduce((sum, m) => sum + Number(m.quantity || m.qty || m.stock_quantity || 0), 0);
+  const deployedUnits = loanStats.totalLoaned - loanStats.totalReturned;
+  const availableUnits = Math.max(0, totalStock - deployedUnits);
+  const utilizationRate = totalStock ? (deployedUnits / totalStock) * 100 : 0;
+  const overdueRate = deployedUnits ? (loanStats.overdue / deployedUnits) * 100 : 0;
+  const damageRate = conditionStats.total ? (conditionStats.damaged / conditionStats.total) * 100 : 0;
+  const problemRate = conditionStats.total ? ((conditionStats.worn + conditionStats.damaged) / conditionStats.total) * 100 : 0;
+
+return (
     <div>
       {onMaterialClick && (
         <div style={{ fontSize: '11px', color: THEME.textMuted, marginBottom: '10px', fontStyle: 'italic' }}>
@@ -148,75 +158,93 @@ function FilterChip({ label, onRemove }) {
 // ── Per-material condition breakdown as a stacked VERTICAL bar chart ────────
 // Columns = materials, each column split into Good/Worn/Damaged (green/amber/red)
 // Tooltip shows both the raw count and the percentage. Clicking a segment filters.
-function MaterialConditionStackedChart({ returns, onMaterialClick }) {
-  const map = {};
-  returns.forEach(r => {
-    const name = r.material_name || 'Unknown';
-    if (!map[name]) map[name] = { name, Good: 0, Worn: 0, Damaged: 0 };
-    const q = returnQty(r);
-    if (r.returned_condition === 'Good') map[name].Good += q;
-    else if (r.returned_condition === 'Worn') map[name].Worn += q;
-    else if (r.returned_condition === 'Damaged') map[name].Damaged += q;
-  });
-  const rows = Object.values(map).map(m => {
-    const total = m.Good + m.Worn + m.Damaged;
-    return {
-      ...m, total,
-      GoodPct: total > 0 ? Math.round((m.Good / total) * 100) : 0,
-      WornPct: total > 0 ? Math.round((m.Worn / total) * 100) : 0,
-      DamagedPct: total > 0 ? Math.round((m.Damaged / total) * 100) : 0,
-    };
-  }).sort((a, b) => b.total - a.total);
 
-  if (rows.length === 0) return <div style={{ color: THEME.textMuted, fontSize: '13px', padding: '20px 0' }}>No condition data yet</div>;
+function MaterialConditionStackedChart({ data = [] }) {
+  const [limit, setLimit] = useState(10);
+  const [search, setSearch] = useState('');
 
-  const CustomTooltip = ({ active, payload, label }) => {
-    if (!active || !payload || !payload.length) return null;
-    const row = rows.find(r => r.name === label);
-    if (!row) return null;
-    return (
-      <div style={{ backgroundColor: THEME.cardBg, border: `1px solid ${THEME.border}`, borderRadius: '8px', padding: '10px 14px', fontSize: '12px' }}>
-        <div style={{ fontWeight: '700', color: THEME.textMain, marginBottom: '6px' }}>{label}</div>
-        {payload.map((p, i) => (
-          <div key={i} style={{ color: p.color, display: 'flex', justifyContent: 'space-between', gap: '20px' }}>
-            <span>{p.dataKey}:</span>
-            <span style={{ fontWeight: '700' }}>{p.value} ({row[p.dataKey + 'Pct']}%)</span>
-          </div>
-        ))}
-      </div>
-    );
-  };
+  const rows = data
+    .map(m => {
+      const good = Number(m.good || m.goodQty || 0);
+      const worn = Number(m.worn || m.wornQty || 0);
+      const damaged = Number(m.damaged || m.damagedQty || 0);
+      const total = good + worn + damaged;
+      const problem = worn + damaged;
+      return {
+        ...m,
+        name: m.name || m.material_name || 'Unknown',
+        good, worn, damaged, total, problem,
+        problemRate: total ? (problem / total) * 100 : 0,
+      };
+    })
+    .filter(m => m.total > 0)
+    .filter(m => !search.trim() || m.name.toLowerCase().includes(search.trim().toLowerCase()))
+    .sort((a, b) => b.problemRate - a.problemRate);
 
-  const barClick = (data) => { if (onMaterialClick && data && data.name) onMaterialClick(data.name); };
+  const visible = rows.slice(0, limit);
 
   return (
-    <div>
-      {onMaterialClick && (
-        <div style={{ fontSize: '11px', color: THEME.textMuted, marginBottom: '10px', fontStyle: 'italic' }}>
-          Hover a column for exact numbers and percentages · click to filter the table below
+    <div style={STYLES.box}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
+        <div>
+          <div style={STYLES.label}>Material Condition Risk</div>
+          <div style={{ color: THEME.textMuted, fontSize: 11, marginTop: 4 }}>
+            Ranked by Worn + Damaged return rate. {rows.length} materials with return data.
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search material..."
+            style={{ ...STYLES.input, width: 190 }}
+          />
+          <select value={limit} onChange={e => setLimit(Number(e.target.value))} style={STYLES.input}>
+            <option value={10}>Top 10</option>
+            <option value={25}>Top 25</option>
+            <option value={50}>Top 50</option>
+            <option value={1000}>All</option>
+          </select>
+        </div>
+      </div>
+
+      {visible.length === 0 ? (
+        <div style={{ padding: 30, textAlign: 'center', color: THEME.textMuted }}>
+          No material condition data available.
+        </div>
+      ) : (
+        <div style={{ height: Math.max(280, visible.length * 38), maxHeight: 620, overflowY: 'auto', paddingRight: 6 }}>
+          <ResponsiveContainer width="100%" height={Math.max(280, visible.length * 38)}>
+            <BarChart data={visible} layout="vertical" margin={{ top: 8, right: 55, left: 20, bottom: 8 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke={THEME.border} horizontal={false} />
+              <XAxis type="number" domain={[0, 100]} tickFormatter={v => `${v}%`} stroke={THEME.textMuted} />
+              <YAxis
+                type="category"
+                dataKey="name"
+                width={150}
+                stroke={THEME.textMuted}
+                tick={{ fontSize: 10 }}
+              />
+              <Tooltip
+                contentStyle={{ backgroundColor: THEME.cardBg, borderColor: THEME.border, color: '#fff' }}
+                formatter={(value, name) => [`${Number(value).toFixed(1)}%`, name]}
+                labelFormatter={label => label}
+              />
+              <Bar
+                dataKey="problemRate"
+                name="Worn + Damaged"
+                radius={[0, 5, 5, 0]}
+                fill={THEME.accentAmber}
+                onClick={(entry) => entry?.name && window.dispatchEvent(new CustomEvent('basirah-material-drill', { detail: entry.name }))}
+              />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       )}
-      <div style={{ height: 300 }}>
-        <ResponsiveContainer>
-          <BarChart data={rows} margin={{ bottom: 50, top: 10 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke={THEME.border} />
-            <XAxis dataKey="name" stroke={THEME.textMuted} tick={{ fontSize: 10 }} angle={-30} textAnchor="end" interval={0} height={60} />
-            <YAxis stroke={THEME.textMuted} tick={{ fontSize: 10 }} />
-            <Tooltip content={<CustomTooltip />} />
-            <Legend />
-            <Bar dataKey="Good" name="Good" stackId="cond" fill={CONDITION_COLORS.Good} onClick={barClick} cursor={onMaterialClick ? 'pointer' : 'default'} />
-            <Bar dataKey="Worn" name="Worn" stackId="cond" fill={CONDITION_COLORS.Worn} onClick={barClick} cursor={onMaterialClick ? 'pointer' : 'default'} />
-            <Bar dataKey="Damaged" name="Damaged" stackId="cond" fill={CONDITION_COLORS.Damaged} radius={[4, 4, 0, 0]} onClick={barClick} cursor={onMaterialClick ? 'pointer' : 'default'} />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
     </div>
   );
 }
 
-// ── Interactive explorer: grouped bar (Loaned vs Returned) + clickable donut ──
-// + condition stacked chart + search/dropdown filters + filter chips +
-// collapsible totals that expand into reactive, filterable, searchable tables
 function ReturnRecordsExplorer({ scopedLoans, scopedReturns, scopeType, onDeleteReturn, deletingId }) {
   const [filters, setFilters] = useState({ search: '', material: 'All', condition: 'All', site: 'All' });
   const [showLoanTable, setShowLoanTable] = useState(false);
@@ -944,7 +972,29 @@ export default function AnalyticsPage({ materials, contractors, loans, returns, 
       <div style={{ ...STYLES.box, marginBottom: '20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
           <MapPin size={16} color={THEME.accentAmber} />
-          <div style={{ ...STYLES.label, marginBottom: 0 }}>Site Utilization & Condition Performance</div>
+          
+      <div style={{ marginBottom: 22 }}>
+        <div style={{ ...STYLES.label, marginBottom: 10 }}>Executive Risk KPIs</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
+          {[
+            ['Total Stock', totalStock.toLocaleString()],
+            ['Available', availableUnits.toLocaleString()],
+            ['Deployed', deployedUnits.toLocaleString()],
+            ['Utilization', `${utilizationRate.toFixed(1)}%`],
+            ['Overdue', loanStats.overdue.toLocaleString()],
+            ['Overdue Rate', `${overdueRate.toFixed(1)}%`],
+            ['Damage Rate', `${damageRate.toFixed(1)}%`],
+            ['Worn + Damaged', `${problemRate.toFixed(1)}%`],
+          ].map(([label, value]) => (
+            <div key={label} style={{ ...STYLES.box, padding: 14 }}>
+              <div style={STYLES.label}>{label}</div>
+              <div style={{ fontSize: 24, fontWeight: 800, marginTop: 6 }}>{value}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+<div style={{ ...STYLES.label, marginBottom: 0 }}>Site Utilization & Condition Performance</div>
         </div>
         <table style={STYLES.table}>
           <thead><tr>
@@ -958,7 +1008,7 @@ export default function AnalyticsPage({ materials, contractors, loans, returns, 
             {siteStats.length === 0
               ? <tr><td colSpan={9} style={{ ...STYLES.td, textAlign: 'center', color: THEME.textMuted }}>No site data yet</td></tr>
               : siteStats.map(s => (
-                <tr key={s.name} style={{ cursor: 'pointer' }} onClick={() => { setDrillType('site'); setDrillValue(s.name); }}>
+                <tr key={s.name} style={{ cursor: 'pointer' }} onClick={() => { navigate(`/analytics/site/${encodeURIComponent(s.name)}`); }}>
                   <td style={STYLES.td}><strong>{s.name}</strong></td>
                   <td style={STYLES.td}>{s.loaned}</td>
                   <td style={STYLES.td}>{s.returnedQty}</td>
@@ -1043,7 +1093,7 @@ export default function AnalyticsPage({ materials, contractors, loans, returns, 
             {contractorStats.length === 0
               ? <tr><td colSpan={10} style={{ ...STYLES.td, textAlign: 'center', color: THEME.textMuted }}>No contractor data yet</td></tr>
               : contractorStats.map(c => (
-                <tr key={c.id} style={{ cursor: 'pointer' }} onClick={() => { setDrillType('contractor'); setDrillValue(c.id); }}>
+                <tr key={c.id} style={{ cursor: 'pointer' }} onClick={() => { navigate(`/analytics/contractor/${c.id}`); }}>
                   <td style={STYLES.td}><strong>{c.contact_person}</strong></td>
                   <td style={STYLES.td}>{c.company_name}</td>
                   <td style={STYLES.td}>{c.loaned}</td>
