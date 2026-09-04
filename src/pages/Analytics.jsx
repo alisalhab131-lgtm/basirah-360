@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   BarChart,
@@ -483,7 +483,7 @@ function FilterChip({
           padding: '0 4px'
         }}
       >
-        ×
+        Ã—
       </button>
     </span>
   );
@@ -1107,7 +1107,7 @@ function ReturnRecordsExplorer({
       >
         <div style={STYLES.box}>
           <div style={STYLES.label}>
-            Material Return Status —
+            Material Return Status â€”
             Loaned vs Returned
           </div>
 
@@ -1714,7 +1714,7 @@ function ReturnRecordsExplorer({
           >
             {hasActiveFilters
               ? `Filtered from ${scopedLoans.length} records`
-              : 'Total for this site · click to view details'}
+              : 'Total for this site Â· click to view details'}
           </div>
         </div>
 
@@ -1819,7 +1819,7 @@ function ReturnRecordsExplorer({
           >
             {hasActiveFilters
               ? `Filtered from ${scopedReturns.length} records`
-              : 'Total for this site · click to view details'}
+              : 'Total for this site Â· click to view details'}
           </div>
         </div>
       </div>
@@ -1960,7 +1960,7 @@ function ReturnRecordsExplorer({
                             }
                           >
                             {l.site_name ||
-                              '—'}
+                              'â€”'}
                           </td>
                         )}
 
@@ -2014,9 +2014,9 @@ function ReturnRecordsExplorer({
                           }}
                         >
                           {l.expected_return_date ||
-                            '—'}
+                            'â€”'}
                           {isOverdue
-                            ? ' ⚠'
+                            ? ' âš '
                             : ''}
                         </td>
                       </tr>
@@ -2146,7 +2146,7 @@ function ReturnRecordsExplorer({
                           }
                         >
                           {r.site_name ||
-                            '—'}
+                            'â€”'}
                         </td>
                       )}
 
@@ -2188,7 +2188,7 @@ function ReturnRecordsExplorer({
                           ] ||
                             THEME.textMuted,
                           r.returned_condition ||
-                            '—'
+                            'â€”'
                         )}
                       </td>
 
@@ -2198,7 +2198,7 @@ function ReturnRecordsExplorer({
                         }
                       >
                         {r.return_date ||
-                          '—'}
+                          'â€”'}
                       </td>
 
                       <td
@@ -3209,14 +3209,14 @@ export default function AnalyticsPage({
               l.company_name,
             Site:
               l.site_name ||
-              '—',
+              'â€”',
             'Qty Loaned':
               l.quantity,
             'Qty Remaining':
               remaining,
             'Due Date':
               l.expected_return_date ||
-              '—',
+              'â€”',
             Status:
               remaining > 0
                 ? l.expected_return_date &&
@@ -3238,7 +3238,7 @@ export default function AnalyticsPage({
             r.contact_person,
           Site:
             r.site_name ||
-            '—',
+            'â€”',
           'Qty Returned':
             returnQty(r),
           Condition:
@@ -3505,7 +3505,7 @@ export default function AnalyticsPage({
                     {
                       c.contact_person
                     }{' '}
-                    —{' '}
+                    â€”{' '}
                     {
                       c.company_name
                     }
@@ -3677,7 +3677,7 @@ export default function AnalyticsPage({
                     THEME.textMuted
                 }}
               >
-                {c.qty} unit(s) · click
+                {c.qty} unit(s) Â· click
                 for full diagnostics
               </div>
             </div>
@@ -3755,7 +3755,7 @@ export default function AnalyticsPage({
           }}
         >
           {conditionRecords.length}{' '}
-          record(s) ·{' '}
+          record(s) Â·{' '}
           {conditionRecords.reduce(
             (s, r) =>
               s +
@@ -3797,7 +3797,7 @@ export default function AnalyticsPage({
                 STYLES.label
               }
             >
-              Top Materials —{' '}
+              Top Materials â€”{' '}
               {drillValue}
             </div>
 
@@ -3880,7 +3880,7 @@ export default function AnalyticsPage({
                 STYLES.label
               }
             >
-              Top Contractors —{' '}
+              Top Contractors â€”{' '}
               {drillValue}
             </div>
 
@@ -4251,7 +4251,7 @@ export default function AnalyticsPage({
                         }
                       >
                         {r.site_name ||
-                          '—'}
+                          'â€”'}
                       </td>
 
                       <td
@@ -4273,7 +4273,7 @@ export default function AnalyticsPage({
                         }
                       >
                         {r.return_date ||
-                          '—'}
+                          'â€”'}
                       </td>
 
                       <td
@@ -4455,7 +4455,7 @@ export default function AnalyticsPage({
           {
             selectedContractor.contact_person
           }{' '}
-          —{' '}
+          â€”{' '}
           {
             selectedContractor.company_name
           }
@@ -4677,15 +4677,15 @@ export default function AnalyticsPage({
           {[
             [
               'Total Stock',
-              totalStock.toLocaleString()
+              (totalAvailableStock + totalRemainingQty).toLocaleString()
             ],
             [
               'Available',
-              availableUnits.toLocaleString()
+              totalAvailableStock.toLocaleString()
             ],
             [
               'Deployed',
-              deployedUnits.toLocaleString()
+              totalRemainingQty.toLocaleString()
             ],
             [
               'Utilization',
@@ -4808,7 +4808,7 @@ export default function AnalyticsPage({
               marginBottom: 0
             }}
           >
-            Material Diagnostics —
+            Material Diagnostics â€”
             All Contractors
           </div>
         </div>
@@ -5146,7 +5146,7 @@ export default function AnalyticsPage({
                               THEME.textMuted
                           }}
                         >
-                          —
+                          â€”
                         </span>
                       )}
                     </td>
@@ -5742,7 +5742,7 @@ export default function AnalyticsPage({
                               THEME.textMuted
                           }}
                         >
-                          —
+                          â€”
                         </span>
                       )}
                     </td>
@@ -5804,3 +5804,6 @@ export default function AnalyticsPage({
     </div>
   );
 }
+
+
+
