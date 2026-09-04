@@ -1,3 +1,7 @@
+cd C:\Users\mapax\inventory-system\frontend
+
+# 1. Overwrite src\pages\Dashboard.jsx directly
+Set-Content -Path "src\pages\Dashboard.jsx" -Value @'
 import React from 'react';
 import {
   LayoutGrid, Package, ArrowLeftRight, AlertTriangle,
@@ -108,14 +112,14 @@ export default function DashboardPage({
 }) {
   const now = new Date();
 
-  // Safe Data Wrappers
+  // 1. Safe Data Wrappers
   const safeMaterials = Array.isArray(materials) ? materials : [];
   const safeContractors = Array.isArray(contractors) ? contractors : [];
   const safeLoans = Array.isArray(loans) ? loans : [];
   const safeReturns = Array.isArray(returns) ? returns : [];
   const safeGetRem = typeof getLoanRemainingQty === 'function' ? getLoanRemainingQty : () => 0;
 
-  // Core Calculations (totalStock defined first)
+  // 2. Core Stock Calculations
   const totalAvailable = safeMaterials.reduce((a, m) => a + Number(m?.quantity || 0), 0);
   const totalLended = safeLoans.reduce((a, l) => a + safeGetRem(l?.id), 0);
   const totalStock = totalAvailable + totalLended;
@@ -141,14 +145,14 @@ export default function DashboardPage({
 
   const severeOverdueQty = severeOverdueLoans.reduce((acc, l) => acc + safeGetRem(l?.id), 0);
 
-  // Returns Conditions
+  // Returns
   const returnQty = (r) => Number(r?.quantity || 0);
   const totalGoodQty = safeReturns.filter(r => r?.returned_condition === 'Good').reduce((s, r) => s + returnQty(r), 0);
   const totalWornQty = safeReturns.filter(r => r?.returned_condition === 'Worn').reduce((s, r) => s + returnQty(r), 0);
   const totalDamagedQty = safeReturns.filter(r => r?.returned_condition === 'Damaged').reduce((s, r) => s + returnQty(r), 0);
   const totalReturnedQty = safeReturns.reduce((s, r) => s + returnQty(r), 0);
 
-  // Site Aggregates
+  // Site Deployment Aggregates
   const siteChartData = Object.values(
     safeLoans.reduce((acc, l) => {
       const rem = safeGetRem(l?.id);
@@ -334,3 +338,9 @@ export default function DashboardPage({
     </div>
   );
 }
+'@ -Encoding UTF8
+
+# 2. Stage, commit, and push
+git add src/pages/Dashboard.jsx
+git commit -m "fix: resolve totalStock reference error"
+git push origin main
