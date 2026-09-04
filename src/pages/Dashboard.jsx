@@ -1,4 +1,4 @@
-cd C:\Users\mapax\inventory-system\frontend
+﻿cd C:\Users\mapax\inventory-system\frontend
 
 # 1. Overwrite src\pages\Dashboard.jsx directly
 Set-Content -Path "src\pages\Dashboard.jsx" -Value @'

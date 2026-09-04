@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+﻿import { useNavigate } from 'react-router-dom';
 import React, { useState, useEffect } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -24,7 +24,7 @@ const msgStyle = (type) => ({
 
 const returnQty = (r) => Number(r.quantity || 0);
 
-// ── Shared aggregation helpers (used across drill-downs) ────────────────────
+// â”€â”€ Shared aggregation helpers (used across drill-downs) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function monthKey(dateStr) {
   if (!dateStr) return 'Unknown';
   const d = new Date(dateStr);
@@ -64,7 +64,7 @@ function buildTopBy(recordsList, keyFn, limit = 8) {
   return Object.values(map).sort((a, b) => b.qty - a.qty).slice(0, limit);
 }
 
-// ── Material Condition Diagnostics — reusable for global or contractor scope ─
+// â”€â”€ Material Condition Diagnostics â€” reusable for global or contractor scope â”€
 function MaterialConditionBreakdown({ returns, onMaterialClick, showTable = true }) {
   const map = {};
   returns.forEach(r => {
@@ -148,14 +148,14 @@ function FilterChip({ label, onRemove }) {
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: `${THEME.accentBlue}18`, color: THEME.accentBlue, border: `1px solid ${THEME.accentBlue}44`, borderRadius: '20px', padding: '4px 6px 4px 12px', fontSize: '12px', fontWeight: '600' }}>
       {label}
-      <button onClick={onRemove} style={{ background: 'none', border: 'none', color: THEME.accentBlue, cursor: 'pointer', fontSize: '15px', lineHeight: 1, padding: '0 4px' }}>×</button>
+      <button onClick={onRemove} style={{ background: 'none', border: 'none', color: THEME.accentBlue, cursor: 'pointer', fontSize: '15px', lineHeight: 1, padding: '0 4px' }}>Ã—</button>
     </span>
   );
 }
 
-// ── Interactive explorer: grouped bar (Loaned vs Returned) + clickable donut ──
+// â”€â”€ Interactive explorer: grouped bar (Loaned vs Returned) + clickable donut â”€â”€
 // + search/dropdown filters + filter chips + reactive Loan History & Return tables
-// ── Per-material condition breakdown as a stacked VERTICAL bar chart ────────
+// â”€â”€ Per-material condition breakdown as a stacked VERTICAL bar chart â”€â”€â”€â”€â”€â”€â”€â”€
 // Columns = materials, each column split into Good/Worn/Damaged (green/amber/red)
 // Tooltip shows both the raw count and the percentage. Clicking a segment filters.
 
@@ -309,7 +309,7 @@ function ReturnRecordsExplorer({ scopedLoans, scopedReturns, scopeType, onDelete
     <div>
       <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '20px', marginBottom: '20px' }}>
         <div style={STYLES.box}>
-          <div style={STYLES.label}>Material Return Status — Loaned vs Returned</div>
+          <div style={STYLES.label}>Material Return Status â€” Loaned vs Returned</div>
           <div style={{ fontSize: '11px', color: THEME.textMuted, marginBottom: '10px', fontStyle: 'italic' }}>Click a bar to filter the tables below</div>
           <div style={{ height: Math.max(220, barData.length * 40) }}>
             <ResponsiveContainer>
@@ -410,7 +410,7 @@ function ReturnRecordsExplorer({ scopedLoans, scopedReturns, scopeType, onDelete
             <span style={{ fontSize: '12px', color: THEME.textMuted }}>loan records</span>
           </div>
           <div style={{ fontSize: '13px', marginTop: '4px' }}><strong>{filteredLoans.reduce((sum, l) => sum + Number(l.quantity || 0), 0)}</strong> units loaned</div>
-          <div style={{ fontSize: '11px', color: THEME.textMuted, marginTop: '5px' }}>{hasActiveFilters ? `Filtered from ${scopedLoans.length} records` : 'Total for this site · click to view details'}</div>
+          <div style={{ fontSize: '11px', color: THEME.textMuted, marginTop: '5px' }}>{hasActiveFilters ? `Filtered from ${scopedLoans.length} records` : 'Total for this site Â· click to view details'}</div>
         </div>
         <div onClick={() => setShowReturnTable(v => !v)} style={{ ...STYLES.box, marginBottom: 0, cursor: 'pointer', textAlign: 'left', border: `1px solid ${showReturnTable ? THEME.accentEmerald : THEME.border}` }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -422,7 +422,7 @@ function ReturnRecordsExplorer({ scopedLoans, scopedReturns, scopeType, onDelete
             <span style={{ fontSize: '12px', color: THEME.textMuted }}>return records</span>
           </div>
           <div style={{ fontSize: '13px', marginTop: '4px' }}><strong>{filteredReturns.reduce((sum, r) => sum + returnQty(r), 0)}</strong> units returned</div>
-          <div style={{ fontSize: '11px', color: THEME.textMuted, marginTop: '5px' }}>{hasActiveFilters ? `Filtered from ${scopedReturns.length} records` : 'Total for this site · click to view details'}</div>
+          <div style={{ fontSize: '11px', color: THEME.textMuted, marginTop: '5px' }}>{hasActiveFilters ? `Filtered from ${scopedReturns.length} records` : 'Total for this site Â· click to view details'}</div>
         </div>
       </div>
 
@@ -445,13 +445,13 @@ function ReturnRecordsExplorer({ scopedLoans, scopedReturns, scopeType, onDelete
                   return (
                     <tr key={l.id}>
                       {scopeType === 'site' && <td style={STYLES.td}>{l.contact_person}</td>}
-                      {scopeType === 'contractor' && <td style={STYLES.td}>{l.site_name || '—'}</td>}
+                      {scopeType === 'contractor' && <td style={STYLES.td}>{l.site_name || 'â€”'}</td>}
                       <td style={STYLES.td}>{l.material_name}</td>
                       <td style={STYLES.td}>{l.quantity}</td>
                       <td style={STYLES.td}>{l.retQty}</td>
                       <td style={STYLES.td}>{l.remaining}</td>
                       <td style={{ ...STYLES.td, color: isOverdue ? THEME.accentCrimson : THEME.textMuted, fontWeight: isOverdue ? '700' : '400' }}>
-                        {l.expected_return_date || '—'}{isOverdue ? ' ⚠' : ''}
+                        {l.expected_return_date || 'â€”'}{isOverdue ? ' âš ' : ''}
                       </td>
                     </tr>
                   );
@@ -477,11 +477,11 @@ function ReturnRecordsExplorer({ scopedLoans, scopedReturns, scopeType, onDelete
                 : filteredReturns.map(r => (
                   <tr key={r.id}>
                     <td style={STYLES.td}>{r.material_name}</td>
-                    {scopeType === 'contractor' && <td style={STYLES.td}>{r.site_name || '—'}</td>}
+                    {scopeType === 'contractor' && <td style={STYLES.td}>{r.site_name || 'â€”'}</td>}
                     {scopeType === 'site' && <td style={STYLES.td}>{r.contact_person}</td>}
                     <td style={{ ...STYLES.td, fontWeight: '700', color: THEME.accentEmerald }}>{returnQty(r)}</td>
-                    <td style={STYLES.td}>{BADGE(CONDITION_COLORS[r.returned_condition] || THEME.textMuted, r.returned_condition || '—')}</td>
-                    <td style={STYLES.td}>{r.return_date || '—'}</td>
+                    <td style={STYLES.td}>{BADGE(CONDITION_COLORS[r.returned_condition] || THEME.textMuted, r.returned_condition || 'â€”')}</td>
+                    <td style={STYLES.td}>{r.return_date || 'â€”'}</td>
                     <td style={STYLES.td}>
                       <button onClick={() => onDeleteReturn(r.id)} disabled={deletingId === r.id} style={{ padding: '4px 10px', borderRadius: '5px', border: `1px solid ${THEME.accentCrimson}55`, backgroundColor: `${THEME.accentCrimson}10`, color: THEME.accentCrimson, fontSize: '11px', cursor: deletingId === r.id ? 'not-allowed' : 'pointer', fontWeight: '600', opacity: deletingId === r.id ? 0.5 : 1 }}>
                         {deletingId === r.id ? '...' : 'Delete'}
@@ -524,7 +524,7 @@ export default function AnalyticsPage({ materials, contractors, loans, returns, 
     } finally { setDeletingId(null); }
   };
 
-  // ── Global quantity-based KPIs ─────────────────────────────────────────
+  // â”€â”€ Global quantity-based KPIs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const totalLoanedQty = loans.reduce((s, l) => s + Number(l.quantity || 0), 0);
   const totalReturnedQty = returns.reduce((s, r) => s + returnQty(r), 0);
   const totalRemainingQty = Math.max(0, totalLoanedQty - totalReturnedQty);
@@ -540,7 +540,7 @@ export default function AnalyticsPage({ materials, contractors, loans, returns, 
   const globalDamagedQty = returns.filter(r => r.returned_condition === 'Damaged').reduce((s, r) => s + returnQty(r), 0);
   const globalConditionTotal = globalGoodQty + globalWornQty + globalDamagedQty;
 
-  // ── Site stats (quantity-based) ─────────────────────────────────────────
+  // â”€â”€ Site stats (quantity-based) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const siteStats = Object.values(
     loans.reduce((acc, l) => {
       const site = (l.site_name || 'Unknown').trim();
@@ -570,7 +570,7 @@ export default function AnalyticsPage({ materials, contractors, loans, returns, 
     };
   }).sort((a, b) => b.loaned - a.loaned);
 
-  // ── Contractor stats (quantity-based) ───────────────────────────────────
+  // â”€â”€ Contractor stats (quantity-based) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const contractorStats = contractors.map(c => {
     const cLoans = loans.filter(l => String(l.contractor_id) === String(c.id));
     const loaned = cLoans.reduce((s, l) => s + Number(l.quantity || 0), 0);
@@ -600,7 +600,7 @@ export default function AnalyticsPage({ materials, contractors, loans, returns, 
     };
   }).sort((a, b) => b.loaned - a.loaned);
 
-  // ── Drill-down datasets ─────────────────────────────────────────────────
+  // â”€â”€ Drill-down datasets â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const selectedSite = drillType === 'site' ? siteStats.find(s => s.name === drillValue) : null;
   const siteLoanHistory = selectedSite
     ? loans.filter(l => (l.site_name || '').trim() === selectedSite.name).map(l => {
@@ -666,7 +666,7 @@ export default function AnalyticsPage({ materials, contractors, loans, returns, 
     </button>
   );
 
-  // ── Report generator ─────────────────────────────────────────────────────
+  // â”€â”€ Report generator â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const uniqueSites = [...new Set(loans.map(l => l.site_name).filter(Boolean))];
 
   const buildFilteredLoans = () => loans.filter(l => {
@@ -687,12 +687,12 @@ export default function AnalyticsPage({ materials, contractors, loans, returns, 
 
     const loanSheet = fLoans.map(l => ({
       Material: l.material_name, Contractor: l.contact_person, Company: l.company_name,
-      Site: l.site_name || '—', 'Qty Loaned': l.quantity, 'Qty Remaining': getLoanRemainingQty(l.id),
-      'Due Date': l.expected_return_date || '—',
+      Site: l.site_name || 'â€”', 'Qty Loaned': l.quantity, 'Qty Remaining': getLoanRemainingQty(l.id),
+      'Due Date': l.expected_return_date || 'â€”',
       Status: getLoanRemainingQty(l.id) > 0 ? (l.expected_return_date && new Date(l.expected_return_date) < new Date() ? 'Overdue' : 'Active') : 'Closed',
     }));
     const returnSheet = fReturns.map(r => ({
-      Material: r.material_name, Contractor: r.contact_person, Site: r.site_name || '—',
+      Material: r.material_name, Contractor: r.contact_person, Site: r.site_name || 'â€”',
       'Qty Returned': returnQty(r), Condition: r.returned_condition, 'Return Date': r.return_date,
     }));
 
@@ -728,7 +728,7 @@ export default function AnalyticsPage({ materials, contractors, loans, returns, 
         <div><label style={STYLES.label}>Contractor</label>
           <select style={STYLES.input} value={reportContractor} onChange={e => setReportContractor(e.target.value)}>
             <option value="All">All Contractors</option>
-            {contractors.map(c => <option key={c.id} value={c.id}>{c.contact_person} — {c.company_name}</option>)}
+            {contractors.map(c => <option key={c.id} value={c.id}>{c.contact_person} â€” {c.company_name}</option>)}
           </select></div>
       </div>
       <div style={{ fontSize: '12px', color: THEME.textMuted, marginBottom: '14px' }}>
@@ -756,16 +756,16 @@ export default function AnalyticsPage({ materials, contractors, loans, returns, 
               <ChevronRight size={14} color={THEME.textMuted} />
             </div>
             <div style={{ fontSize: '28px', fontWeight: '800', color: c.color }}>{p}%</div>
-            <div style={{ fontSize: '12px', color: THEME.textMuted }}>{c.qty} unit(s) · click for full diagnostics</div>
+            <div style={{ fontSize: '12px', color: THEME.textMuted }}>{c.qty} unit(s) Â· click for full diagnostics</div>
           </div>
         );
       })}
     </div>
   );
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // DRILL VIEW: Global condition — now with material/contractor/trend charts
-  // ═══════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // DRILL VIEW: Global condition â€” now with material/contractor/trend charts
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   if (drillType === 'condition') {
     const materialTotals = buildTopBy(conditionRecords, r => r.material_name);
     const contractorTotals = buildTopBy(conditionRecords, r => r.contact_person);
@@ -778,13 +778,13 @@ export default function AnalyticsPage({ materials, contractors, loans, returns, 
         <BackBtn />
         <h2 style={{ fontSize: '22px', fontWeight: '700', marginBottom: '6px' }}>Returns marked: {drillValue}</h2>
         <p style={{ color: THEME.textMuted, fontSize: '13px', marginBottom: '24px' }}>
-          {conditionRecords.length} record(s) · {conditionRecords.reduce((s, r) => s + returnQty(r), 0)} unit(s) total
+          {conditionRecords.length} record(s) Â· {conditionRecords.reduce((s, r) => s + returnQty(r), 0)} unit(s) total
         </p>
         {deleteMsg && <div style={{ ...msgStyle(deleteMsg.type), marginBottom: '16px' }}>{deleteMsg.text}</div>}
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
           <div style={STYLES.box}>
-            <div style={STYLES.label}>Top Materials — {drillValue}</div>
+            <div style={STYLES.label}>Top Materials â€” {drillValue}</div>
             <div style={{ height: 260 }}>
               <ResponsiveContainer>
                 <BarChart data={materialTotals} layout="vertical" margin={{ left: 10, right: 20 }}>
@@ -798,7 +798,7 @@ export default function AnalyticsPage({ materials, contractors, loans, returns, 
             </div>
           </div>
           <div style={STYLES.box}>
-            <div style={STYLES.label}>Top Contractors — {drillValue}</div>
+            <div style={STYLES.label}>Top Contractors â€” {drillValue}</div>
             <div style={{ height: 260 }}>
               <ResponsiveContainer>
                 <BarChart data={contractorTotals} layout="vertical" margin={{ left: 10, right: 20 }}>
@@ -861,9 +861,9 @@ export default function AnalyticsPage({ materials, contractors, loans, returns, 
                   <tr key={r.id}>
                     <td style={STYLES.td}>{r.material_name}</td>
                     <td style={STYLES.td}>{r.contact_person}</td>
-                    <td style={STYLES.td}>{r.site_name || '—'}</td>
+                    <td style={STYLES.td}>{r.site_name || 'â€”'}</td>
                     <td style={{ ...STYLES.td, fontWeight: '700', color }}>{returnQty(r)}</td>
-                    <td style={STYLES.td}>{r.return_date || '—'}</td>
+                    <td style={STYLES.td}>{r.return_date || 'â€”'}</td>
                     <td style={STYLES.td}><DeleteReturnBtn id={r.id} /></td>
                   </tr>
                 ))}
@@ -874,9 +874,9 @@ export default function AnalyticsPage({ materials, contractors, loans, returns, 
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // DRILL VIEW: Site
-  // ═══════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   if (drillType === 'site' && selectedSite) {
     return (
       <div>
@@ -905,14 +905,14 @@ export default function AnalyticsPage({ materials, contractors, loans, returns, 
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // DRILL VIEW: Contractor — now includes material-level diagnostics
-  // ═══════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // DRILL VIEW: Contractor â€” now includes material-level diagnostics
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   if (drillType === 'contractor' && selectedContractor) {
     return (
       <div>
         <BackBtn />
-        <h2 style={{ fontSize: '22px', fontWeight: '700', marginBottom: '6px' }}>{selectedContractor.contact_person} — {selectedContractor.company_name}</h2>
+        <h2 style={{ fontSize: '22px', fontWeight: '700', marginBottom: '6px' }}>{selectedContractor.contact_person} â€” {selectedContractor.company_name}</h2>
         <p style={{ color: THEME.textMuted, fontSize: '13px', marginBottom: '24px' }}>Sites: {selectedContractor.sites.join(', ') || 'None'}</p>
         <StatGrid stats={[
           { label: 'Total Loaned (qty)', value: selectedContractor.loaned, color: THEME.accentBlue },
@@ -936,9 +936,9 @@ export default function AnalyticsPage({ materials, contractors, loans, returns, 
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // MAIN VIEW
-  // ═══════════════════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   return (
     <div>
       <h2 style={{ fontSize: '22px', fontWeight: '700', marginBottom: '6px' }}>KPI Analytics</h2>
@@ -957,7 +957,7 @@ export default function AnalyticsPage({ materials, contractors, loans, returns, 
       <div style={{ ...STYLES.box, marginBottom: '32px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
           <AlertTriangle size={15} color={THEME.accentAmber} />
-          <div style={{ ...STYLES.label, marginBottom: 0 }}>Material Diagnostics — All Contractors</div>
+          <div style={{ ...STYLES.label, marginBottom: 0 }}>Material Diagnostics â€” All Contractors</div>
         </div>
         <p style={{ fontSize: '12px', color: THEME.textMuted, marginBottom: '12px' }}>
           System-wide: which materials consistently come back Good vs Worn/Damaged, regardless of contractor. High problem rates may indicate a material quality issue rather than a handling issue.
@@ -977,7 +977,7 @@ export default function AnalyticsPage({ materials, contractors, loans, returns, 
         <div style={{ ...STYLES.label, marginBottom: 10 }}>Executive Risk KPIs</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
           {[
-            ['Total Stock', totalStock.toLocaleString()],
+            ['Total Stock', ((materials || []).reduce((sum, m) => sum + Number(m.quantity || m.qty || m.stock_quantity || 0), 0)).toLocaleString()],
             ['Available', availableUnits.toLocaleString()],
             ['Deployed', deployedUnits.toLocaleString()],
             ['Utilization', `${utilizationRate.toFixed(1)}%`],
@@ -1025,7 +1025,7 @@ export default function AnalyticsPage({ materials, contractors, loans, returns, 
                   <td style={STYLES.td}>
                     {s.healthRate !== null
                       ? <span style={{ color: s.healthRate >= 80 ? THEME.accentEmerald : s.healthRate >= 50 ? THEME.accentAmber : THEME.accentCrimson, fontWeight: '700' }}>{s.healthRate}%</span>
-                      : <span style={{ color: THEME.textMuted }}>—</span>}
+                      : <span style={{ color: THEME.textMuted }}>â€”</span>}
                   </td>
                   <td style={STYLES.td}>
                     <span style={{ color: THEME.accentEmerald }}>{s.goodQty}</span> / <span style={{ color: THEME.accentAmber }}>{s.wornQty}</span> / <span style={{ color: THEME.accentCrimson }}>{s.damagedQty}</span>
@@ -1111,7 +1111,7 @@ export default function AnalyticsPage({ materials, contractors, loans, returns, 
                   <td style={STYLES.td}>
                     {c.healthRate !== null
                       ? <span style={{ color: c.healthRate >= 80 ? THEME.accentEmerald : c.healthRate >= 50 ? THEME.accentAmber : THEME.accentCrimson, fontWeight: '700' }}>{c.healthRate}%</span>
-                      : <span style={{ color: THEME.textMuted }}>—</span>}
+                      : <span style={{ color: THEME.textMuted }}>â€”</span>}
                   </td>
                   <td style={STYLES.td}>
                     <span style={{ color: THEME.accentEmerald }}>{c.goodQty}</span> / <span style={{ color: THEME.accentAmber }}>{c.wornQty}</span> / <span style={{ color: THEME.accentCrimson }}>{c.damagedQty}</span>
