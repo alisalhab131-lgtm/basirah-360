@@ -85,14 +85,7 @@ function MaterialConditionBreakdown({ returns, onMaterialClick, showTable = true
 
   const barClick = (data) => { if (onMaterialClick && data && data.name) onMaterialClick(data.name); };
 
-  
-  const totalStock = materials.reduce((sum, m) => sum + Number(m.quantity || m.qty || m.stock_quantity || 0), 0);
-  const deployedUnits = loanStats.totalLoaned - loanStats.totalReturned;
-  const availableUnits = Math.max(0, totalStock - deployedUnits);
-  const utilizationRate = totalStock ? (deployedUnits / totalStock) * 100 : 0;
-  const overdueRate = deployedUnits ? (loanStats.overdue / deployedUnits) * 100 : 0;
-  const damageRate = conditionStats.total ? (conditionStats.damaged / conditionStats.total) * 100 : 0;
-  const problemRate = conditionStats.total ? ((conditionStats.worn + conditionStats.damaged) / conditionStats.total) * 100 : 0;
+
 
 return (
     <div>
@@ -497,8 +490,10 @@ function ReturnRecordsExplorer({ scopedLoans, scopedReturns, scopeType, onDelete
   );
 }
 
-export default function AnalyticsPage({ materials, contractors, loans, returns, getLoanRemainingQty, syncSystemData, initialDrill }) {
-  const [drillType, setDrillType] = useState(initialDrill ? initialDrill.type : null);   // 'site' | 'contractor' | 'condition' | null
+export default function AnalyticsPage({ materials, contractors, loans, returns, getLoanRemainingQty, syncSystemData, initialDrill }) { 
+  const navigate = useNavigate();
+
+  const [drillType, setDrillType] = useState(initialDrill ? initialDrill.type : null);
   const [drillValue, setDrillValue] = useState(initialDrill ? initialDrill.value : null);
 
   // Sync when Dashboard (or another page) deep-links here with a specific drill target
@@ -525,20 +520,66 @@ export default function AnalyticsPage({ materials, contractors, loans, returns, 
   };
 
   // ── Global quantity-based KPIs ─────────────────────────────────────────
-  const totalLoanedQty = loans.reduce((s, l) => s + Number(l.quantity || 0), 0);
-  const totalReturnedQty = returns.reduce((s, r) => s + returnQty(r), 0);
-  const totalRemainingQty = Math.max(0, totalLoanedQty - totalReturnedQty);
-  const totalOverdueQty = loans.reduce((s, l) => {
-    if (l.expected_return_date && new Date(l.expected_return_date) < new Date() && getLoanRemainingQty(l.id) > 0) {
-      return s + getLoanRemainingQty(l.id);
+ const totalAvailableStock = materials.reduce(
+  (sum, m) => sum + Number(m?.quantity || m?.qty || m?.stock_quantity || 0),
+  0
+);
+
+const totalDeployedStock = loans.reduce(
+  (sum, l) => sum + Number(getLoanRemainingQty(l.id) || 0),
+  0
+);
+
+const totalStock = totalAvailableStock + totalDeployedStock;
+
+const availableUnits = totalAvailableStock;
+const deployedUnits = totalDeployedStock;
+
+const utilizationRate = totalStock > 0
+  ? (deployedUnits / totalStock) * 100
+  : 0;
+
+const overdueRate = deployedUnits > 0
+  ? (totalOverdueQty / deployedUnits) * 100
+  : 0;
+
+const damageRate = globalConditionTotal > 0
+  ? (globalDamagedQty / globalConditionTotal) * 100
+  : 0;
+
+const problemRate = globalConditionTotal > 0
+  ? ((globalWornQty + globalDamagedQty) / globalConditionTotal) * 100
+  : 0;
     }
     return s;
-  }, 0);
 
   const globalGoodQty = returns.filter(r => r.returned_condition === 'Good').reduce((s, r) => s + returnQty(r), 0);
   const globalWornQty = returns.filter(r => r.returned_condition === 'Worn').reduce((s, r) => s + returnQty(r), 0);
   const globalDamagedQty = returns.filter(r => r.returned_condition === 'Damaged').reduce((s, r) => s + returnQty(r), 0);
   const globalConditionTotal = globalGoodQty + globalWornQty + globalDamagedQty;
+  const totalStock = materials.reduce(
+  (sum, m) => sum + Number(m?.quantity || m?.qty || m?.stock_quantity || 0),
+  0
+) + totalRemainingQty;
+
+const availableUnits = Math.max(0, totalStock - totalRemainingQty);
+const deployedUnits = totalRemainingQty;
+
+const utilizationRate = totalStock > 0
+  ? (deployedUnits / totalStock) * 100
+  : 0;
+
+const overdueRate = deployedUnits > 0
+  ? (totalOverdueQty / deployedUnits) * 100
+  : 0;
+
+const damageRate = globalConditionTotal > 0
+  ? (globalDamagedQty / globalConditionTotal) * 100
+  : 0;
+
+const problemRate = globalConditionTotal > 0
+  ? ((globalWornQty + globalDamagedQty) / globalConditionTotal) * 100
+  : 0;
 
   // ── Site stats (quantity-based) ─────────────────────────────────────────
   const siteStats = Object.values(
