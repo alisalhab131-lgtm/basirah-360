@@ -340,7 +340,3 @@ export default function DashboardPage({
 }
 '@ -Encoding UTF8
 
-# 2. Stage, commit, and push
-git add src/pages/Dashboard.jsx
-git commit -m "fix: resolve totalStock reference error"
-git push origin main

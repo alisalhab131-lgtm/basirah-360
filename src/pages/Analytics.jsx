@@ -977,7 +977,7 @@ export default function AnalyticsPage({ materials, contractors, loans, returns, 
         <div style={{ ...STYLES.label, marginBottom: 10 }}>Executive Risk KPIs</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
           {[
-            ['Total Stock', totalStock.toLocaleString()],
+            ['Total Stock', (materials || []).reduce((sum, m) => sum + Number(m.quantity || m.qty || m.stock_quantity || 0), 0).toLocaleString()],
             ['Available', availableUnits.toLocaleString()],
             ['Deployed', deployedUnits.toLocaleString()],
             ['Utilization', `${utilizationRate.toFixed(1)}%`],
