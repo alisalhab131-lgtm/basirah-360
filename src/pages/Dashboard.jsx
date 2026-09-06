@@ -9,7 +9,13 @@ import {
   XCircle,
   TrendingUp,
   Users,
-  MapPin
+  MapPin,
+  ShieldAlert,
+  Activity,
+  ChevronRight,
+  Clock,
+  Target,
+  BarChart3
 } from 'lucide-react';
 
 import {
@@ -26,7 +32,12 @@ import {
   Legend
 } from 'recharts';
 
-import { THEME, CONDITION_COLORS, STYLES } from '../utils/theme';
+import {
+  THEME,
+  CONDITION_COLORS,
+  STYLES
+} from '../utils/theme';
+
 
 /* =========================================================
    SAFE THEME FALLBACKS
@@ -52,19 +63,16 @@ const safeStyles = STYLES || {
     padding: '20px',
     borderRadius: '12px'
   },
-
   label: {
     fontSize: '14px',
     fontWeight: '700',
     color: safeTheme.textMain,
     marginBottom: '12px'
   },
-
   table: {
     width: '100%',
     borderCollapse: 'collapse'
   },
-
   th: {
     textAlign: 'left',
     padding: '10px',
@@ -72,7 +80,6 @@ const safeStyles = STYLES || {
     fontSize: '12px',
     borderBottom: `1px solid ${safeTheme.border}`
   },
-
   td: {
     padding: '10px',
     fontSize: '13px',
@@ -87,99 +94,144 @@ const safeConditionColors = CONDITION_COLORS || {
   Damaged: '#ef4444'
 };
 
+
 /* =========================================================
-   ALERT ANIMATION
+   EXECUTIVE DASHBOARD STYLES
 ========================================================= */
 
-const alertAnimationStyles = `
-  @keyframes flashRed {
+const dashboardStyles = `
+  @keyframes executivePulse {
     0% {
-      border-color: rgba(220, 38, 38, 0.4);
-      box-shadow: 0 0 0px rgba(220, 38, 38, 0);
+      box-shadow: 0 0 0 rgba(220,38,38,0);
     }
-
     50% {
-      border-color: rgba(220, 38, 38, 1);
-      box-shadow: 0 0 14px rgba(220, 38, 38, 0.6);
+      box-shadow: 0 0 18px rgba(220,38,38,0.22);
     }
-
     100% {
-      border-color: rgba(220, 38, 38, 0.4);
-      box-shadow: 0 0 0px rgba(220, 38, 38, 0);
+      box-shadow: 0 0 0 rgba(220,38,38,0);
     }
   }
 
-  .flash-alert-card {
-    animation: flashRed 1.5s infinite ease-in-out !important;
-    background-color: rgba(220, 38, 38, 0.08) !important;
+  .executive-alert {
+    animation: executivePulse 2s infinite ease-in-out;
+  }
+
+  .executive-clickable {
+    transition:
+      transform 0.18s ease,
+      border-color 0.18s ease,
+      box-shadow 0.18s ease;
+  }
+
+  .executive-clickable:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 22px rgba(0,0,0,0.18);
+  }
+
+  .executive-row {
+    transition: background-color 0.15s ease;
+  }
+
+  .executive-row:hover {
+    background-color: rgba(59,130,246,0.06) !important;
   }
 `;
+
 
 /* =========================================================
    KPI CARD
 ========================================================= */
 
-function KpiCard({
-  icon: Icon = AlertTriangle,
-  label = '',
-  value = 0,
-  color = '#3b82f6',
-  onClick,
+function ExecutiveKpi({
+  icon: Icon = Activity,
+  label,
+  value,
   subtitle,
-  isAlert
+  color,
+  onClick,
+  alert = false,
+  trend
 }) {
   return (
     <div
       onClick={onClick}
-      className={isAlert ? 'flash-alert-card' : ''}
+      className={`executive-clickable ${alert ? 'executive-alert' : ''}`}
       style={{
         backgroundColor: safeTheme.cardBg,
         border: `1px solid ${
-          isAlert
+          alert
             ? safeTheme.accentCrimson
             : safeTheme.border
         }`,
-        padding: '20px 24px',
-        borderRadius: '12px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '16px',
+        borderRadius: '14px',
+        padding: '18px 20px',
         cursor: onClick ? 'pointer' : 'default',
-        transition: 'all 0.2s ease'
+        minHeight: '112px',
+        position: 'relative',
+        overflow: 'hidden'
       }}
     >
       <div
         style={{
-          width: '44px',
-          height: '44px',
-          borderRadius: '10px',
-          backgroundColor: isAlert
-            ? `${safeTheme.accentCrimson}25`
-            : `${color}18`,
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '4px',
+          height: '100%',
+          backgroundColor: alert
+            ? safeTheme.accentCrimson
+            : color
+        }}
+      />
+
+      <div
+        style={{
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          gap: '12px'
         }}
       >
-        <Icon
-          size={22}
-          color={
-            isAlert
-              ? safeTheme.accentCrimson
-              : color
-          }
-        />
-      </div>
-
-      <div>
         <div
           style={{
-            fontSize: '11px',
-            fontWeight: '600',
+            width: '40px',
+            height: '40px',
+            borderRadius: '10px',
+            backgroundColor: alert
+              ? `${safeTheme.accentCrimson}20`
+              : `${color}18`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0
+          }}
+        >
+          <Icon
+            size={20}
+            color={
+              alert
+                ? safeTheme.accentCrimson
+                : color
+            }
+          />
+        </div>
+
+        {onClick && (
+          <ChevronRight
+            size={17}
+            color={safeTheme.textMuted}
+          />
+        )}
+      </div>
+
+      <div style={{ marginTop: '12px' }}>
+        <div
+          style={{
+            fontSize: '10px',
+            fontWeight: '700',
             color: safeTheme.textMuted,
             textTransform: 'uppercase',
-            letterSpacing: '1px',
-            marginBottom: '4px'
+            letterSpacing: '1px'
           }}
         >
           {label}
@@ -187,12 +239,13 @@ function KpiCard({
 
         <div
           style={{
-            fontSize: '26px',
-            fontWeight: '700',
-            color: isAlert
+            marginTop: '5px',
+            fontSize: '27px',
+            lineHeight: 1,
+            fontWeight: '800',
+            color: alert
               ? safeTheme.accentCrimson
-              : safeTheme.textMain,
-            lineHeight: 1
+              : safeTheme.textMain
           }}
         >
           {value}
@@ -201,15 +254,27 @@ function KpiCard({
         {subtitle && (
           <div
             style={{
-              fontSize: '12px',
-              color: isAlert
+              marginTop: '7px',
+              fontSize: '11px',
+              color: alert
                 ? safeTheme.accentCrimson
-                : safeTheme.textMuted,
-              marginTop: '4px',
-              fontWeight: isAlert ? '600' : '400'
+                : safeTheme.textMuted
             }}
           >
             {subtitle}
+          </div>
+        )}
+
+        {trend && (
+          <div
+            style={{
+              marginTop: '5px',
+              fontSize: '11px',
+              fontWeight: '600',
+              color: trend.color || safeTheme.accentEmerald
+            }}
+          >
+            {trend.text}
           </div>
         )}
       </div>
@@ -217,8 +282,143 @@ function KpiCard({
   );
 }
 
+
 /* =========================================================
-   DASHBOARD PAGE
+   SECTION HEADER
+========================================================= */
+
+function SectionHeader({
+  icon: Icon,
+  title,
+  subtitle,
+  action,
+  onAction
+}) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        gap: '16px',
+        marginBottom: '16px'
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: '10px'
+        }}
+      >
+        {Icon && (
+          <Icon
+            size={18}
+            color={safeTheme.accentBlue}
+            style={{ marginTop: '2px' }}
+          />
+        )}
+
+        <div>
+          <div
+            style={{
+              fontSize: '15px',
+              fontWeight: '750',
+              color: safeTheme.textMain
+            }}
+          >
+            {title}
+          </div>
+
+          {subtitle && (
+            <div
+              style={{
+                fontSize: '11px',
+                color: safeTheme.textMuted,
+                marginTop: '4px'
+              }}
+            >
+              {subtitle}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {action && (
+        <button
+          onClick={onAction}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: safeTheme.accentBlue,
+            fontSize: '11px',
+            fontWeight: '700',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px'
+          }}
+        >
+          {action}
+          <ChevronRight size={14} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+
+/* =========================================================
+   STATUS BADGE
+========================================================= */
+
+function StatusBadge({
+  children,
+  type = 'neutral'
+}) {
+  const palette = {
+    good: {
+      bg: `${safeTheme.accentEmerald}18`,
+      color: safeTheme.accentEmerald
+    },
+    warning: {
+      bg: `${safeTheme.accentAmber}18`,
+      color: safeTheme.accentAmber
+    },
+    danger: {
+      bg: `${safeTheme.accentCrimson}18`,
+      color: safeTheme.accentCrimson
+    },
+    neutral: {
+      bg: `${safeTheme.accentBlue}18`,
+      color: safeTheme.accentBlue
+    }
+  };
+
+  const p = palette[type] || palette.neutral;
+
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        padding: '4px 8px',
+        borderRadius: '6px',
+        backgroundColor: p.bg,
+        color: p.color,
+        fontSize: '10px',
+        fontWeight: '750',
+        whiteSpace: 'nowrap'
+      }}
+    >
+      {children}
+    </span>
+  );
+}
+
+
+/* =========================================================
+   MAIN DASHBOARD
 ========================================================= */
 
 export default function DashboardPage({
@@ -229,70 +429,87 @@ export default function DashboardPage({
   getLoanRemainingQty = () => 0,
   navigateToAssets = () => {}
 }) {
+
   const now = new Date();
 
   /* =======================================================
-     1. SAFE DATA WRAPPERS
+     SAFE DATA
   ======================================================= */
 
-  const safeMaterials = Array.isArray(materials)
-    ? materials
-    : [];
+  const safeMaterials =
+    Array.isArray(materials) ? materials : [];
 
-  const safeContractors = Array.isArray(contractors)
-    ? contractors
-    : [];
+  const safeContractors =
+    Array.isArray(contractors) ? contractors : [];
 
-  const safeLoans = Array.isArray(loans)
-    ? loans
-    : [];
+  const safeLoans =
+    Array.isArray(loans) ? loans : [];
 
-  const safeReturns = Array.isArray(returns)
-    ? returns
-    : [];
+  const safeReturns =
+    Array.isArray(returns) ? returns : [];
 
-  const safeGetRem =
+  const safeGetRemaining =
     typeof getLoanRemainingQty === 'function'
       ? getLoanRemainingQty
       : () => 0;
 
+
   /* =======================================================
-     2. DASHBOARD STOCK CALCULATIONS
+     EXECUTIVE INVENTORY KPIs
 
      IMPORTANT:
-     These variables intentionally have Dashboard-specific
-     names so they cannot be confused with Analytics variables.
+     These variables are intentionally Dashboard-specific.
+     We do NOT use "totalStock" to avoid ambiguity with
+     Analytics calculations.
   ======================================================= */
 
-  const dashboardAvailable = safeMaterials.reduce(
-    (total, material) =>
-      total + Number(material?.quantity || 0),
-    0
-  );
+  const dashboardAvailableUnits =
+    safeMaterials.reduce(
+      (sum, material) =>
+        sum +
+        Number(
+          material?.quantity ??
+          material?.qty ??
+          material?.stock_quantity ??
+          0
+        ),
+      0
+    );
 
-  const dashboardDeployed = safeLoans.reduce(
-    (total, loan) =>
-      total + Number(safeGetRem(loan?.id) || 0),
-    0
-  );
+  const dashboardDeployedUnits =
+    safeLoans.reduce(
+      (sum, loan) =>
+        sum +
+        Math.max(
+          0,
+          Number(
+            safeGetRemaining(loan?.id) || 0
+          )
+        ),
+      0
+    );
 
-  const dashboardTotalStock =
-    dashboardAvailable + dashboardDeployed;
+  const dashboardGrossStock =
+    dashboardAvailableUnits +
+    dashboardDeployedUnits;
 
-  const dashboardUtilizationRate =
-    dashboardTotalStock > 0
+  const dashboardUtilization =
+    dashboardGrossStock > 0
       ? Math.round(
-          (dashboardDeployed / dashboardTotalStock) * 100
+          (dashboardDeployedUnits /
+            dashboardGrossStock) *
+            100
         )
       : 0;
 
+
   /* =======================================================
-     3. OVERDUE & GHOST ASSETS
+     OVERDUE EXPOSURE
   ======================================================= */
 
   const overdueLoans = safeLoans.filter((loan) => {
     const remaining = Number(
-      safeGetRem(loan?.id) || 0
+      safeGetRemaining(loan?.id) || 0
     );
 
     if (
@@ -302,9 +519,8 @@ export default function DashboardPage({
       return false;
     }
 
-    const date = new Date(
-      loan.expected_return_date
-    );
+    const date =
+      new Date(loan.expected_return_date);
 
     return (
       !isNaN(date.getTime()) &&
@@ -312,123 +528,153 @@ export default function DashboardPage({
     );
   });
 
-  const severeOverdueLoans = safeLoans.filter(
-    (loan) => {
-      const remaining = Number(
-        safeGetRem(loan?.id) || 0
-      );
-
-      if (
-        remaining <= 0 ||
-        !loan?.expected_return_date
-      ) {
-        return false;
-      }
-
-      const date = new Date(
-        loan.expected_return_date
-      );
-
-      if (isNaN(date.getTime())) {
-        return false;
-      }
-
-      const daysOverdue =
-        (now - date) /
-        (1000 * 60 * 60 * 24);
-
-      return daysOverdue > 14;
-    }
-  );
-
-  const severeOverdueQty =
-    severeOverdueLoans.reduce(
-      (total, loan) =>
-        total +
-        Number(
-          safeGetRem(loan?.id) || 0
+  const overdueUnits =
+    overdueLoans.reduce(
+      (sum, loan) =>
+        sum +
+        Math.max(
+          0,
+          Number(
+            safeGetRemaining(loan?.id) || 0
+          )
         ),
       0
     );
 
+
   /* =======================================================
-     4. RETURNS / MATERIAL CONDITIONS
+     SEVERE OVERDUE EXPOSURE > 14 DAYS
   ======================================================= */
 
-  const returnQty = (item) =>
-    Number(item?.quantity || 0);
+  const severeOverdueLoans =
+    overdueLoans.filter((loan) => {
+      const date =
+        new Date(loan.expected_return_date);
 
-  const totalGoodQty =
-    safeReturns
-      .filter(
-        (item) =>
-          item?.returned_condition === 'Good'
-      )
-      .reduce(
-        (total, item) =>
-          total + returnQty(item),
-        0
-      );
+      const days =
+        (now - date) /
+        (1000 * 60 * 60 * 24);
 
-  const totalWornQty =
-    safeReturns
-      .filter(
-        (item) =>
-          item?.returned_condition === 'Worn'
-      )
-      .reduce(
-        (total, item) =>
-          total + returnQty(item),
-        0
-      );
+      return days > 14;
+    });
 
-  const totalDamagedQty =
-    safeReturns
-      .filter(
-        (item) =>
-          item?.returned_condition === 'Damaged'
-      )
-      .reduce(
-        (total, item) =>
-          total + returnQty(item),
-        0
-      );
-
-  const totalReturnedQty =
-    safeReturns.reduce(
-      (total, item) =>
-        total + returnQty(item),
+  const severeOverdueUnits =
+    severeOverdueLoans.reduce(
+      (sum, loan) =>
+        sum +
+        Math.max(
+          0,
+          Number(
+            safeGetRemaining(loan?.id) || 0
+          )
+        ),
       0
     );
 
+
   /* =======================================================
-     5. SITE DEPLOYMENT AGGREGATES
+     RETURN CONDITION INTELLIGENCE
   ======================================================= */
 
-  const siteChartData = Object.values(
-    safeLoans.reduce((accumulator, loan) => {
-      const remaining = Number(
-        safeGetRem(loan?.id) || 0
+  const returnQuantity = (item) =>
+    Number(
+      item?.quantity ??
+      item?.qty ??
+      0
+    );
+
+  const dashboardGoodReturns =
+    safeReturns
+      .filter(
+        (r) =>
+          String(r?.returned_condition || '')
+            .toLowerCase() === 'good'
+      )
+      .reduce(
+        (sum, r) =>
+          sum + returnQuantity(r),
+        0
       );
+
+  const dashboardWornReturns =
+    safeReturns
+      .filter(
+        (r) =>
+          String(r?.returned_condition || '')
+            .toLowerCase() === 'worn'
+      )
+      .reduce(
+        (sum, r) =>
+          sum + returnQuantity(r),
+        0
+      );
+
+  const dashboardDamagedReturns =
+    safeReturns
+      .filter(
+        (r) =>
+          String(r?.returned_condition || '')
+            .toLowerCase() === 'damaged'
+      )
+      .reduce(
+        (sum, r) =>
+          sum + returnQuantity(r),
+        0
+      );
+
+  const dashboardReturnedUnits =
+    safeReturns.reduce(
+      (sum, r) =>
+        sum + returnQuantity(r),
+      0
+    );
+
+  const returnConditionHealth =
+    dashboardReturnedUnits > 0
+      ? Math.round(
+          (dashboardGoodReturns /
+            dashboardReturnedUnits) *
+            100
+        )
+      : 100;
+
+
+  /* =======================================================
+     ACTIVE SITES
+  ======================================================= */
+
+  const siteAggregates =
+    safeLoans.reduce((acc, loan) => {
+
+      const remaining =
+        Math.max(
+          0,
+          Number(
+            safeGetRemaining(loan?.id) || 0
+          )
+        );
 
       if (
         remaining <= 0 ||
         !loan?.site_name
       ) {
-        return accumulator;
+        return acc;
       }
 
-      const site = String(
-        loan.site_name
-      ).trim();
+      const site =
+        String(loan.site_name).trim();
 
-      if (!accumulator[site]) {
-        accumulator[site] = {
+      if (!acc[site]) {
+        acc[site] = {
           name: site,
-          active: 0,
-          overdue: 0
+          deployed: 0,
+          overdue: 0,
+          activeLoans: 0
         };
       }
+
+      acc[site].deployed += remaining;
+      acc[site].activeLoans += 1;
 
       const expectedDate =
         loan?.expected_return_date
@@ -443,54 +689,41 @@ export default function DashboardPage({
         expectedDate < now;
 
       if (isOverdue) {
-        accumulator[site].overdue +=
-          remaining;
-      } else {
-        accumulator[site].active +=
-          remaining;
+        acc[site].overdue += remaining;
       }
 
-      return accumulator;
-    }, {})
-  );
+      return acc;
+
+    }, {});
+
+
+  const siteChartData =
+    Object.values(siteAggregates)
+      .sort(
+        (a, b) =>
+          b.deployed - a.deployed
+      );
+
+
+  const activeSiteCount =
+    siteChartData.length;
+
 
   /* =======================================================
-     6. CONDITION CHART DATA
-  ======================================================= */
-
-  const conditionData = [
-    {
-      name: 'Good',
-      value: totalGoodQty
-    },
-    {
-      name: 'Worn',
-      value: totalWornQty
-    },
-    {
-      name: 'Damaged',
-      value: totalDamagedQty
-    }
-  ].filter(
-    (item) => item.value > 0
-  );
-
-  /* =======================================================
-     7. CONTRACTOR HEALTH MATRIX
+     CONTRACTOR HEALTH
   ======================================================= */
 
   const contractorHealth =
     safeContractors
       .map((contractor) => {
+
         const contractorLoans =
           safeLoans.filter(
             (loan) =>
               String(
                 loan?.contractor_id
               ) ===
-              String(
-                contractor?.id
-              )
+              String(contractor?.id)
           );
 
         const loanIds =
@@ -498,10 +731,10 @@ export default function DashboardPage({
             (loan) => loan?.id
           );
 
-        const loaned =
+        const loanedUnits =
           contractorLoans.reduce(
-            (total, loan) =>
-              total +
+            (sum, loan) =>
+              sum +
               Number(
                 loan?.quantity || 0
               ),
@@ -509,729 +742,1667 @@ export default function DashboardPage({
           );
 
         const contractorReturns =
-          safeReturns.filter(
-            (item) =>
-              loanIds.includes(
-                Number(item?.loan_id)
-              )
+          safeReturns.filter((item) =>
+            loanIds.includes(
+              Number(item?.loan_id)
+            )
           );
 
-        const returnedQty =
+        const returnedUnits =
           contractorReturns.reduce(
-            (total, item) =>
-              total +
-              returnQty(item),
+            (sum, item) =>
+              sum +
+              returnQuantity(item),
             0
           );
 
-        const goodQty =
+        const goodUnits =
           contractorReturns
             .filter(
               (item) =>
-                item?.returned_condition ===
-                'Good'
+                String(
+                  item?.returned_condition || ''
+                ).toLowerCase() === 'good'
             )
             .reduce(
-              (total, item) =>
-                total +
-                returnQty(item),
+              (sum, item) =>
+                sum + returnQuantity(item),
               0
             );
 
-        const stillOut = Math.max(
-          0,
-          loaned - returnedQty
-        );
-
-        const returnComplianceRate =
-          loaned > 0
-            ? Math.round(
-                (returnedQty /
-                  loaned) *
-                  100
-              )
-            : 100;
-
-        const conditionRate =
-          returnedQty > 0
-            ? Math.round(
-                (goodQty /
-                  returnedQty) *
-                  100
-              )
-            : 100;
-
-        const compositeScore =
-          Math.round(
-            returnComplianceRate *
-              0.6 +
-              conditionRate *
-              0.4
+        const outstandingUnits =
+          Math.max(
+            0,
+            loanedUnits -
+              returnedUnits
           );
+
+        const returnCompliance =
+          loanedUnits > 0
+            ? Math.round(
+                (returnedUnits /
+                  loanedUnits) *
+                  100
+              )
+            : 100;
+
+        const conditionHealth =
+          returnedUnits > 0
+            ? Math.round(
+                (goodUnits /
+                  returnedUnits) *
+                  100
+              )
+            : 100;
+
+        const riskScore =
+          Math.round(
+            returnCompliance * 0.6 +
+            conditionHealth * 0.4
+          );
+
+        let risk = 'good';
+
+        if (riskScore < 50) {
+          risk = 'danger';
+        } else if (riskScore < 80) {
+          risk = 'warning';
+        }
 
         return {
           id:
-            contractor?.id ||
-            Math.random(),
-
+            contractor?.id ??
+            `contractor-${Math.random()}`,
           name:
             contractor?.contact_person ||
+            contractor?.name ||
             'Unknown Contact',
-
           company:
             contractor?.company_name ||
+            contractor?.company ||
             'N/A',
-
-          loaned,
-
-          returnedQty,
-
-          stillOut,
-
-          returnComplianceRate,
-
-          conditionRate,
-
-          compositeScore,
-
-          isHighRisk:
-            compositeScore < 50 ||
-            (
-              stillOut > 15 &&
-              returnComplianceRate < 40
-            )
+          loanedUnits,
+          returnedUnits,
+          outstandingUnits,
+          returnCompliance,
+          conditionHealth,
+          riskScore,
+          risk
         };
+
       })
       .filter(
-        (contractor) =>
-          contractor.loaned > 0
+        (item) =>
+          item.loanedUnits > 0
       )
       .sort(
         (a, b) =>
-          a.compositeScore -
-          b.compositeScore
-      )
-      .slice(0, 8);
+          a.riskScore -
+          b.riskScore
+      );
+
+
+  const highRiskContractors =
+    contractorHealth.filter(
+      (item) =>
+        item.risk === 'danger'
+    );
+
 
   /* =======================================================
-     8. NAVIGATION
+     CONDITION DATA
   ======================================================= */
 
-  const goTo = (filter) => {
-    if (
-      typeof navigateToAssets ===
-      'function'
-    ) {
-      navigateToAssets(filter);
+  const conditionData = [
+    {
+      name: 'Good',
+      value: dashboardGoodReturns
+    },
+    {
+      name: 'Worn',
+      value: dashboardWornReturns
+    },
+    {
+      name: 'Damaged',
+      value: dashboardDamagedReturns
     }
-  };
+  ].filter(
+    (item) =>
+      item.value > 0
+  );
+
 
   /* =======================================================
-     9. RENDER
+     MANAGEMENT ACTIONS
+  ======================================================= */
+
+  const managementActions = [];
+
+  if (severeOverdueUnits > 0) {
+    managementActions.push({
+      priority: 'Critical',
+      type: 'danger',
+      icon: AlertTriangle,
+      title: 'Critical overdue exposure',
+      description:
+        `${severeOverdueUnits} units remain deployed more than 14 days past expected return.`,
+      action: 'Review overdue assets',
+      filter: 'OVERDUE'
+    });
+  }
+
+  if (dashboardDamagedReturns > 0) {
+    managementActions.push({
+      priority: 'High',
+      type: 'danger',
+      icon: Wrench,
+      title: 'Damaged equipment',
+      description:
+        `${dashboardDamagedReturns} returned units require repair or disposition review.`,
+      action: 'Review damaged assets',
+      filter: 'DAMAGED'
+    });
+  }
+
+  if (dashboardUtilization >= 90) {
+    managementActions.push({
+      priority: 'High',
+      type: 'warning',
+      icon: Target,
+      title: 'High inventory utilization',
+      description:
+        `Inventory utilization has reached ${dashboardUtilization}%.`,
+      action: 'Review inventory',
+      filter: 'AVAILABLE'
+    });
+  }
+
+  if (highRiskContractors.length > 0) {
+    managementActions.push({
+      priority: 'High',
+      type: 'warning',
+      icon: ShieldAlert,
+      title: 'Contractor risk exposure',
+      description:
+        `${highRiskContractors.length} contractors have a low operational health score.`,
+      action: 'Review contractors',
+      filter: 'CONTRACTORS'
+    });
+  }
+
+
+  /* =======================================================
+     NAVIGATION
+  ======================================================= */
+
+  const goTo =
+    (filter) => {
+      if (
+        typeof navigateToAssets ===
+        'function'
+      ) {
+        navigateToAssets(filter);
+      }
+    };
+
+
+  /* =======================================================
+     RENDER
   ======================================================= */
 
   return (
     <div>
+
       <style>
-        {alertAnimationStyles}
+        {dashboardStyles}
       </style>
 
-      {/* =================================================
-          HEADER
-      ================================================= */}
+
+      {/* ===================================================
+          EXECUTIVE HEADER
+      =================================================== */}
 
       <div
         style={{
           display: 'flex',
           justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '28px'
+          alignItems: 'flex-start',
+          marginBottom: '24px',
+          gap: '20px',
+          flexWrap: 'wrap'
         }}
       >
-        <h2
-          style={{
-            fontSize: '22px',
-            fontWeight: '700',
-            margin: 0,
-            color: safeTheme.textMain
-          }}
-        >
-          Telemetry Dashboard
-        </h2>
+
+        <div>
+
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '9px',
+              marginBottom: '6px'
+            }}
+          >
+            <Activity
+              size={20}
+              color={safeTheme.accentBlue}
+            />
+
+            <span
+              style={{
+                fontSize: '11px',
+                fontWeight: '700',
+                letterSpacing: '1.2px',
+                textTransform: 'uppercase',
+                color: safeTheme.accentBlue
+              }}
+            >
+              Executive Operations
+            </span>
+          </div>
+
+          <h2
+            style={{
+              margin: 0,
+              fontSize: '26px',
+              fontWeight: '800',
+              color: safeTheme.textMain
+            }}
+          >
+            Inventory Command Center
+          </h2>
+
+          <p
+            style={{
+              margin:
+                '7px 0 0',
+              fontSize: '12px',
+              color: safeTheme.textMuted
+            }}
+          >
+            Executive view of inventory position,
+            deployment exposure and operational risk.
+          </p>
+
+        </div>
+
 
         <div
           style={{
-            fontSize: '12px',
-            color: safeTheme.textMuted
+            textAlign: 'right',
+            color: safeTheme.textMuted,
+            fontSize: '11px'
           }}
         >
-          {now.toLocaleDateString(
-            'en-GB',
-            {
-              weekday: 'long',
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric'
-            }
-          )}
+
+          <div
+            style={{
+              fontWeight: '700',
+              color: safeTheme.textMain
+            }}
+          >
+            {now.toLocaleDateString(
+              'en-GB',
+              {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+              }
+            )}
+          </div>
+
+          <div
+            style={{
+              marginTop: '4px'
+            }}
+          >
+            Live operational snapshot
+          </div>
+
         </div>
+
       </div>
 
-      {/* =================================================
-          PRIMARY STOCK KPIs
-      ================================================= */}
+
+      {/* ===================================================
+          EXECUTIVE KPI GRID
+      =================================================== */}
+
+      <SectionHeader
+        icon={BarChart3}
+        title="Executive performance indicators"
+        subtitle="Click any KPI to investigate the underlying inventory records."
+      />
+
 
       <div
         style={{
           display: 'grid',
           gridTemplateColumns:
-            'repeat(auto-fit, minmax(200px, 1fr))',
-          gap: '16px',
-          marginBottom: '20px'
+            'repeat(auto-fit, minmax(220px, 1fr))',
+          gap: '14px',
+          marginBottom: '26px'
         }}
       >
-        <KpiCard
+
+        <ExecutiveKpi
           icon={LayoutGrid}
-          label="Total Stock"
-          value={dashboardTotalStock}
+          label="Gross Inventory Position"
+          value={dashboardGrossStock.toLocaleString()}
+          subtitle="Total physical units accounted for"
           color={safeTheme.accentBlue}
-          onClick={() =>
-            goTo('ALL')
-          }
+          onClick={() => goTo('ALL')}
         />
 
-        <KpiCard
+        <ExecutiveKpi
           icon={Package}
-          label="Vault Reserve"
-          value={dashboardAvailable}
+          label="Available Reserve"
+          value={dashboardAvailableUnits.toLocaleString()}
+          subtitle="Units currently available"
           color={safeTheme.accentEmerald}
-          onClick={() =>
-            goTo('AVAILABLE')
-          }
+          onClick={() => goTo('AVAILABLE')}
         />
 
-        <KpiCard
+        <ExecutiveKpi
           icon={ArrowLeftRight}
-          label="Active Deployments"
-          value={dashboardDeployed}
+          label="Field Deployment"
+          value={dashboardDeployedUnits.toLocaleString()}
+          subtitle="Units currently deployed"
           color={safeTheme.accentAmber}
-          onClick={() =>
-            goTo('LENDED')
-          }
+          onClick={() => goTo('LENDED')}
         />
 
-        <KpiCard
-          icon={AlertTriangle}
-          label="Ghost Assets (>14d)"
-          value={`${severeOverdueQty} units`}
-          color={safeTheme.accentCrimson}
-          isAlert={
-            severeOverdueQty > 0
-          }
-          onClick={() =>
-            goTo('OVERDUE')
-          }
-          subtitle={`${severeOverdueLoans.length} unrecovered critical loans`}
-        />
-      </div>
-
-      {/* =================================================
-          SECONDARY KPIs
-      ================================================= */}
-
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns:
-            'repeat(auto-fit, minmax(180px, 1fr))',
-          gap: '16px',
-          marginBottom: '28px'
-        }}
-      >
-        <KpiCard
+        <ExecutiveKpi
           icon={TrendingUp}
           label="Utilization Rate"
-          value={`${dashboardUtilizationRate}%`}
+          value={`${dashboardUtilization}%`}
+          subtitle="Deployment as % of gross inventory"
           color={safeTheme.accentPurple}
-          subtitle={`${dashboardDeployed} of ${dashboardTotalStock} units out`}
+          onClick={() => goTo('LENDED')}
         />
 
-        <KpiCard
-          icon={AlertTriangle}
-          label="Total Overdue"
-          value={overdueLoans.length}
+        <ExecutiveKpi
+          icon={Clock}
+          label="Overdue Exposure"
+          value={overdueUnits.toLocaleString()}
+          subtitle={`${overdueLoans.length} overdue loans`}
           color={safeTheme.accentAmber}
-          subtitle="Loans past expected return"
-          onClick={() =>
-            goTo('OVERDUE')
-          }
+          onClick={() => goTo('OVERDUE')}
+          alert={overdueUnits > 0}
         />
 
-        <KpiCard
-          icon={CheckCircle}
-          label="Good Returns (qty)"
-          value={totalGoodQty}
-          color={safeTheme.accentEmerald}
-          subtitle="Returned in good condition"
-        />
-
-        <KpiCard
-          icon={Wrench}
-          label="Worn Returns (qty)"
-          value={totalWornQty}
-          color={safeTheme.accentAmber}
-          subtitle="Needs service review"
-        />
-
-        <KpiCard
-          icon={XCircle}
-          label="Damaged Returns (qty)"
-          value={totalDamagedQty}
+        <ExecutiveKpi
+          icon={ShieldAlert}
+          label="Critical Exposure"
+          value={severeOverdueUnits.toLocaleString()}
+          subtitle="Units overdue >14 days"
           color={safeTheme.accentCrimson}
-          subtitle="Requires repair or scrap"
+          onClick={() => goTo('OVERDUE')}
+          alert={severeOverdueUnits > 0}
         />
 
-        <KpiCard
+        <ExecutiveKpi
+          icon={Wrench}
+          label="Damage Exposure"
+          value={dashboardDamagedReturns.toLocaleString()}
+          subtitle="Returned damaged units"
+          color={safeTheme.accentCrimson}
+          onClick={() => goTo('DAMAGED')}
+          alert={dashboardDamagedReturns > 0}
+        />
+
+        <ExecutiveKpi
           icon={Users}
-          label="Contractors"
-          value={safeContractors.length}
+          label="Active Contractors"
+          value={safeContractors.length.toLocaleString()}
+          subtitle={`${highRiskContractors.length} high-risk custodians`}
           color={safeTheme.accentCyan}
-          subtitle="Registered custodians"
+          onClick={() => goTo('CONTRACTORS')}
         />
 
-        <KpiCard
-          icon={MapPin}
-          label="Active Sites"
-          value={siteChartData.length}
-          color={safeTheme.accentAmber}
-          subtitle="Sites with deployments"
-        />
-
-        <KpiCard
-          icon={Package}
-          label="Total Returned (qty)"
-          value={totalReturnedQty}
-          color={safeTheme.accentBlue}
-          subtitle="All-time recoveries"
-        />
       </div>
 
-      {/* =================================================
-          CHARTS
-      ================================================= */}
+
+      {/* ===================================================
+          OPERATIONAL SNAPSHOT
+      =================================================== */}
+
+      <SectionHeader
+        icon={Activity}
+        title="Operational snapshot"
+        subtitle="Current inventory health and deployment footprint."
+      />
+
 
       <div
         style={{
           display: 'grid',
           gridTemplateColumns:
-            '1fr 1fr',
-          gap: '20px',
-          marginBottom: '20px'
+            'repeat(auto-fit, minmax(240px, 1fr))',
+          gap: '14px',
+          marginBottom: '26px'
         }}
       >
-        {/* SITE DEPLOYMENT CHART */}
 
-        <div style={safeStyles.box}>
-          <div style={safeStyles.label}>
-            Deployments by Site
-          </div>
-
-          <div
-            style={{
-              width: '100%',
-              height: 280
-            }}
-          >
-            <ResponsiveContainer>
-              <BarChart
-                data={siteChartData}
-              >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke={
-                    safeTheme.border
-                  }
-                />
-
-                <XAxis
-                  dataKey="name"
-                  stroke={
-                    safeTheme.textMuted
-                  }
-                  tick={{
-                    fontSize: 11
-                  }}
-                />
-
-                <YAxis
-                  stroke={
-                    safeTheme.textMuted
-                  }
-                  tick={{
-                    fontSize: 11
-                  }}
-                />
-
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor:
-                      safeTheme.cardBg,
-                    borderColor:
-                      safeTheme.border,
-                    color: '#fff'
-                  }}
-                />
-
-                <Legend />
-
-                <Bar
-                  dataKey="active"
-                  name="Active"
-                  fill={
-                    safeTheme.accentAmber
-                  }
-                  stackId="a"
-                />
-
-                <Bar
-                  dataKey="overdue"
-                  name="Overdue"
-                  fill={
-                    safeTheme.accentCrimson
-                  }
-                  stackId="a"
-                  radius={[
-                    4,
-                    4,
-                    0,
-                    0
-                  ]}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* RETURN CONDITION CHART */}
-
-        <div style={safeStyles.box}>
-          <div style={safeStyles.label}>
-            Return Condition Mix
-          </div>
-
-          <div
-            style={{
-              width: '100%',
-              height: 280
-            }}
-          >
-            <ResponsiveContainer>
-              <PieChart>
-                <Pie
-                  data={conditionData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={65}
-                  outerRadius={90}
-                  paddingAngle={4}
-                  dataKey="value"
-                  label={({
-                    name,
-                    percent
-                  }) =>
-                    `${name} ${(
-                      percent * 100
-                    ).toFixed(0)}%`
-                  }
-                  labelLine={false}
-                >
-                  <Cell
-                    fill={
-                      safeConditionColors.Good ||
-                      '#10b981'
-                    }
-                  />
-
-                  <Cell
-                    fill={
-                      safeConditionColors.Worn ||
-                      '#f59e0b'
-                    }
-                  />
-
-                  <Cell
-                    fill={
-                      safeConditionColors.Damaged ||
-                      '#ef4444'
-                    }
-                  />
-                </Pie>
-
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor:
-                      safeTheme.cardBg,
-                    borderColor:
-                      safeTheme.border,
-                    color: '#fff'
-                  }}
-                />
-
-                <Legend
-                  verticalAlign="bottom"
-                  height={36}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      </div>
-
-      {/* =================================================
-          CONTRACTOR HEALTH MATRIX
-      ================================================= */}
-
-      <div style={safeStyles.box}>
         <div
+          className="executive-clickable"
+          onClick={() => goTo('AVAILABLE')}
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            marginBottom: '4px'
+            ...safeStyles.box,
+            cursor: 'pointer'
           }}
         >
-          <Users
-            size={16}
-            color={
-              safeTheme.accentCyan
-            }
+
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between'
+            }}
+          >
+
+            <div>
+
+              <div
+                style={{
+                  fontSize: '11px',
+                  color: safeTheme.textMuted,
+                  textTransform: 'uppercase',
+                  fontWeight: '700'
+                }}
+              >
+                Reserve Coverage
+              </div>
+
+              <div
+                style={{
+                  marginTop: '7px',
+                  fontSize: '25px',
+                  fontWeight: '800',
+                  color: safeTheme.textMain
+                }}
+              >
+                {dashboardGrossStock > 0
+                  ? Math.round(
+                      (dashboardAvailableUnits /
+                        dashboardGrossStock) *
+                        100
+                    )
+                  : 0}
+                %
+              </div>
+
+            </div>
+
+            <Package
+              size={20}
+              color={safeTheme.accentEmerald}
+            />
+
+          </div>
+
+          <div
+            style={{
+              marginTop: '12px',
+              height: '6px',
+              backgroundColor: safeTheme.border,
+              borderRadius: '99px',
+              overflow: 'hidden'
+            }}
+          >
+
+            <div
+              style={{
+                width: `${
+                  dashboardGrossStock > 0
+                    ? (
+                        dashboardAvailableUnits /
+                        dashboardGrossStock
+                      ) * 100
+                    : 0
+                }%`,
+                height: '100%',
+                backgroundColor:
+                  safeTheme.accentEmerald
+              }}
+            />
+
+          </div>
+
+          <div
+            style={{
+              marginTop: '8px',
+              fontSize: '11px',
+              color: safeTheme.textMuted
+            }}
+          >
+            {dashboardAvailableUnits.toLocaleString()}
+            {' '}available of{' '}
+            {dashboardGrossStock.toLocaleString()}
+          </div>
+
+        </div>
+
+
+        <div
+          className="executive-clickable"
+          onClick={() => goTo('OVERDUE')}
+          style={{
+            ...safeStyles.box,
+            cursor: 'pointer'
+          }}
+        >
+
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between'
+            }}
+          >
+
+            <div>
+
+              <div
+                style={{
+                  fontSize: '11px',
+                  color: safeTheme.textMuted,
+                  textTransform: 'uppercase',
+                  fontWeight: '700'
+                }}
+              >
+                Recovery Exposure
+              </div>
+
+              <div
+                style={{
+                  marginTop: '7px',
+                  fontSize: '25px',
+                  fontWeight: '800',
+                  color:
+                    overdueUnits > 0
+                      ? safeTheme.accentAmber
+                      : safeTheme.accentEmerald
+                }}
+              >
+                {dashboardDeployedUnits > 0
+                  ? Math.round(
+                      (overdueUnits /
+                        dashboardDeployedUnits) *
+                        100
+                    )
+                  : 0}
+                %
+              </div>
+
+            </div>
+
+            <Clock
+              size={20}
+              color={
+                overdueUnits > 0
+                  ? safeTheme.accentAmber
+                  : safeTheme.accentEmerald
+              }
+            />
+
+          </div>
+
+          <div
+            style={{
+              marginTop: '12px',
+              height: '6px',
+              backgroundColor: safeTheme.border,
+              borderRadius: '99px',
+              overflow: 'hidden'
+            }}
+          >
+
+            <div
+              style={{
+                width: `${
+                  dashboardDeployedUnits > 0
+                    ? Math.min(
+                        100,
+                        (
+                          overdueUnits /
+                          dashboardDeployedUnits
+                        ) * 100
+                      )
+                    : 0
+                }%`,
+                height: '100%',
+                backgroundColor:
+                  overdueUnits > 0
+                    ? safeTheme.accentAmber
+                    : safeTheme.accentEmerald
+              }}
+            />
+
+          </div>
+
+          <div
+            style={{
+              marginTop: '8px',
+              fontSize: '11px',
+              color: safeTheme.textMuted
+            }}
+          >
+            {overdueUnits.toLocaleString()}
+            {' '}overdue of{' '}
+            {dashboardDeployedUnits.toLocaleString()}
+            {' '}deployed
+          </div>
+
+        </div>
+
+
+        <div
+          className="executive-clickable"
+          onClick={() => goTo('DAMAGED')}
+          style={{
+            ...safeStyles.box,
+            cursor: 'pointer'
+          }}
+        >
+
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between'
+            }}
+          >
+
+            <div>
+
+              <div
+                style={{
+                  fontSize: '11px',
+                  color: safeTheme.textMuted,
+                  textTransform: 'uppercase',
+                  fontWeight: '700'
+                }}
+              >
+                Return Quality
+              </div>
+
+              <div
+                style={{
+                  marginTop: '7px',
+                  fontSize: '25px',
+                  fontWeight: '800',
+                  color:
+                    returnConditionHealth >= 80
+                      ? safeTheme.accentEmerald
+                      : safeTheme.accentAmber
+                }}
+              >
+                {returnConditionHealth}%
+              </div>
+
+            </div>
+
+            <CheckCircle
+              size={20}
+              color={
+                returnConditionHealth >= 80
+                  ? safeTheme.accentEmerald
+                  : safeTheme.accentAmber
+              }
+            />
+
+          </div>
+
+          <div
+            style={{
+              marginTop: '12px',
+              fontSize: '11px',
+              color: safeTheme.textMuted
+            }}
+          >
+            Good-condition share of returned units
+          </div>
+
+        </div>
+
+
+        <div
+          className="executive-clickable"
+          onClick={() => goTo('SITES')}
+          style={{
+            ...safeStyles.box,
+            cursor: 'pointer'
+          }}
+        >
+
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between'
+            }}
+          >
+
+            <div>
+
+              <div
+                style={{
+                  fontSize: '11px',
+                  color: safeTheme.textMuted,
+                  textTransform: 'uppercase',
+                  fontWeight: '700'
+                }}
+              >
+                Deployment Footprint
+              </div>
+
+              <div
+                style={{
+                  marginTop: '7px',
+                  fontSize: '25px',
+                  fontWeight: '800',
+                  color: safeTheme.textMain
+                }}
+              >
+                {activeSiteCount}
+              </div>
+
+            </div>
+
+            <MapPin
+              size={20}
+              color={safeTheme.accentCyan}
+            />
+
+          </div>
+
+          <div
+            style={{
+              marginTop: '12px',
+              fontSize: '11px',
+              color: safeTheme.textMuted
+            }}
+          >
+            Active sites currently holding inventory
+          </div>
+
+        </div>
+
+      </div>
+
+
+      {/* ===================================================
+          MANAGEMENT ATTENTION
+      =================================================== */}
+
+      {managementActions.length > 0 && (
+
+        <div
+          style={{
+            ...safeStyles.box,
+            marginBottom: '26px',
+            borderColor:
+              safeTheme.accentAmber
+          }}
+        >
+
+          <SectionHeader
+            icon={ShieldAlert}
+            title="Management attention required"
+            subtitle="Priority exceptions requiring operational review."
           />
 
           <div
             style={{
-              ...safeStyles.label,
-              marginBottom: 0
+              display: 'grid',
+              gap: '9px'
             }}
           >
-            Contractor Risk & Health Matrix
-          </div>
-        </div>
 
-        <p
-          style={{
-            fontSize: '12px',
-            color: safeTheme.textMuted,
-            marginBottom: '14px'
-          }}
-        >
-          Ranked by risk profile.
-          High-risk custodians with
-          poor return compliance or
-          unreturned volume are
-          highlighted.
-        </p>
+            {managementActions.map(
+              (item, index) => {
 
-        <table
-          style={
-            safeStyles.table
-          }
-        >
-          <thead>
-            <tr>
-              <th style={safeStyles.th}>
-                Contractor
-              </th>
+                const Icon =
+                  item.icon;
 
-              <th style={safeStyles.th}>
-                Company
-              </th>
-
-              <th style={safeStyles.th}>
-                Loaned
-              </th>
-
-              <th style={safeStyles.th}>
-                Returned
-              </th>
-
-              <th style={safeStyles.th}>
-                Still Out
-              </th>
-
-              <th style={safeStyles.th}>
-                Return Rate
-              </th>
-
-              <th style={safeStyles.th}>
-                Condition Health
-              </th>
-
-              <th style={safeStyles.th}>
-                Risk Score
-              </th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {contractorHealth.length ===
-            0 ? (
-              <tr>
-                <td
-                  colSpan={8}
-                  style={{
-                    ...safeStyles.td,
-                    textAlign:
-                      'center',
-                    color:
-                      safeTheme.textMuted
-                  }}
-                >
-                  No contractor activity
-                  yet
-                </td>
-              </tr>
-            ) : (
-              contractorHealth.map(
-                (contractor) => (
-                  <tr
-                    key={
-                      contractor.id
+                return (
+                  <div
+                    key={`${item.title}-${index}`}
+                    className="executive-clickable"
+                    onClick={() =>
+                      goTo(item.filter)
                     }
                     style={{
-                      backgroundColor:
-                        contractor.isHighRisk
-                          ? 'rgba(220, 38, 38, 0.06)'
-                          : 'transparent'
+                      display: 'grid',
+                      gridTemplateColumns:
+                        '36px 1fr auto',
+                      alignItems: 'center',
+                      gap: '12px',
+                      padding: '12px',
+                      borderRadius: '9px',
+                      border:
+                        `1px solid ${safeTheme.border}`,
+                      cursor: 'pointer'
                     }}
                   >
-                    <td
-                      style={
-                        safeStyles.td
-                      }
-                    >
-                      <strong>
-                        {
-                          contractor.name
-                        }
-                      </strong>
-                    </td>
 
-                    <td
-                      style={
-                        safeStyles.td
-                      }
-                    >
-                      {
-                        contractor.company
-                      }
-                    </td>
-
-                    <td
-                      style={
-                        safeStyles.td
-                      }
-                    >
-                      {
-                        contractor.loaned
-                      }
-                    </td>
-
-                    <td
-                      style={
-                        safeStyles.td
-                      }
-                    >
-                      {
-                        contractor.returnedQty
-                      }
-                    </td>
-
-                    <td
+                    <div
                       style={{
-                        ...safeStyles.td,
-                        color:
-                          contractor.stillOut >
-                          0
-                            ? safeTheme.accentAmber
-                            : safeTheme.textMain
+                        width: '34px',
+                        height: '34px',
+                        borderRadius: '8px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor:
+                          item.type === 'danger'
+                            ? `${safeTheme.accentCrimson}18`
+                            : `${safeTheme.accentAmber}18`
                       }}
                     >
-                      {
-                        contractor.stillOut
-                      }
-                    </td>
 
-                    <td
-                      style={
-                        safeStyles.td
-                      }
-                    >
-                      {
-                        contractor.returnComplianceRate
-                      }%
-                    </td>
+                      <Icon
+                        size={17}
+                        color={
+                          item.type === 'danger'
+                            ? safeTheme.accentCrimson
+                            : safeTheme.accentAmber
+                        }
+                      />
 
-                    <td
-                      style={
-                        safeStyles.td
-                      }
-                    >
-                      {
-                        contractor.conditionRate
-                      }%
-                    </td>
+                    </div>
 
-                    <td
-                      style={
-                        safeStyles.td
-                      }
-                    >
-                      <span
+
+                    <div>
+
+                      <div
                         style={{
-                          fontWeight:
-                            '700',
-                          padding:
-                            '2px 8px',
-                          borderRadius:
-                            '4px',
-
-                          backgroundColor:
-                            contractor.compositeScore >=
-                            80
-                              ? 'rgba(16, 185, 129, 0.15)'
-                              : contractor.compositeScore >=
-                                50
-                              ? 'rgba(245, 158, 11, 0.15)'
-                              : 'rgba(220, 38, 38, 0.2)',
-
-                          color:
-                            contractor.compositeScore >=
-                            80
-                              ? safeTheme.accentEmerald
-                              : contractor.compositeScore >=
-                                50
-                              ? safeTheme.accentAmber
-                              : safeTheme.accentCrimson
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px'
                         }}
                       >
-                        {
-                          contractor.compositeScore
-                        }%
 
-                        {' '}
+                        <strong
+                          style={{
+                            fontSize: '12px',
+                            color: safeTheme.textMain
+                          }}
+                        >
+                          {item.title}
+                        </strong>
 
-                        {contractor.isHighRisk
-                          ? '(HIGH RISK)'
-                          : ''}
-                      </span>
-                    </td>
-                  </tr>
-                )
-              )
+                        <StatusBadge
+                          type={item.type}
+                        >
+                          {item.priority}
+                        </StatusBadge>
+
+                      </div>
+
+                      <div
+                        style={{
+                          marginTop: '4px',
+                          fontSize: '11px',
+                          color: safeTheme.textMuted
+                        }}
+                      >
+                        {item.description}
+                      </div>
+
+                    </div>
+
+
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '3px',
+                        color: safeTheme.accentBlue,
+                        fontSize: '11px',
+                        fontWeight: '700',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      {item.action}
+                      <ChevronRight
+                        size={14}
+                      />
+                    </div>
+
+                  </div>
+                );
+              }
             )}
-          </tbody>
-        </table>
+
+          </div>
+
+        </div>
+
+      )}
+
+
+      {/* ===================================================
+          SITE DEPLOYMENT + RETURN QUALITY
+      =================================================== */}
+
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns:
+            'minmax(0, 1.45fr) minmax(0, 1fr)',
+          gap: '18px',
+          marginBottom: '26px'
+        }}
+      >
+
+        {/* SITE DEPLOYMENT */}
+
+        <div
+          style={safeStyles.box}
+        >
+
+          <SectionHeader
+            icon={MapPin}
+            title="Deployment by site"
+            subtitle="Highest inventory concentration across active locations."
+            action="View sites"
+            onAction={() =>
+              goTo('SITES')
+            }
+          />
+
+          {siteChartData.length === 0 ? (
+
+            <div
+              style={{
+                height: '280px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: safeTheme.textMuted,
+                fontSize: '12px'
+              }}
+            >
+              No active site deployments.
+            </div>
+
+          ) : (
+
+            <div
+              style={{
+                width: '100%',
+                height: '300px'
+              }}
+            >
+
+              <ResponsiveContainer>
+                <BarChart
+                  data={
+                    siteChartData.slice(0, 10)
+                  }
+                  margin={{
+                    top: 10,
+                    right: 10,
+                    left: 0,
+                    bottom: 30
+                  }}
+                  onClick={(state) => {
+
+                    const index =
+                      state?.activeTooltipIndex;
+
+                    if (
+                      index === undefined ||
+                      index === null
+                    ) {
+                      return;
+                    }
+
+                    const site =
+                      siteChartData[
+                        Number(index)
+                      ];
+
+                    if (site?.name) {
+                      goTo(
+                        `SITE:${site.name}`
+                      );
+                    }
+
+                  }}
+                >
+
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke={
+                      safeTheme.border
+                    }
+                    vertical={false}
+                  />
+
+                  <XAxis
+                    dataKey="name"
+                    stroke={
+                      safeTheme.textMuted
+                    }
+                    tick={{
+                      fontSize: 10
+                    }}
+                    angle={-25}
+                    textAnchor="end"
+                    interval={0}
+                  />
+
+                  <YAxis
+                    stroke={
+                      safeTheme.textMuted
+                    }
+                    tick={{
+                      fontSize: 10
+                    }}
+                  />
+
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor:
+                        safeTheme.cardBg,
+                      borderColor:
+                        safeTheme.border,
+                      color:
+                        safeTheme.textMain,
+                      borderRadius:
+                        '8px'
+                    }}
+                  />
+
+                  <Bar
+                    dataKey="deployed"
+                    name="Deployed units"
+                    fill={
+                      safeTheme.accentBlue
+                    }
+                    radius={
+                      [4, 4, 0, 0]
+                    }
+                  />
+
+                </BarChart>
+              </ResponsiveContainer>
+
+            </div>
+
+          )}
+
+          {siteChartData.length > 10 && (
+
+            <div
+              style={{
+                marginTop: '5px',
+                fontSize: '10px',
+                color: safeTheme.textMuted,
+                textAlign: 'center'
+              }}
+            >
+              Showing top 10 sites.
+              Click a site or "View sites"
+              for the full drill-down.
+            </div>
+
+          )}
+
+        </div>
+
+
+        {/* RETURN CONDITION */}
+
+        <div
+          style={safeStyles.box}
+        >
+
+          <SectionHeader
+            icon={Activity}
+            title="Return condition quality"
+            subtitle="Condition profile of recovered equipment."
+            action="View returns"
+            onAction={() =>
+              goTo('RETURNS')
+            }
+          />
+
+          {conditionData.length === 0 ? (
+
+            <div
+              style={{
+                height: '300px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: safeTheme.textMuted,
+                fontSize: '12px'
+              }}
+            >
+              No return records available.
+            </div>
+
+          ) : (
+
+            <div
+              style={{
+                width: '100%',
+                height: '300px'
+              }}
+            >
+
+              <ResponsiveContainer>
+
+                <PieChart>
+
+                  <Pie
+                    data={conditionData}
+                    cx="50%"
+                    cy="46%"
+                    innerRadius={58}
+                    outerRadius={90}
+                    paddingAngle={3}
+                    dataKey="value"
+                    onClick={(entry) => {
+
+                      if (
+                        entry?.name
+                      ) {
+                        goTo(
+                          `RETURN_CONDITION:${entry.name}`
+                        );
+                      }
+
+                    }}
+                  >
+
+                    <Cell
+                      fill={
+                        safeConditionColors.Good
+                      }
+                    />
+
+                    <Cell
+                      fill={
+                        safeConditionColors.Worn
+                      }
+                    />
+
+                    <Cell
+                      fill={
+                        safeConditionColors.Damaged
+                      }
+                    />
+
+                  </Pie>
+
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor:
+                        safeTheme.cardBg,
+                      borderColor:
+                        safeTheme.border,
+                      color:
+                        safeTheme.textMain
+                    }}
+                  />
+
+                  <Legend
+                    verticalAlign="bottom"
+                    height={36}
+                  />
+
+                </PieChart>
+
+              </ResponsiveContainer>
+
+            </div>
+
+          )}
+
+        </div>
+
       </div>
+
+
+      {/* ===================================================
+          CONTRACTOR RISK MATRIX
+      =================================================== */}
+
+      <div
+        style={{
+          ...safeStyles.box,
+          marginBottom: '26px'
+        }}
+      >
+
+        <SectionHeader
+          icon={Users}
+          title="Contractor operational health"
+          subtitle="Custodians ranked by return compliance and equipment condition."
+          action="View contractors"
+          onAction={() =>
+            goTo('CONTRACTORS')
+          }
+        />
+
+        {contractorHealth.length === 0 ? (
+
+          <div
+            style={{
+              padding: '30px',
+              textAlign: 'center',
+              color: safeTheme.textMuted,
+              fontSize: '12px'
+            }}
+          >
+            No contractor activity available.
+          </div>
+
+        ) : (
+
+          <div
+            style={{
+              overflowX: 'auto'
+            }}
+          >
+
+            <table
+              style={safeStyles.table}
+            >
+
+              <thead>
+
+                <tr>
+
+                  <th
+                    style={safeStyles.th}
+                  >
+                    Contractor
+                  </th>
+
+                  <th
+                    style={safeStyles.th}
+                  >
+                    Company
+                  </th>
+
+                  <th
+                    style={safeStyles.th}
+                  >
+                    Deployed
+                  </th>
+
+                  <th
+                    style={safeStyles.th}
+                  >
+                    Outstanding
+                  </th>
+
+                  <th
+                    style={safeStyles.th}
+                  >
+                    Return compliance
+                  </th>
+
+                  <th
+                    style={safeStyles.th}
+                  >
+                    Condition health
+                  </th>
+
+                  <th
+                    style={safeStyles.th}
+                  >
+                    Risk score
+                  </th>
+
+                  <th
+                    style={safeStyles.th}
+                  >
+                    Status
+                  </th>
+
+                </tr>
+
+              </thead>
+
+              <tbody>
+
+                {contractorHealth
+                  .slice(0, 10)
+                  .map(
+                    (contractor) => (
+
+                      <tr
+                        key={contractor.id}
+                        className="executive-row"
+                        onClick={() =>
+                          goTo(
+                            `CONTRACTOR:${contractor.id}`
+                          )
+                        }
+                        style={{
+                          cursor:
+                            'pointer',
+                          backgroundColor:
+                            contractor.risk ===
+                            'danger'
+                              ? 'rgba(220,38,38,0.045)'
+                              : 'transparent'
+                        }}
+                      >
+
+                        <td
+                          style={safeStyles.td}
+                        >
+                          <strong>
+                            {contractor.name}
+                          </strong>
+                        </td>
+
+                        <td
+                          style={safeStyles.td}
+                        >
+                          {contractor.company}
+                        </td>
+
+                        <td
+                          style={safeStyles.td}
+                        >
+                          {contractor.loanedUnits}
+                        </td>
+
+                        <td
+                          style={{
+                            ...safeStyles.td,
+                            color:
+                              contractor.outstandingUnits >
+                              0
+                                ? safeTheme.accentAmber
+                                : safeTheme.textMain,
+                            fontWeight:
+                              contractor.outstandingUnits >
+                              0
+                                ? '700'
+                                : '400'
+                          }}
+                        >
+                          {contractor.outstandingUnits}
+                        </td>
+
+                        <td
+                          style={safeStyles.td}
+                        >
+                          {contractor.returnCompliance}%
+                        </td>
+
+                        <td
+                          style={safeStyles.td}
+                        >
+                          {contractor.conditionHealth}%
+                        </td>
+
+                        <td
+                          style={safeStyles.td}
+                        >
+                          <strong>
+                            {contractor.riskScore}%
+                          </strong>
+                        </td>
+
+                        <td
+                          style={safeStyles.td}
+                        >
+
+                          <StatusBadge
+                            type={
+                              contractor.risk
+                            }
+                          >
+                            {contractor.risk ===
+                            'danger'
+                              ? 'HIGH RISK'
+                              : contractor.risk ===
+                                'warning'
+                              ? 'WATCH'
+                              : 'HEALTHY'}
+                          </StatusBadge>
+
+                        </td>
+
+                      </tr>
+
+                    )
+                  )}
+
+              </tbody>
+
+            </table>
+
+          </div>
+
+        )}
+
+      </div>
+
+
+      {/* ===================================================
+          EXECUTIVE FOOTER / DRILL DOWN
+      =================================================== */}
+
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns:
+            'repeat(auto-fit, minmax(220px, 1fr))',
+          gap: '12px',
+          marginBottom: '10px'
+        }}
+      >
+
+        <button
+          onClick={() =>
+            goTo('ALL')
+          }
+          className="executive-clickable"
+          style={{
+            border:
+              `1px solid ${safeTheme.border}`,
+            backgroundColor:
+              safeTheme.cardBg,
+            color:
+              safeTheme.textMain,
+            borderRadius: '10px',
+            padding: '13px',
+            cursor: 'pointer',
+            textAlign: 'left',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}
+        >
+
+          <span
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontSize: '12px',
+              fontWeight: '700'
+            }}
+          >
+            <LayoutGrid
+              size={16}
+              color={
+                safeTheme.accentBlue
+              }
+            />
+            Full inventory
+          </span>
+
+          <ChevronRight
+            size={15}
+            color={
+              safeTheme.textMuted
+            }
+          />
+
+        </button>
+
+
+        <button
+          onClick={() =>
+            goTo('OVERDUE')
+          }
+          className="executive-clickable"
+          style={{
+            border:
+              `1px solid ${safeTheme.border}`,
+            backgroundColor:
+              safeTheme.cardBg,
+            color:
+              safeTheme.textMain,
+            borderRadius: '10px',
+            padding: '13px',
+            cursor: 'pointer',
+            textAlign: 'left',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}
+        >
+
+          <span
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontSize: '12px',
+              fontWeight: '700'
+            }}
+          >
+            <AlertTriangle
+              size={16}
+              color={
+                safeTheme.accentCrimson
+              }
+            />
+            Overdue actions
+          </span>
+
+          <ChevronRight
+            size={15}
+            color={
+              safeTheme.textMuted
+            }
+          />
+
+        </button>
+
+
+        <button
+          onClick={() =>
+            goTo('RETURNS')
+          }
+          className="executive-clickable"
+          style={{
+            border:
+              `1px solid ${safeTheme.border}`,
+            backgroundColor:
+              safeTheme.cardBg,
+            color:
+              safeTheme.textMain,
+            borderRadius: '10px',
+            padding: '13px',
+            cursor: 'pointer',
+            textAlign: 'left',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}
+        >
+
+          <span
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontSize: '12px',
+              fontWeight: '700'
+            }}
+          >
+            <CheckCircle
+              size={16}
+              color={
+                safeTheme.accentEmerald
+              }
+            />
+            Returns intelligence
+          </span>
+
+          <ChevronRight
+            size={15}
+            color={
+              safeTheme.textMuted
+            }
+          />
+
+        </button>
+
+
+        <button
+          onClick={() =>
+            goTo('CONTRACTORS')
+          }
+          className="executive-clickable"
+          style={{
+            border:
+              `1px solid ${safeTheme.border}`,
+            backgroundColor:
+              safeTheme.cardBg,
+            color:
+              safeTheme.textMain,
+            borderRadius: '10px',
+            padding: '13px',
+            cursor: 'pointer',
+            textAlign: 'left',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}
+        >
+
+          <span
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontSize: '12px',
+              fontWeight: '700'
+            }}
+          >
+            <Users
+              size={16}
+              color={
+                safeTheme.accentCyan
+              }
+            />
+            Contractor intelligence
+          </span>
+
+          <ChevronRight
+            size={15}
+            color={
+              safeTheme.textMuted
+            }
+          />
+
+        </button>
+
+      </div>
+
     </div>
   );
 }
