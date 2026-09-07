@@ -554,180 +554,6 @@ export default function AnalyticsPage({
       m.damaged > 0
   );
 
-  /* ==========================================================================
-     PDF EXPORT — SELECTABLE KPI REPORT
-  ========================================================================== */
-
-  const EXPORT_KPI_CATALOG = [
-    {
-      id: 'gross_deployed',
-      label: t('grossDeployed'),
-      value: totalLoanedQty,
-    },
-    {
-      id: 'recovered',
-      label: t('recovered'),
-      value: `${totalReturnedQty} (${globalRecoveryRate}%)`,
-    },
-    {
-      id: 'field_exposure',
-      label: t('fieldExposure'),
-      value: `${totalRemainingQty} (${unrecoveredRate}%)`,
-    },
-    {
-      id: 'overdue_exposure',
-      label: t('overdueExposure'),
-      value: `${totalOverdueQty} (${overdueRate}%)`,
-    },
-    {
-      id: 'material_health',
-      label: t('materialHealth'),
-      value: `${globalHealthRate}%`,
-    },
-    {
-      id: 'damage_rate',
-      label: t('damageRate'),
-      value: `${globalDamageRate}% (${globalDamagedQty})`,
-    },
-    {
-      id: 'worn_rate',
-      label: t('wornRate'),
-      value: `${globalWornRate}%`,
-    },
-    {
-      id: 'high_risk_sites',
-      label: t('highRiskSites'),
-      value: highRiskSites.length,
-    },
-    {
-      id: 'high_risk_contractors',
-      label: t('highRiskContractors'),
-      value: highRiskContractors.length,
-    },
-    {
-      id: 'high_risk_materials',
-      label: t('highRiskMaterials'),
-      value: highRiskMaterials.length,
-    },
-    {
-      id: 'management_attention',
-      label: t('managementAttentionCount'),
-      value: managementAttention,
-    },
-    {
-      id: 'trend_chart',
-      label: t('trendChartLabel'),
-      value: null,
-      isTable: true,
-    },
-  ];
-
-  const [showExportModal, setShowExportModal] = useState(
-    false
-  );
-  const [selectedKpiIds, setSelectedKpiIds] = useState(
-    EXPORT_KPI_CATALOG.map((k) => k.id)
-  );
-
-  const toggleKpiSelection = (id) => {
-    setSelectedKpiIds((prev) =>
-      prev.includes(id)
-        ? prev.filter((k) => k !== id)
-        : [...prev, id]
-    );
-  };
-
-  const handleGeneratePdf = async () => {
-    const { jsPDF } = await import('jspdf');
-    const autoTableModule = await import(
-      'jspdf-autotable'
-    );
-    const autoTable = autoTableModule.default;
-
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-
-    doc.setFontSize(16);
-    doc.setFont(undefined, 'bold');
-    doc.text('Materials Analytics Report', 14, 18);
-
-    doc.setFontSize(10);
-    doc.setFont(undefined, 'normal');
-    doc.setTextColor(120);
-    doc.text(
-      `Generated ${new Date().toLocaleString()}`,
-      14,
-      25
-    );
-    doc.setTextColor(0);
-
-    let cursorY = 34;
-
-    const selectedKpis = EXPORT_KPI_CATALOG.filter(
-      (k) =>
-        selectedKpiIds.includes(k.id) && !k.isTable
-    );
-
-    if (selectedKpis.length > 0) {
-      autoTable(doc, {
-        startY: cursorY,
-        head: [['KPI', 'Value']],
-        body: selectedKpis.map((k) => [
-          k.label,
-          String(k.value),
-        ]),
-        theme: 'grid',
-        headStyles: { fillColor: [30, 41, 59] },
-        styles: { fontSize: 10 },
-      });
-      cursorY = doc.lastAutoTable.finalY + 12;
-    }
-
-    if (
-      selectedKpiIds.includes('trend_chart') &&
-      hasTrendData
-    ) {
-      if (cursorY > 250) {
-        doc.addPage();
-        cursorY = 20;
-      }
-
-      doc.setFontSize(12);
-      doc.setFont(undefined, 'bold');
-      doc.text(
-        'Deployment / Return Trend (last 6 months)',
-        14,
-        cursorY
-      );
-      cursorY += 6;
-
-      autoTable(doc, {
-        startY: cursorY,
-        head: [
-          ['Month', 'Deployed', 'Returned', 'Damaged', 'Overdue'],
-        ],
-        body: trendData.map((m) => [
-          m.month,
-          m.deployed,
-          m.returned,
-          m.damaged,
-          m.overdue,
-        ]),
-        theme: 'striped',
-        headStyles: { fillColor: [30, 41, 59] },
-        styles: { fontSize: 10 },
-      });
-      cursorY = doc.lastAutoTable.finalY + 10;
-    }
-
-    doc.save(
-      `analytics-report-${new Date()
-        .toISOString()
-        .slice(0, 10)}.pdf`
-    );
-
-    setShowExportModal(false);
-  };
 
   /* ==========================================================================
      SITE ANALYTICS
@@ -1219,6 +1045,181 @@ export default function AnalyticsPage({
     highRiskSites.length +
     highRiskContractors.length +
     highRiskMaterials.length;
+
+  /* ==========================================================================
+     PDF EXPORT — SELECTABLE KPI REPORT
+  ========================================================================== */
+
+  const EXPORT_KPI_CATALOG = [
+    {
+      id: 'gross_deployed',
+      label: t('grossDeployed'),
+      value: totalLoanedQty,
+    },
+    {
+      id: 'recovered',
+      label: t('recovered'),
+      value: `${totalReturnedQty} (${globalRecoveryRate}%)`,
+    },
+    {
+      id: 'field_exposure',
+      label: t('fieldExposure'),
+      value: `${totalRemainingQty} (${unrecoveredRate}%)`,
+    },
+    {
+      id: 'overdue_exposure',
+      label: t('overdueExposure'),
+      value: `${totalOverdueQty} (${overdueRate}%)`,
+    },
+    {
+      id: 'material_health',
+      label: t('materialHealth'),
+      value: `${globalHealthRate}%`,
+    },
+    {
+      id: 'damage_rate',
+      label: t('damageRate'),
+      value: `${globalDamageRate}% (${globalDamagedQty})`,
+    },
+    {
+      id: 'worn_rate',
+      label: t('wornRate'),
+      value: `${globalWornRate}%`,
+    },
+    {
+      id: 'high_risk_sites',
+      label: t('highRiskSites'),
+      value: highRiskSites.length,
+    },
+    {
+      id: 'high_risk_contractors',
+      label: t('highRiskContractors'),
+      value: highRiskContractors.length,
+    },
+    {
+      id: 'high_risk_materials',
+      label: t('highRiskMaterials'),
+      value: highRiskMaterials.length,
+    },
+    {
+      id: 'management_attention',
+      label: t('managementAttentionCount'),
+      value: managementAttention,
+    },
+    {
+      id: 'trend_chart',
+      label: t('trendChartLabel'),
+      value: null,
+      isTable: true,
+    },
+  ];
+
+  const [showExportModal, setShowExportModal] = useState(
+    false
+  );
+  const [selectedKpiIds, setSelectedKpiIds] = useState(
+    EXPORT_KPI_CATALOG.map((k) => k.id)
+  );
+
+  const toggleKpiSelection = (id) => {
+    setSelectedKpiIds((prev) =>
+      prev.includes(id)
+        ? prev.filter((k) => k !== id)
+        : [...prev, id]
+    );
+  };
+
+  const handleGeneratePdf = async () => {
+    const { jsPDF } = await import('jspdf');
+    const autoTableModule = await import(
+      'jspdf-autotable'
+    );
+    const autoTable = autoTableModule.default;
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    doc.setFontSize(16);
+    doc.setFont(undefined, 'bold');
+    doc.text('Materials Analytics Report', 14, 18);
+
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(120);
+    doc.text(
+      `Generated ${new Date().toLocaleString()}`,
+      14,
+      25
+    );
+    doc.setTextColor(0);
+
+    let cursorY = 34;
+
+    const selectedKpis = EXPORT_KPI_CATALOG.filter(
+      (k) =>
+        selectedKpiIds.includes(k.id) && !k.isTable
+    );
+
+    if (selectedKpis.length > 0) {
+      autoTable(doc, {
+        startY: cursorY,
+        head: [['KPI', 'Value']],
+        body: selectedKpis.map((k) => [
+          k.label,
+          String(k.value),
+        ]),
+        theme: 'grid',
+        headStyles: { fillColor: [30, 41, 59] },
+        styles: { fontSize: 10 },
+      });
+      cursorY = doc.lastAutoTable.finalY + 12;
+    }
+
+    if (
+      selectedKpiIds.includes('trend_chart') &&
+      hasTrendData
+    ) {
+      if (cursorY > 250) {
+        doc.addPage();
+        cursorY = 20;
+      }
+
+      doc.setFontSize(12);
+      doc.setFont(undefined, 'bold');
+      doc.text(
+        'Deployment / Return Trend (last 6 months)',
+        14,
+        cursorY
+      );
+      cursorY += 6;
+
+      autoTable(doc, {
+        startY: cursorY,
+        head: [
+          ['Month', 'Deployed', 'Returned', 'Damaged', 'Overdue'],
+        ],
+        body: trendData.map((m) => [
+          m.month,
+          m.deployed,
+          m.returned,
+          m.damaged,
+          m.overdue,
+        ]),
+        theme: 'striped',
+        headStyles: { fillColor: [30, 41, 59] },
+        styles: { fontSize: 10 },
+      });
+      cursorY = doc.lastAutoTable.finalY + 10;
+    }
+
+    doc.save(
+      `analytics-report-${new Date()
+        .toISOString()
+        .slice(0, 10)}.pdf`
+    );
+
+    setShowExportModal(false);
+  };
 
   /* ==========================================================================
      TOP RANKINGS
