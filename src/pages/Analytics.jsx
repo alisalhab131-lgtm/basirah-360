@@ -133,6 +133,144 @@ const sectionTitleStyle = {
 };
 
 /* ============================================================================
+   TRANSLATIONS (EN / AR / FR)
+============================================================================ */
+
+const TRANSLATIONS = {
+  en: {
+    dir: 'ltr',
+    kpiAnalytics: 'KPI Analytics',
+    headerSubtitle:
+      'Executive visibility into material utilization, site exposure, contractor performance and operational risk.',
+    liveAnalytics: 'Live system analytics',
+    exportPdf: 'Export PDF Report',
+    executiveInventoryPosition: 'EXECUTIVE INVENTORY POSITION',
+    managementAttention: 'Management Attention Required',
+    reviewNote: 'require review',
+    sitesLabel: 'sites',
+    contractorsLabel: 'contractors',
+    materialsLabel: 'materials',
+    trendTitle: 'DEPLOYMENT & RETURN TREND (LAST 6 MONTHS)',
+    noTrendData: 'No dated loan/return records yet to build a trend.',
+    deployed: 'Deployed',
+    returned: 'Returned',
+    damaged: 'Damaged',
+    overdue: 'Overdue',
+    returnedMaterialQuality: 'RETURNED MATERIAL QUALITY',
+    grossDeployed: 'Gross Deployed',
+    recovered: 'Recovered',
+    fieldExposure: 'Field Exposure',
+    overdueExposure: 'Overdue Exposure',
+    materialHealth: 'Material Health',
+    damageRate: 'Damage Rate',
+    wornRate: 'Worn Rate',
+    highRiskSites: 'High-Risk Sites',
+    highRiskContractors: 'High-Risk Contractors',
+    highRiskMaterials: 'High-Risk Materials',
+    managementAttentionCount: 'Management Attention Count',
+    trendChartLabel: 'Deployment / Return Trend (last 6 months)',
+    exportModalTitle: 'Export Analytics Report',
+    exportModalSubtitle: 'Choose which KPIs to include in the PDF.',
+    selectAll: 'Select all',
+    clear: 'Clear',
+    cancel: 'Cancel',
+    generatePdf: 'Generate PDF',
+    requiresAttention: 'Requires attention',
+    language: 'Language',
+  },
+  ar: {
+    dir: 'rtl',
+    kpiAnalytics: 'تحليلات مؤشرات الأداء',
+    headerSubtitle:
+      'رؤية تنفيذية شاملة لاستخدام المواد، والتعرض في المواقع، وأداء المقاولين، والمخاطر التشغيلية.',
+    liveAnalytics: 'تحليلات النظام المباشرة',
+    exportPdf: 'تصدير تقرير PDF',
+    executiveInventoryPosition: 'الوضع التنفيذي للمخزون',
+    managementAttention: 'يتطلب اهتمام الإدارة',
+    reviewNote: 'تتطلب المراجعة',
+    sitesLabel: 'مواقع',
+    contractorsLabel: 'مقاولون',
+    materialsLabel: 'مواد',
+    trendTitle: 'اتجاه النشر والإرجاع (آخر 6 أشهر)',
+    noTrendData: 'لا توجد سجلات استعارة/إرجاع مؤرخة بعد لإنشاء اتجاه.',
+    deployed: 'تم النشر',
+    returned: 'تم الإرجاع',
+    damaged: 'تالف',
+    overdue: 'متأخر',
+    returnedMaterialQuality: 'جودة المواد المرتجعة',
+    grossDeployed: 'إجمالي المنشور',
+    recovered: 'المسترجع',
+    fieldExposure: 'التعرض الميداني',
+    overdueExposure: 'التعرض المتأخر',
+    materialHealth: 'سلامة المواد',
+    damageRate: 'معدل التلف',
+    wornRate: 'معدل التآكل',
+    highRiskSites: 'مواقع عالية الخطورة',
+    highRiskContractors: 'مقاولون عاليو الخطورة',
+    highRiskMaterials: 'مواد عالية الخطورة',
+    managementAttentionCount: 'عدد بنود اهتمام الإدارة',
+    trendChartLabel: 'اتجاه النشر / الإرجاع (آخر 6 أشهر)',
+    exportModalTitle: 'تصدير تقرير التحليلات',
+    exportModalSubtitle: 'اختر مؤشرات الأداء المطلوب تضمينها في ملف PDF.',
+    selectAll: 'تحديد الكل',
+    clear: 'مسح',
+    cancel: 'إلغاء',
+    generatePdf: 'إنشاء PDF',
+    requiresAttention: 'يتطلب المتابعة',
+    language: 'اللغة',
+  },
+  fr: {
+    dir: 'ltr',
+    kpiAnalytics: 'Analyse des indicateurs clés',
+    headerSubtitle:
+      "Visibilité exécutive sur l'utilisation des matériaux, l'exposition des sites, la performance des sous-traitants et les risques opérationnels.",
+    liveAnalytics: 'Analyses en temps réel',
+    exportPdf: 'Exporter le rapport PDF',
+    executiveInventoryPosition: 'POSITION EXÉCUTIVE DES STOCKS',
+    managementAttention: 'Attention de la direction requise',
+    reviewNote: 'nécessitent une revue',
+    sitesLabel: 'sites',
+    contractorsLabel: 'sous-traitants',
+    materialsLabel: 'matériaux',
+    trendTitle: 'TENDANCE DÉPLOIEMENT & RETOUR (6 DERNIERS MOIS)',
+    noTrendData:
+      "Aucun enregistrement daté de prêt/retour pour établir une tendance.",
+    deployed: 'Déployé',
+    returned: 'Retourné',
+    damaged: 'Endommagé',
+    overdue: 'En retard',
+    returnedMaterialQuality: 'QUALITÉ DU MATÉRIEL RETOURNÉ',
+    grossDeployed: 'Déploiement brut',
+    recovered: 'Récupéré',
+    fieldExposure: 'Exposition terrain',
+    overdueExposure: 'Exposition en retard',
+    materialHealth: 'État du matériel',
+    damageRate: 'Taux de dommage',
+    wornRate: "Taux d'usure",
+    highRiskSites: 'Sites à haut risque',
+    highRiskContractors: 'Sous-traitants à haut risque',
+    highRiskMaterials: 'Matériaux à haut risque',
+    managementAttentionCount: "Nombre d'alertes direction",
+    trendChartLabel: 'Tendance déploiement / retour (6 derniers mois)',
+    exportModalTitle: 'Exporter le rapport analytique',
+    exportModalSubtitle:
+      'Choisissez les indicateurs à inclure dans le PDF.',
+    selectAll: 'Tout sélectionner',
+    clear: 'Effacer',
+    cancel: 'Annuler',
+    generatePdf: 'Générer le PDF',
+    requiresAttention: 'Nécessite une attention',
+    language: 'Langue',
+  },
+};
+
+const LANGUAGE_OPTIONS = [
+  { code: 'en', label: 'English' },
+  { code: 'ar', label: 'العربية' },
+  { code: 'fr', label: 'Français' },
+];
+
+/* ============================================================================
    MAIN COMPONENT
 ============================================================================ */
 
@@ -144,6 +282,14 @@ export default function AnalyticsPage({
   getLoanRemainingQty,
   syncSystemData,
 }) {
+  const [language, setLanguage] = useState('en');
+  const t = (key) =>
+    (TRANSLATIONS[language] &&
+      TRANSLATIONS[language][key]) ||
+    TRANSLATIONS.en[key] ||
+    key;
+  const dir = TRANSLATIONS[language]?.dir || 'ltr';
+
   const [drillType, setDrillType] = useState(null);
   const [drillValue, setDrillValue] = useState(null);
 
@@ -313,6 +459,276 @@ export default function AnalyticsPage({
     totalRemainingQty,
     totalLoanedQty
   );
+
+  /* ==========================================================================
+     TREND OVER TIME (last 6 months)
+     Deployed = loans grouped by their issue date
+     Returned / Damaged = returns grouped by their return date
+  ========================================================================== */
+
+  const monthKey = (value) => {
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return null;
+    return `${d.getFullYear()}-${String(
+      d.getMonth() + 1
+    ).padStart(2, '0')}`;
+  };
+
+  const monthLabel = (key) => {
+    const [y, m] = key.split('-');
+    const d = new Date(Number(y), Number(m) - 1, 1);
+    return d.toLocaleDateString('en-US', {
+      month: 'short',
+      year: '2-digit',
+    });
+  };
+
+  const trendData = useMemo(() => {
+    const months = [];
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(
+        now.getFullYear(),
+        now.getMonth() - i,
+        1
+      );
+      const key = `${d.getFullYear()}-${String(
+        d.getMonth() + 1
+      ).padStart(2, '0')}`;
+      months.push(key);
+    }
+
+    const buckets = {};
+    months.forEach((key) => {
+      buckets[key] = {
+        month: monthLabel(key),
+        deployed: 0,
+        returned: 0,
+        damaged: 0,
+        overdue: 0,
+      };
+    });
+
+    loans.forEach((loan) => {
+      const key = monthKey(
+        loan.loan_date ||
+          loan.issue_date ||
+          loan.created_at ||
+          loan.start_date
+      );
+      if (key && buckets[key]) {
+        buckets[key].deployed += num(loan.quantity);
+      }
+      if (isOverdue(loan)) {
+        const overdueKey =
+          monthKey(loan.expected_return_date) &&
+          buckets[monthKey(loan.expected_return_date)]
+            ? monthKey(loan.expected_return_date)
+            : null;
+        if (overdueKey) {
+          buckets[overdueKey].overdue += remainingQty(
+            loan
+          );
+        }
+      }
+    });
+
+    returns.forEach((record) => {
+      const key = monthKey(
+        record.return_date || record.created_at
+      );
+      if (!key || !buckets[key]) return;
+      const q = returnQty(record);
+      buckets[key].returned += q;
+      if (record.returned_condition === 'Damaged') {
+        buckets[key].damaged += q;
+      }
+    });
+
+    return months.map((key) => buckets[key]);
+  }, [loans, returns]);
+
+  const hasTrendData = trendData.some(
+    (m) =>
+      m.deployed > 0 ||
+      m.returned > 0 ||
+      m.damaged > 0
+  );
+
+  /* ==========================================================================
+     PDF EXPORT — SELECTABLE KPI REPORT
+  ========================================================================== */
+
+  const EXPORT_KPI_CATALOG = [
+    {
+      id: 'gross_deployed',
+      label: t('grossDeployed'),
+      value: totalLoanedQty,
+    },
+    {
+      id: 'recovered',
+      label: t('recovered'),
+      value: `${totalReturnedQty} (${globalRecoveryRate}%)`,
+    },
+    {
+      id: 'field_exposure',
+      label: t('fieldExposure'),
+      value: `${totalRemainingQty} (${unrecoveredRate}%)`,
+    },
+    {
+      id: 'overdue_exposure',
+      label: t('overdueExposure'),
+      value: `${totalOverdueQty} (${overdueRate}%)`,
+    },
+    {
+      id: 'material_health',
+      label: t('materialHealth'),
+      value: `${globalHealthRate}%`,
+    },
+    {
+      id: 'damage_rate',
+      label: t('damageRate'),
+      value: `${globalDamageRate}% (${globalDamagedQty})`,
+    },
+    {
+      id: 'worn_rate',
+      label: t('wornRate'),
+      value: `${globalWornRate}%`,
+    },
+    {
+      id: 'high_risk_sites',
+      label: t('highRiskSites'),
+      value: highRiskSites.length,
+    },
+    {
+      id: 'high_risk_contractors',
+      label: t('highRiskContractors'),
+      value: highRiskContractors.length,
+    },
+    {
+      id: 'high_risk_materials',
+      label: t('highRiskMaterials'),
+      value: highRiskMaterials.length,
+    },
+    {
+      id: 'management_attention',
+      label: t('managementAttentionCount'),
+      value: managementAttention,
+    },
+    {
+      id: 'trend_chart',
+      label: t('trendChartLabel'),
+      value: null,
+      isTable: true,
+    },
+  ];
+
+  const [showExportModal, setShowExportModal] = useState(
+    false
+  );
+  const [selectedKpiIds, setSelectedKpiIds] = useState(
+    EXPORT_KPI_CATALOG.map((k) => k.id)
+  );
+
+  const toggleKpiSelection = (id) => {
+    setSelectedKpiIds((prev) =>
+      prev.includes(id)
+        ? prev.filter((k) => k !== id)
+        : [...prev, id]
+    );
+  };
+
+  const handleGeneratePdf = async () => {
+    const { jsPDF } = await import('jspdf');
+    const autoTableModule = await import(
+      'jspdf-autotable'
+    );
+    const autoTable = autoTableModule.default;
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    doc.setFontSize(16);
+    doc.setFont(undefined, 'bold');
+    doc.text('Materials Analytics Report', 14, 18);
+
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(120);
+    doc.text(
+      `Generated ${new Date().toLocaleString()}`,
+      14,
+      25
+    );
+    doc.setTextColor(0);
+
+    let cursorY = 34;
+
+    const selectedKpis = EXPORT_KPI_CATALOG.filter(
+      (k) =>
+        selectedKpiIds.includes(k.id) && !k.isTable
+    );
+
+    if (selectedKpis.length > 0) {
+      autoTable(doc, {
+        startY: cursorY,
+        head: [['KPI', 'Value']],
+        body: selectedKpis.map((k) => [
+          k.label,
+          String(k.value),
+        ]),
+        theme: 'grid',
+        headStyles: { fillColor: [30, 41, 59] },
+        styles: { fontSize: 10 },
+      });
+      cursorY = doc.lastAutoTable.finalY + 12;
+    }
+
+    if (
+      selectedKpiIds.includes('trend_chart') &&
+      hasTrendData
+    ) {
+      if (cursorY > 250) {
+        doc.addPage();
+        cursorY = 20;
+      }
+
+      doc.setFontSize(12);
+      doc.setFont(undefined, 'bold');
+      doc.text(
+        'Deployment / Return Trend (last 6 months)',
+        14,
+        cursorY
+      );
+      cursorY += 6;
+
+      autoTable(doc, {
+        startY: cursorY,
+        head: [
+          ['Month', 'Deployed', 'Returned', 'Damaged', 'Overdue'],
+        ],
+        body: trendData.map((m) => [
+          m.month,
+          m.deployed,
+          m.returned,
+          m.damaged,
+          m.overdue,
+        ]),
+        theme: 'striped',
+        headStyles: { fillColor: [30, 41, 59] },
+        styles: { fontSize: 10 },
+      });
+      cursorY = doc.lastAutoTable.finalY + 10;
+    }
+
+    doc.save(
+      `analytics-report-${new Date()
+        .toISOString()
+        .slice(0, 10)}.pdf`
+    );
+
+    setShowExportModal(false);
+  };
 
   /* ==========================================================================
      SITE ANALYTICS
@@ -1682,6 +2098,20 @@ export default function AnalyticsPage({
 
   if (
     drillType === 'site' &&
+    !selectedSite
+  ) {
+    return (
+      <div>
+        <BackBtn />
+        <p style={{ color: THEME.textMuted, fontSize: '13px' }}>
+          No site data found for "{String(drillValue)}".
+        </p>
+      </div>
+    );
+  }
+
+  if (
+    drillType === 'site' &&
     selectedSite
   ) {
     return (
@@ -2293,6 +2723,20 @@ export default function AnalyticsPage({
   /* ==========================================================================
      DRILL VIEW: CONTRACTOR
   ========================================================================== */
+
+  if (
+    drillType === 'contractor' &&
+    !selectedContractor
+  ) {
+    return (
+      <div>
+        <BackBtn />
+        <p style={{ color: THEME.textMuted, fontSize: '13px' }}>
+          No contractor data found for "{String(drillValue)}".
+        </p>
+      </div>
+    );
+  }
 
   if (
     drillType === 'contractor' &&
@@ -2925,7 +3369,7 @@ export default function AnalyticsPage({
   ========================================================================== */
 
   return (
-    <div>
+    <div dir={dir}>
       {/* ======================================================================
          HEADER
       ====================================================================== */}
@@ -2949,7 +3393,7 @@ export default function AnalyticsPage({
               marginBottom: '6px',
             }}
           >
-            KPI Analytics
+            {t('kpiAnalytics')}
           </h2>
 
           <p
@@ -2957,13 +3401,10 @@ export default function AnalyticsPage({
               color: THEME.textMuted,
               fontSize: '13px',
               margin: 0,
+              maxWidth: '520px',
             }}
           >
-            Executive visibility into
-            material utilization,
-            site exposure, contractor
-            performance and operational
-            risk.
+            {t('headerSubtitle')}
           </p>
         </div>
 
@@ -2971,84 +3412,319 @@ export default function AnalyticsPage({
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '8px',
-            fontSize: '11px',
-            color: THEME.textMuted,
+            gap: '14px',
+            flexWrap: 'wrap',
           }}
         >
-          <Activity size={14} />
-          Live system analytics
+          <select
+            value={language}
+            onChange={(e) =>
+              setLanguage(e.target.value)
+            }
+            aria-label={t('language')}
+            style={{
+              padding: '7px 10px',
+              borderRadius: '8px',
+              border: `1px solid ${THEME.border}`,
+              backgroundColor: THEME.cardBg,
+              color: '#fff',
+              fontSize: '12px',
+              cursor: 'pointer',
+            }}
+          >
+            {LANGUAGE_OPTIONS.map((opt) => (
+              <option
+                key={opt.code}
+                value={opt.code}
+              >
+                {opt.label}
+              </option>
+            ))}
+          </select>
+
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontSize: '11px',
+              color: THEME.textMuted,
+            }}
+          >
+            <Activity size={14} />
+            {t('liveAnalytics')}
+          </div>
+
+          <button
+            onClick={() =>
+              setShowExportModal(true)
+            }
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
+              borderRadius: '8px',
+              border: `1px solid ${THEME.border}`,
+              backgroundColor: THEME.cardBg,
+              color: '#fff',
+              fontSize: '12px',
+              fontWeight: '700',
+              cursor: 'pointer',
+            }}
+          >
+            <Download size={14} />
+            {t('exportPdf')}
+          </button>
         </div>
       </div>
+
+      {showExportModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+          }}
+          onClick={() =>
+            setShowExportModal(false)
+          }
+        >
+          <div
+            onClick={(e) =>
+              e.stopPropagation()
+            }
+            style={{
+              ...STYLES.box,
+              width: '420px',
+              maxHeight: '80vh',
+              overflowY: 'auto',
+              backgroundColor:
+                THEME.cardBg,
+            }}
+          >
+            <div
+              style={{
+                fontSize: '16px',
+                fontWeight: '800',
+                marginBottom: '4px',
+              }}
+            >
+              {t('exportModalTitle')}
+            </div>
+
+            <div
+              style={{
+                fontSize: '12px',
+                color: THEME.textMuted,
+                marginBottom: '16px',
+              }}
+            >
+              {t('exportModalSubtitle')}
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '10px',
+                marginBottom: '10px',
+                fontSize: '11px',
+              }}
+            >
+              <span
+                style={{
+                  cursor: 'pointer',
+                  color: THEME.accentBlue,
+                }}
+                onClick={() =>
+                  setSelectedKpiIds(
+                    EXPORT_KPI_CATALOG.map(
+                      (k) => k.id
+                    )
+                  )
+                }
+              >
+                {t('selectAll')}
+              </span>
+              <span
+                style={{
+                  cursor: 'pointer',
+                  color: THEME.textMuted,
+                }}
+                onClick={() =>
+                  setSelectedKpiIds([])
+                }
+              >
+                {t('clear')}
+              </span>
+            </div>
+
+            {EXPORT_KPI_CATALOG.map((k) => (
+              <label
+                key={k.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  padding: '8px 4px',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  borderBottom: `1px solid ${THEME.border}`,
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedKpiIds.includes(
+                    k.id
+                  )}
+                  onChange={() =>
+                    toggleKpiSelection(k.id)
+                  }
+                />
+                <span>{k.label}</span>
+                {!k.isTable && (
+                  <span
+                    style={{
+                      marginLeft: 'auto',
+                      color: THEME.textMuted,
+                      fontSize: '12px',
+                    }}
+                  >
+                    {String(k.value)}
+                  </span>
+                )}
+              </label>
+            ))}
+
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '10px',
+                marginTop: '18px',
+              }}
+            >
+              <button
+                onClick={() =>
+                  setShowExportModal(false)
+                }
+                style={{
+                  padding: '8px 14px',
+                  borderRadius: '8px',
+                  border: `1px solid ${THEME.border}`,
+                  backgroundColor: 'transparent',
+                  color: THEME.textMuted,
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                }}
+              >
+                {t('cancel')}
+              </button>
+
+              <button
+                onClick={handleGeneratePdf}
+                disabled={
+                  selectedKpiIds.length === 0
+                }
+                style={{
+                  padding: '8px 14px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  backgroundColor:
+                    THEME.accentBlue,
+                  color: '#fff',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  cursor:
+                    selectedKpiIds.length === 0
+                      ? 'not-allowed'
+                      : 'pointer',
+                  opacity:
+                    selectedKpiIds.length === 0
+                      ? 0.5
+                      : 1,
+                }}
+              >
+                {t('generatePdf')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ======================================================================
          EXECUTIVE KPI LAYER
       ====================================================================== */}
 
       <div style={sectionTitleStyle}>
-        EXECUTIVE INVENTORY POSITION
+        {t('executiveInventoryPosition')}
       </div>
 
       <StatGrid
         stats={[
           {
-            label: 'Gross Deployed',
+            label: t('grossDeployed'),
             value: totalLoanedQty,
             color:
               THEME.accentBlue,
             sub: 'Total quantity issued',
           },
           {
-            label: 'Recovered',
+            label: t('recovered'),
             value: totalReturnedQty,
             color:
               THEME.accentEmerald,
-            sub: `${globalRecoveryRate}% recovery`,
+            sub: `${globalRecoveryRate}%`,
           },
           {
-            label: 'Field Exposure',
+            label: t('fieldExposure'),
             value: totalRemainingQty,
             color:
               THEME.accentAmber,
-            sub: `${unrecoveredRate}% of issued`,
+            sub: `${unrecoveredRate}%`,
           },
           {
-            label: 'Overdue Exposure',
+            label: t('overdueExposure'),
             value: totalOverdueQty,
             color:
               THEME.accentCrimson,
-            sub: `${overdueRate}% of outstanding`,
+            sub: `${overdueRate}%`,
           },
           {
-            label: 'Material Health',
+            label: t('materialHealth'),
             value: `${globalHealthRate}%`,
             color:
               globalHealthRate >= 80
                 ? THEME.accentEmerald
                 : THEME.accentAmber,
-            sub: 'Returned as Good',
+            sub: '',
           },
           {
-            label: 'Damage Rate',
+            label: t('damageRate'),
             value: `${globalDamageRate}%`,
             color:
               globalDamageRate > 20
                 ? THEME.accentCrimson
                 : THEME.accentEmerald,
-            sub: `${globalDamagedQty} damaged units`,
+            sub: `${globalDamagedQty}`,
           },
           {
-            label: 'High-Risk Sites',
+            label: t('highRiskSites'),
             value:
               highRiskSites.length,
             color:
               highRiskSites.length > 0
                 ? THEME.accentCrimson
                 : THEME.accentEmerald,
-            sub: 'Requires attention',
+            sub: t('requiresAttention'),
           },
           {
-            label: 'High-Risk Contractors',
+            label: t('highRiskContractors'),
             value:
               highRiskContractors.length,
             color:
@@ -3056,7 +3732,7 @@ export default function AnalyticsPage({
               0
                 ? THEME.accentCrimson
                 : THEME.accentEmerald,
-            sub: 'Requires attention',
+            sub: t('requiresAttention'),
           },
         ]}
       />
@@ -3134,7 +3810,7 @@ export default function AnalyticsPage({
                   fontWeight: '800',
                 }}
               >
-                Management Attention Required
+                {t('managementAttention')}
               </div>
 
               <div
@@ -3147,16 +3823,16 @@ export default function AnalyticsPage({
                 {
                   highRiskSites.length
                 }{' '}
-                sites ·{' '}
+                {t('sitesLabel')} ·{' '}
                 {
                   highRiskContractors.length
                 }{' '}
-                contractors ·{' '}
+                {t('contractorsLabel')} ·{' '}
                 {
                   highRiskMaterials.length
                 }{' '}
-                materials require
-                review
+                {t('materialsLabel')}{' '}
+                {t('reviewNote')}
               </div>
             </div>
           </div>
@@ -3178,11 +3854,102 @@ export default function AnalyticsPage({
       </div>
 
       {/* ======================================================================
+         DEPLOYMENT / RETURN TREND
+      ====================================================================== */}
+
+      <div style={sectionTitleStyle}>
+        {t('trendTitle')}
+      </div>
+
+      <div
+        style={{
+          ...STYLES.box,
+          marginBottom: '24px',
+        }}
+      >
+        {!hasTrendData ? (
+          <div
+            style={{
+              padding: '30px',
+              textAlign: 'center',
+              color: THEME.textMuted,
+              fontSize: '13px',
+            }}
+          >
+            {t('noTrendData')}
+          </div>
+        ) : (
+          <div style={{ height: 280 }}>
+            <ResponsiveContainer>
+              <LineChart data={trendData}>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke={THEME.border}
+                />
+                <XAxis
+                  dataKey="month"
+                  stroke={THEME.textMuted}
+                  tick={{ fontSize: 11 }}
+                />
+                <YAxis
+                  stroke={THEME.textMuted}
+                  tick={{ fontSize: 11 }}
+                />
+                <Tooltip
+                  contentStyle={
+                    chartTooltipStyle
+                  }
+                />
+                <Legend
+                  wrapperStyle={{
+                    fontSize: '11px',
+                  }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="deployed"
+                  name={t('deployed')}
+                  stroke={THEME.accentBlue}
+                  strokeWidth={2}
+                  dot={{ r: 3 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="returned"
+                  name={t('returned')}
+                  stroke={THEME.accentEmerald}
+                  strokeWidth={2}
+                  dot={{ r: 3 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="damaged"
+                  name={t('damaged')}
+                  stroke={THEME.accentCrimson}
+                  strokeWidth={2}
+                  dot={{ r: 3 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="overdue"
+                  name={t('overdue')}
+                  stroke={THEME.accentAmber}
+                  strokeWidth={2}
+                  strokeDasharray="4 3"
+                  dot={{ r: 3 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </div>
+
+      {/* ======================================================================
          RETURN CONDITION
       ====================================================================== */}
 
       <div style={sectionTitleStyle}>
-        RETURNED MATERIAL QUALITY
+        {t('returnedMaterialQuality')}
       </div>
 
       <ConditionOverviewCards
@@ -3579,12 +4346,14 @@ export default function AnalyticsPage({
                     0, 4, 4, 0,
                   ]}
                   onClick={(data) => {
-                    if (data?.name) {
+                    const siteName =
+                      data?.payload?.name;
+                    if (siteName) {
                       setDrillType(
                         'site'
                       );
                       setDrillValue(
-                        data.name
+                        siteName
                       );
                     }
                   }}
@@ -4060,15 +4829,17 @@ export default function AnalyticsPage({
                     0, 4, 4, 0,
                   ]}
                   onClick={(data) => {
+                    const contractorId =
+                      data?.payload?.id;
                     if (
-                      data?.id !==
+                      contractorId !==
                       undefined
                     ) {
                       setDrillType(
                         'contractor'
                       );
                       setDrillValue(
-                        data.id
+                        contractorId
                       );
                     }
                   }}
