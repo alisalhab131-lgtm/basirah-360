@@ -29,7 +29,6 @@ import {
   Activity,
   Search,
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
 import axios from 'axios';
 import {
   API_BASE,
@@ -1491,111 +1490,53 @@ export default function AnalyticsPage({
     );
   };
 
-  const downloadReport = () => {
+  const downloadReport = async () => {
     const filteredLoans =
       buildFilteredLoans();
 
     const filteredReturns =
       buildFilteredReturns();
 
-    const loanSheet = filteredLoans.map(
-      (loan) => ({
-        Material: loan.material_name,
-        Contractor:
-          loan.contact_person,
-        Company:
-          loan.company_name,
-        Site:
-          loan.site_name || '—',
-        'Qty Loaned':
-          loan.quantity,
-        'Qty Remaining':
-          remainingQty(loan),
-        'Due Date':
-          loan.expected_return_date ||
-          '—',
-        Status:
-          remainingQty(loan) > 0
-            ? isOverdue(loan)
-              ? 'Overdue'
-              : 'Active'
-            : 'Closed',
-      })
+    const loanRows = filteredLoans.map(
+      (loan) => [
+        loan.material_name || '—',
+        loan.contact_person || '—',
+        loan.site_name || '—',
+        loan.quantity,
+        remainingQty(loan),
+        loan.expected_return_date || '—',
+        remainingQty(loan) > 0
+          ? isOverdue(loan)
+            ? 'Overdue'
+            : 'Active'
+          : 'Closed',
+      ]
     );
 
-    const returnSheet =
-      filteredReturns.map(
-        (record) => ({
-          Material:
-            record.material_name,
-          Contractor:
-            record.contact_person,
-          Site:
-            record.site_name ||
-            '—',
-          'Qty Returned':
-            returnQty(record),
-          Condition:
-            record.returned_condition,
-          'Return Date':
-            record.return_date,
-        })
-      );
-
-    const riskSheet =
-      materialStats.map((material) => ({
-        Material: material.name,
-        'Issued Qty':
-          material.issued,
-        'Returned Qty':
-          material.returned,
-        'Active Qty':
-          material.active,
-        'Overdue Qty':
-          material.overdue,
-        'Damage Rate':
-          `${material.damageRate}%`,
-        'Recovery Rate':
-          `${material.recoveryRate}%`,
-        'Loss Exposure':
-          `${material.lossExposureRate}%`,
-        'Risk Score':
-          material.riskScore,
-        Risk:
-          material.risk,
-      }));
-
-    const wb =
-      XLSX.utils.book_new();
-
-    XLSX.utils.book_append_sheet(
-      wb,
-      XLSX.utils.json_to_sheet(
-        loanSheet.length
-          ? loanSheet
-          : [{ Note: 'No matching loans' }]
-      ),
-      'Loans'
+    const returnRows = filteredReturns.map(
+      (record) => [
+        record.material_name || '—',
+        record.contact_person || '—',
+        record.site_name || '—',
+        returnQty(record),
+        record.returned_condition || '—',
+        record.return_date || '—',
+      ]
     );
 
-    XLSX.utils.book_append_sheet(
-      wb,
-      XLSX.utils.json_to_sheet(
-        returnSheet.length
-          ? returnSheet
-          : [{ Note: 'No matching returns' }]
-      ),
-      'Returns'
-    );
-
-    XLSX.utils.book_append_sheet(
-      wb,
-      XLSX.utils.json_to_sheet(
-        riskSheet.length
-          ? riskSheet
-          : [{ Note: 'No material analytics' }]
-      ),
-      'Material Risk'
+    const riskRows = materialStats.map(
+      (material) => [
+        material.name,
+        material.issued,
+        material.returned,
+        material.active,
+        material.overdue,
+        `${material.damageRate}%`,
+        `${material.recoveryRate}%`,
+        `${material.lossExposureRate}%`,
+        material.riskScore,
+        material.risk,
+      ]
     );
 
     const parts = [];
@@ -1639,11 +1580,147 @@ export default function AnalyticsPage({
           .replace(/\s+/g, '-')}`
       : '_All';
 
-    XLSX.writeFile(
-      wb,
+    const { jsPDF } = await import('jspdf');
+    const autoTableModule = await import(
+      'jspdf-autotable'
+    );
+    const autoTable = autoTableModule.default;
+
+    const doc = new jsPDF({
+      orientation: 'landscape',
+    });
+
+    doc.setFontSize(16);
+    doc.setFont(undefined, 'bold');
+    doc.text(
+      `Basirah Analytics Report${
+        parts.length ? ` — ${parts.join(', ')}` : ''
+      }`,
+      14,
+      16
+    );
+
+    doc.setFontSize(9);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(120);
+    doc.text(
+      `Generated ${new Date().toLocaleString()}`,
+      14,
+      22
+    );
+    doc.setTextColor(0);
+
+    let cursorY = 30;
+
+    doc.setFontSize(11);
+    doc.setFont(undefined, 'bold');
+    doc.text('Loans', 14, cursorY);
+    cursorY += 4;
+
+    autoTable(doc, {
+      startY: cursorY,
+      head: [
+        [
+          'Material',
+          'Contractor',
+          'Site',
+          'Qty Loaned',
+          'Qty Remaining',
+          'Due Date',
+          'Status',
+        ],
+      ],
+      body: loanRows.length
+        ? loanRows
+        : [['No matching loans', '', '', '', '', '', '']],
+      theme: 'grid',
+      headStyles: { fillColor: [30, 41, 59] },
+      styles: { fontSize: 8 },
+    });
+    cursorY = doc.lastAutoTable.finalY + 10;
+
+    if (cursorY > 170) {
+      doc.addPage();
+      cursorY = 20;
+    }
+
+    doc.setFontSize(11);
+    doc.setFont(undefined, 'bold');
+    doc.text('Returns', 14, cursorY);
+    cursorY += 4;
+
+    autoTable(doc, {
+      startY: cursorY,
+      head: [
+        [
+          'Material',
+          'Contractor',
+          'Site',
+          'Qty Returned',
+          'Condition',
+          'Return Date',
+        ],
+      ],
+      body: returnRows.length
+        ? returnRows
+        : [['No matching returns', '', '', '', '', '']],
+      theme: 'grid',
+      headStyles: { fillColor: [30, 41, 59] },
+      styles: { fontSize: 8 },
+    });
+    cursorY = doc.lastAutoTable.finalY + 10;
+
+    if (cursorY > 170) {
+      doc.addPage();
+      cursorY = 20;
+    }
+
+    doc.setFontSize(11);
+    doc.setFont(undefined, 'bold');
+    doc.text('Material Risk', 14, cursorY);
+    cursorY += 4;
+
+    autoTable(doc, {
+      startY: cursorY,
+      head: [
+        [
+          'Material',
+          'Issued',
+          'Returned',
+          'Active',
+          'Overdue',
+          'Damage Rate',
+          'Recovery Rate',
+          'Loss Exposure',
+          'Risk Score',
+          'Risk',
+        ],
+      ],
+      body: riskRows.length
+        ? riskRows
+        : [
+            [
+              'No material analytics',
+              '',
+              '',
+              '',
+              '',
+              '',
+              '',
+              '',
+              '',
+              '',
+            ],
+          ],
+      theme: 'grid',
+      headStyles: { fillColor: [30, 41, 59] },
+      styles: { fontSize: 8 },
+    });
+
+    doc.save(
       `Basirah_Analytics${suffix}_${new Date()
         .toISOString()
-        .slice(0, 10)}.xlsx`
+        .slice(0, 10)}.pdf`
     );
   };
 
@@ -5455,7 +5532,7 @@ export default function AnalyticsPage({
               }
             />
           }
-          title="Download Filtered Analytics Report"
+          title={t('exportPdf')}
           subtitle="Export operational data for management review."
         />
 
@@ -5616,7 +5693,7 @@ export default function AnalyticsPage({
           }}
         >
           <Download size={14} />
-          Download Analytics Report
+          {t('exportPdf')}
         </button>
       </div>
     </div>
