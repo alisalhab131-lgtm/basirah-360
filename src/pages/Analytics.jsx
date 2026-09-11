@@ -1,24 +1,63 @@
 import React, { useMemo, useState } from 'react';
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  CartesianGrid, PieChart, Pie, Cell, Legend, LineChart, Line
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+  LineChart,
+  Line,
 } from 'recharts';
 import {
-  MapPin, Users, Package, AlertTriangle, ShieldAlert,
-  TrendingUp, Download, Activity, SlidersHorizontal,
-  Check, X, ChevronRight
+  MapPin,
+  Users,
+  Package,
+  AlertTriangle,
+  ShieldAlert,
+  TrendingUp,
+  TrendingDown,
+  ChevronRight,
+  ChevronLeft,
+  Download,
+  Trash2,
+  Activity,
+  Search,
 } from 'lucide-react';
 import axios from 'axios';
-import { API_BASE, THEME, CONDITION_COLORS, STYLES } from '../utils/theme';
+import {
+  API_BASE,
+  THEME,
+  CONDITION_COLORS,
+  STYLES,
+} from '../utils/theme';
 
-const num = (v) => Number(v || 0);
-const qty = (r) => num(r?.quantity);
-const nameOf = (v, fallback = 'Unknown') => {
-  const s = String(v ?? '').trim();
-  return s || fallback;
+/* ============================================================================
+   HELPERS
+============================================================================ */
+
+const num = (value) => Number(value || 0);
+
+const returnQty = (r) => num(r?.quantity);
+
+const safeName = (value, fallback = 'Unknown') => {
+  const text = String(value || '').trim();
+  return text || fallback;
 };
-const pct = (a, b) => (b > 0 ? Math.round((a / b) * 100) : 0);
-const clamp = (v, min = 0, max = 100) => Math.min(max, Math.max(min, v));
+
+const pct = (numerator, denominator) =>
+  denominator > 0 ? Math.round((numerator / denominator) * 100) : 0;
+
+const pct1 = (numerator, denominator) =>
+  denominator > 0 ? Math.round((numerator / denominator) * 1000) / 10 : 0;
+
+const clamp = (value, min = 0, max = 100) =>
+  Math.min(max, Math.max(min, value));
 
 const riskLabel = (score) => {
   if (score >= 75) return 'CRITICAL';
@@ -27,193 +66,212 @@ const riskLabel = (score) => {
   return 'LOW';
 };
 
-const riskBucket = (score) => {
-  if (score >= 75) return 'Critical';
-  if (score >= 55) return 'High Risk';
-  if (score >= 30) return 'Attention';
-  return 'Normal';
-};
-
 const riskColor = (score) => {
+  if (score >= 75) return THEME.accentCrimson;
   if (score >= 55) return THEME.accentCrimson;
   if (score >= 30) return THEME.accentAmber;
   return THEME.accentEmerald;
 };
 
-const tooltipStyle = {
+const statusColor = (status) => {
+  if (status === 'CRITICAL' || status === 'HIGH') return THEME.accentCrimson;
+  if (status === 'MODERATE') return THEME.accentAmber;
+  return THEME.accentEmerald;
+};
+
+const BADGE = (color, label) => (
+  <span
+    style={{
+      background: `${color}22`,
+      color,
+      border: `1px solid ${color}44`,
+      borderRadius: '6px',
+      padding: '3px 9px',
+      fontSize: '10px',
+      fontWeight: '800',
+      letterSpacing: '0.3px',
+      display: 'inline-block',
+    }}
+  >
+    {label}
+  </span>
+);
+
+const msgStyle = (type) => ({
+  padding: '10px 14px',
+  borderRadius: '6px',
+  fontSize: '13px',
+  fontWeight: '500',
+  backgroundColor:
+    type === 'success'
+      ? `${THEME.accentEmerald}18`
+      : `${THEME.accentCrimson}18`,
+  color:
+    type === 'success'
+      ? THEME.accentEmerald
+      : THEME.accentCrimson,
+  border: `1px solid ${
+    type === 'success'
+      ? THEME.accentEmerald
+      : THEME.accentCrimson
+  }44`,
+});
+
+const chartTooltipStyle = {
   backgroundColor: THEME.cardBg,
   borderColor: THEME.border,
   color: '#fff',
 };
 
-const sectionTitle = {
+const sectionTitleStyle = {
   ...STYLES.label,
-  marginBottom: 14,
-  fontSize: 12,
-  fontWeight: 800,
+  marginBottom: '14px',
+  fontSize: '12px',
+  fontWeight: '800',
   letterSpacing: '0.4px',
 };
 
+/* ============================================================================
+   TRANSLATIONS (EN / AR / FR)
+============================================================================ */
+
 const TRANSLATIONS = {
   en: {
-    title: 'Interactive Analytics',
-    subtitle: 'Build the exact analysis you need, then export only the selected KPIs and charts.',
-    analysis: 'Analysis',
-    site: 'Site',
-    contractor: 'Contractor',
-    material: 'Material',
-    allSites: 'All Sites',
-    allContractors: 'All Contractors',
-    allMaterials: 'All Materials',
-    condition: 'Condition',
-    allConditions: 'All',
-    risk: 'Risk',
-    allRisk: 'All',
-    normal: 'Normal',
-    attention: 'Attention',
-    highRisk: 'High Risk',
-    critical: 'Critical',
-    selectKpis: 'Select KPIs',
-    selectCharts: 'Select Charts',
+    dir: 'ltr',
+    kpiAnalytics: 'KPI Analytics',
+    headerSubtitle:
+      'Executive visibility into material utilization, site exposure, contractor performance and operational risk.',
+    liveAnalytics: 'Live system analytics',
+    exportPdf: 'Export PDF Report',
+    executiveInventoryPosition: 'EXECUTIVE INVENTORY POSITION',
+    managementAttention: 'Management Attention Required',
+    reviewNote: 'require review',
+    sitesLabel: 'sites',
+    contractorsLabel: 'contractors',
+    materialsLabel: 'materials',
+    trendTitle: 'DEPLOYMENT & RETURN TREND (LAST 6 MONTHS)',
+    noTrendData: 'No dated loan/return records yet to build a trend.',
+    deployed: 'Deployed',
+    returned: 'Returned',
+    damaged: 'Damaged',
+    overdue: 'Overdue',
+    returnedMaterialQuality: 'RETURNED MATERIAL QUALITY',
+    grossDeployed: 'Gross Deployed',
+    recovered: 'Recovered',
+    fieldExposure: 'Field Exposure',
+    overdueExposure: 'Overdue Exposure',
+    materialHealth: 'Material Health',
+    damageRate: 'Damage Rate',
+    wornRate: 'Worn Rate',
+    highRiskSites: 'High-Risk Sites',
+    highRiskContractors: 'High-Risk Contractors',
+    highRiskMaterials: 'High-Risk Materials',
+    managementAttentionCount: 'Management Attention Count',
+    trendChartLabel: 'Deployment / Return Trend (last 6 months)',
+    exportModalTitle: 'Export Analytics Report',
+    exportModalSubtitle: 'Choose which KPIs to include in the PDF.',
     selectAll: 'Select all',
     clear: 'Clear',
-    export: 'Download PDF Report',
-    reportPreview: 'Report configuration',
-    totalStock: 'Total Stock',
-    deployed: 'Currently Deployed',
-    available: 'Available',
-    utilization: 'Utilization',
-    returned: 'Returned Qty',
-    damaged: 'Damaged Qty',
-    damageRate: 'Damage Rate',
-    overdue: 'Overdue Qty',
-    criticalExposure: 'Critical Exposure',
-    recoveryRisk: 'Recovery / Loss Risk',
-    recoveryRate: 'Recovery Rate',
-    goodQty: 'Good Returns',
-    wornQty: 'Worn Returns',
-    conditionChart: 'Return Condition',
-    performanceChart: 'Performance Ranking',
-    riskChart: 'Risk Exposure',
-    trendChart: 'Deployment & Return Trend',
-    noData: 'No data matches the current selection.',
-    reset: 'Reset filters',
-    live: 'Live filtered analysis',
+    cancel: 'Cancel',
+    generatePdf: 'Generate PDF',
+    requiresAttention: 'Requires attention',
+    language: 'Language',
   },
   ar: {
-    title: 'التحليلات التفاعلية',
-    subtitle: 'أنشئ التحليل المطلوب ثم صدّر مؤشرات الأداء والرسوم التي اخترتها فقط.',
-    analysis: 'التحليل',
-    site: 'الموقع',
-    contractor: 'المقاول',
-    material: 'المادة',
-    allSites: 'كل المواقع',
-    allContractors: 'كل المقاولين',
-    allMaterials: 'كل المواد',
-    condition: 'الحالة',
-    allConditions: 'الكل',
-    risk: 'المخاطر',
-    allRisk: 'الكل',
-    normal: 'طبيعي',
-    attention: 'يتطلب انتباه',
-    highRisk: 'مخاطر عالية',
-    critical: 'حرج',
-    selectKpis: 'اختر مؤشرات الأداء',
-    selectCharts: 'اختر الرسوم',
+    dir: 'rtl',
+    kpiAnalytics: 'تحليلات مؤشرات الأداء',
+    headerSubtitle:
+      'رؤية تنفيذية شاملة لاستخدام المواد، والتعرض في المواقع، وأداء المقاولين، والمخاطر التشغيلية.',
+    liveAnalytics: 'تحليلات النظام المباشرة',
+    exportPdf: 'تصدير تقرير PDF',
+    executiveInventoryPosition: 'الوضع التنفيذي للمخزون',
+    managementAttention: 'يتطلب اهتمام الإدارة',
+    reviewNote: 'تتطلب المراجعة',
+    sitesLabel: 'مواقع',
+    contractorsLabel: 'مقاولون',
+    materialsLabel: 'مواد',
+    trendTitle: 'اتجاه النشر والإرجاع (آخر 6 أشهر)',
+    noTrendData: 'لا توجد سجلات استعارة/إرجاع مؤرخة بعد لإنشاء اتجاه.',
+    deployed: 'تم النشر',
+    returned: 'تم الإرجاع',
+    damaged: 'تالف',
+    overdue: 'متأخر',
+    returnedMaterialQuality: 'جودة المواد المرتجعة',
+    grossDeployed: 'إجمالي المنشور',
+    recovered: 'المسترجع',
+    fieldExposure: 'التعرض الميداني',
+    overdueExposure: 'التعرض المتأخر',
+    materialHealth: 'سلامة المواد',
+    damageRate: 'معدل التلف',
+    wornRate: 'معدل التآكل',
+    highRiskSites: 'مواقع عالية الخطورة',
+    highRiskContractors: 'مقاولون عاليو الخطورة',
+    highRiskMaterials: 'مواد عالية الخطورة',
+    managementAttentionCount: 'عدد بنود اهتمام الإدارة',
+    trendChartLabel: 'اتجاه النشر / الإرجاع (آخر 6 أشهر)',
+    exportModalTitle: 'تصدير تقرير التحليلات',
+    exportModalSubtitle: 'اختر مؤشرات الأداء المطلوب تضمينها في ملف PDF.',
     selectAll: 'تحديد الكل',
     clear: 'مسح',
-    export: 'تحميل تقرير PDF',
-    reportPreview: 'إعداد التقرير',
-    totalStock: 'إجمالي المخزون',
-    deployed: 'قيد الاستخدام',
-    available: 'متاح',
-    utilization: 'نسبة الاستخدام',
-    returned: 'الكمية المرتجعة',
-    damaged: 'الكمية التالفة',
-    damageRate: 'معدل التلف',
-    overdue: 'الكمية المتأخرة',
-    criticalExposure: 'التعرض الحرج',
-    recoveryRisk: 'مخاطر الاسترجاع / الفقد',
-    recoveryRate: 'نسبة الاسترجاع',
-    goodQty: 'مرتجع جيد',
-    wornQty: 'مرتجع مستهلك',
-    conditionChart: 'حالة المرتجعات',
-    performanceChart: 'ترتيب الأداء',
-    riskChart: 'التعرض للمخاطر',
-    trendChart: 'اتجاه الاستخدام والإرجاع',
-    noData: 'لا توجد بيانات مطابقة للاختيار الحالي.',
-    reset: 'إعادة ضبط',
-    live: 'تحليل مباشر حسب الفلاتر',
+    cancel: 'إلغاء',
+    generatePdf: 'إنشاء PDF',
+    requiresAttention: 'يتطلب المتابعة',
+    language: 'اللغة',
   },
   fr: {
-    title: 'Analytique interactive',
-    subtitle: "Construisez l'analyse souhaitée puis exportez uniquement les KPI et graphiques sélectionnés.",
-    analysis: 'Analyse',
-    site: 'Site',
-    contractor: 'Sous-traitant',
-    material: 'Matériau',
-    allSites: 'Tous les sites',
-    allContractors: 'Tous les sous-traitants',
-    allMaterials: 'Tous les matériaux',
-    condition: 'État',
-    allConditions: 'Tous',
-    risk: 'Risque',
-    allRisk: 'Tous',
-    normal: 'Normal',
-    attention: 'Attention',
-    highRisk: 'Risque élevé',
-    critical: 'Critique',
-    selectKpis: 'Choisir les KPI',
-    selectCharts: 'Choisir les graphiques',
+    dir: 'ltr',
+    kpiAnalytics: 'Analyse des indicateurs clés',
+    headerSubtitle:
+      "Visibilité exécutive sur l'utilisation des matériaux, l'exposition des sites, la performance des sous-traitants et les risques opérationnels.",
+    liveAnalytics: 'Analyses en temps réel',
+    exportPdf: 'Exporter le rapport PDF',
+    executiveInventoryPosition: 'POSITION EXÉCUTIVE DES STOCKS',
+    managementAttention: 'Attention de la direction requise',
+    reviewNote: 'nécessitent une revue',
+    sitesLabel: 'sites',
+    contractorsLabel: 'sous-traitants',
+    materialsLabel: 'matériaux',
+    trendTitle: 'TENDANCE DÉPLOIEMENT & RETOUR (6 DERNIERS MOIS)',
+    noTrendData:
+      "Aucun enregistrement daté de prêt/retour pour établir une tendance.",
+    deployed: 'Déployé',
+    returned: 'Retourné',
+    damaged: 'Endommagé',
+    overdue: 'En retard',
+    returnedMaterialQuality: 'QUALITÉ DU MATÉRIEL RETOURNÉ',
+    grossDeployed: 'Déploiement brut',
+    recovered: 'Récupéré',
+    fieldExposure: 'Exposition terrain',
+    overdueExposure: 'Exposition en retard',
+    materialHealth: 'État du matériel',
+    damageRate: 'Taux de dommage',
+    wornRate: "Taux d'usure",
+    highRiskSites: 'Sites à haut risque',
+    highRiskContractors: 'Sous-traitants à haut risque',
+    highRiskMaterials: 'Matériaux à haut risque',
+    managementAttentionCount: "Nombre d'alertes direction",
+    trendChartLabel: 'Tendance déploiement / retour (6 derniers mois)',
+    exportModalTitle: 'Exporter le rapport analytique',
+    exportModalSubtitle:
+      'Choisissez les indicateurs à inclure dans le PDF.',
     selectAll: 'Tout sélectionner',
     clear: 'Effacer',
-    export: 'Télécharger le rapport PDF',
-    reportPreview: 'Configuration du rapport',
-    totalStock: 'Stock total',
-    deployed: 'Actuellement déployé',
-    available: 'Disponible',
-    utilization: 'Utilisation',
-    returned: 'Qté retournée',
-    damaged: 'Qté endommagée',
-    damageRate: 'Taux de dommage',
-    overdue: 'Qté en retard',
-    criticalExposure: 'Exposition critique',
-    recoveryRisk: 'Risque de récupération / perte',
-    recoveryRate: 'Taux de récupération',
-    goodQty: 'Retours bons',
-    wornQty: 'Retours usés',
-    conditionChart: 'État des retours',
-    performanceChart: 'Classement de performance',
-    riskChart: 'Exposition au risque',
-    trendChart: 'Tendance déploiement / retour',
-    noData: 'Aucune donnée ne correspond à la sélection actuelle.',
-    reset: 'Réinitialiser',
-    live: 'Analyse filtrée en direct',
+    cancel: 'Annuler',
+    generatePdf: 'Générer le PDF',
+    requiresAttention: 'Nécessite une attention',
+    language: 'Langue',
   },
 };
 
-const KPI_CATALOG = [
-  ['total_stock', 'totalStock'],
-  ['deployed', 'deployed'],
-  ['available', 'available'],
-  ['utilization', 'utilization'],
-  ['returned', 'returned'],
-  ['damaged', 'damaged'],
-  ['damage_rate', 'damageRate'],
-  ['overdue', 'overdue'],
-  ['critical_exposure', 'criticalExposure'],
-  ['recovery_risk', 'recoveryRisk'],
-  ['recovery_rate', 'recoveryRate'],
-  ['good_qty', 'goodQty'],
-  ['worn_qty', 'wornQty'],
+const LANGUAGE_OPTIONS = [
+  { code: 'en', label: 'English' },
+  { code: 'ar', label: 'العربية' },
+  { code: 'fr', label: 'Français' },
 ];
 
-const CHART_CATALOG = [
-  ['condition', 'conditionChart'],
-  ['performance', 'performanceChart'],
-  ['risk', 'riskChart'],
-  ['trend', 'trendChart'],
-];
+/* ============================================================================
+   MAIN COMPONENT
+============================================================================ */
 
 export default function AnalyticsPage({
   materials = [],
@@ -222,927 +280,5614 @@ export default function AnalyticsPage({
   returns = [],
   getLoanRemainingQty,
   syncSystemData,
-  navigateToAssets = null,
 }) {
   const [language, setLanguage] = useState('en');
-  const t = (key) => TRANSLATIONS[language]?.[key] || TRANSLATIONS.en[key] || key;
-  const dir = TRANSLATIONS[language]?.dir || (language === 'ar' ? 'rtl' : 'ltr');
+  const t = (key) =>
+    (TRANSLATIONS[language] &&
+      TRANSLATIONS[language][key]) ||
+    TRANSLATIONS.en[key] ||
+    key;
+  const dir = TRANSLATIONS[language]?.dir || 'ltr';
 
-  const [analysis, setAnalysis] = useState('site');
-  const [siteFilter, setSiteFilter] = useState('All');
-  const [contractorFilter, setContractorFilter] = useState('All');
-  const [materialFilter, setMaterialFilter] = useState('All');
-  const [conditionFilter, setConditionFilter] = useState('All');
-  const [riskFilter, setRiskFilter] = useState('All');
+  const [drillType, setDrillType] = useState(null);
+  const [drillValue, setDrillValue] = useState(null);
 
-  const [selectedKpis, setSelectedKpis] = useState(
-    KPI_CATALOG.slice(0, 10).map(([id]) => id)
-  );
-  const [selectedCharts, setSelectedCharts] = useState(['performance', 'condition', 'risk', 'trend']);
-  const [exporting, setExporting] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
   const [deleteMsg, setDeleteMsg] = useState(null);
 
-  const safeMaterials = Array.isArray(materials) ? materials : [];
-  const safeContractors = Array.isArray(contractors) ? contractors : [];
-  const safeLoans = Array.isArray(loans) ? loans : [];
-  const safeReturns = Array.isArray(returns) ? returns : [];
+  const [materialSearch, setMaterialSearch] = useState('');
 
-  const contractorName = (id) => {
-    const c = safeContractors.find((x) => String(x.id) === String(id));
-    return nameOf(c?.company_name || c?.contact_person, id ? `Contractor ${id}` : 'Unknown');
-  };
+  /* ==========================================================================
+     SAFE LOAN REMAINING
+  ========================================================================== */
 
   const remainingQty = (loan) => {
     try {
       if (typeof getLoanRemainingQty === 'function') {
-        return Math.max(0, num(getLoanRemainingQty(loan?.id)));
+        return Math.max(0, num(getLoanRemainingQty(loan.id)));
       }
-    } catch (_) {}
-    const returned = safeReturns
-      .filter((r) => num(r.loan_id) === num(loan?.id))
-      .reduce((s, r) => s + qty(r), 0);
-    return Math.max(0, num(loan?.quantity) - returned);
+    } catch (error) {
+      // Fall back safely.
+    }
+
+    const returned = returns
+      .filter((r) => num(r.loan_id) === num(loan.id))
+      .reduce((sum, r) => sum + returnQty(r), 0);
+
+    return Math.max(0, num(loan.quantity) - returned);
   };
 
-  const overdue = (loan) => {
-    if (!loan?.expected_return_date || remainingQty(loan) <= 0) return false;
-    const d = new Date(loan.expected_return_date);
-    return !Number.isNaN(d.getTime()) && d < new Date();
-  };
-
-  const siteOptions = useMemo(
-    () => [...new Set(safeLoans.map((l) => String(l.site_name || '').trim()).filter(Boolean))].sort(),
-    [safeLoans]
-  );
-
-  const contractorOptions = useMemo(
-    () => safeContractors.map((c) => ({
-      id: c.id,
-      label: nameOf(c.company_name || c.contact_person, `Contractor ${c.id}`),
-    })).sort((a, b) => a.label.localeCompare(b.label)),
-    [safeContractors]
-  );
-
-  const materialOptions = useMemo(
-    () => safeMaterials.map((m) => ({
-      id: m.id,
-      label: nameOf(m.name, `Material ${m.id}`),
-    })).sort((a, b) => a.label.localeCompare(b.label)),
-    [safeMaterials]
-  );
-
-  const materialById = useMemo(() => {
-    const map = new Map();
-    safeMaterials.forEach((m) => map.set(String(m.id), m));
-    return map;
-  }, [safeMaterials]);
-
-  const loanMaterialName = (loan) => {
-    if (loan?.material_name) return nameOf(loan.material_name);
-    return nameOf(materialById.get(String(loan?.material_id))?.name, `Material ${loan?.material_id ?? 'Unknown'}`);
-  };
-
-  const filteredLoans = useMemo(() => safeLoans.filter((loan) => {
-    if (siteFilter !== 'All' && nameOf(loan.site_name) !== siteFilter) return false;
-    if (contractorFilter !== 'All' && String(loan.contractor_id) !== String(contractorFilter)) return false;
-    if (materialFilter !== 'All' && String(loan.material_id) !== String(materialFilter)) return false;
-    return true;
-  }), [safeLoans, siteFilter, contractorFilter, materialFilter]);
-
-  const filteredLoanIds = useMemo(() => new Set(filteredLoans.map((l) => num(l.id))), [filteredLoans]);
-
-  const filteredReturns = useMemo(() => safeReturns.filter((r) => {
-    if (!filteredLoanIds.has(num(r.loan_id))) return false;
-    if (conditionFilter !== 'All' && String(r.returned_condition || '') !== conditionFilter) return false;
-    return true;
-  }), [safeReturns, filteredLoanIds, conditionFilter]);
-
-  const scopedLoansForCondition = useMemo(() => {
-    if (conditionFilter === 'All') return filteredLoans;
-    const loanIds = new Set(filteredReturns.map((r) => num(r.loan_id)));
-    return filteredLoans.filter((l) => loanIds.has(num(l.id)));
-  }, [filteredLoans, filteredReturns, conditionFilter]);
-
-  const siteStats = useMemo(() => {
-    const groups = {};
-    scopedLoansForCondition.forEach((loan) => {
-      const key = nameOf(loan.site_name);
-      if (!groups[key]) groups[key] = { name: key, issued: 0, active: 0, overdue: 0, returned: 0, damaged: 0 };
-      groups[key].issued += num(loan.quantity);
-      groups[key].active += remainingQty(loan);
-      if (overdue(loan)) groups[key].overdue += remainingQty(loan);
-    });
-    filteredReturns.forEach((r) => {
-      const loan = safeLoans.find((l) => num(l.id) === num(r.loan_id));
-      const key = nameOf(r.site_name || loan?.site_name);
-      if (!groups[key]) groups[key] = { name: key, issued: 0, active: 0, overdue: 0, returned: 0, damaged: 0 };
-      groups[key].returned += qty(r);
-      if (r.returned_condition === 'Damaged') groups[key].damaged += qty(r);
-    });
-    return Object.values(groups).map((x) => {
-      const conditionTotal = x.returned;
-      const recovery = pct(x.returned, x.issued);
-      const damage = pct(x.damaged, conditionTotal);
-      const overdueRate = pct(x.overdue, x.active);
-      const exposure = pct(x.active, x.issued);
-      const score = Math.round(clamp(
-        exposure * 0.35 + overdueRate * 0.25 + damage * 0.25 + (100 - recovery) * 0.15
-      ));
-      return { ...x, recovery, damage, overdueRate, exposure, score, risk: riskBucket(score) };
-    }).sort((a, b) => b.active - a.active);
-  }, [scopedLoansForCondition, filteredReturns, safeLoans]);
-
-  const contractorStats = useMemo(() => {
-    return contractorOptions.map((c) => {
-      const cLoans = scopedLoansForCondition.filter((l) => String(l.contractor_id) === String(c.id));
-      const ids = new Set(cLoans.map((l) => num(l.id)));
-      const cReturns = filteredReturns.filter((r) => ids.has(num(r.loan_id)));
-      const issued = cLoans.reduce((s, l) => s + num(l.quantity), 0);
-      const active = cLoans.reduce((s, l) => s + remainingQty(l), 0);
-      const overdueQty = cLoans.reduce((s, l) => s + (overdue(l) ? remainingQty(l) : 0), 0);
-      const returned = cReturns.reduce((s, r) => s + qty(r), 0);
-      const damaged = cReturns.filter((r) => r.returned_condition === 'Damaged').reduce((s, r) => s + qty(r), 0);
-      const recovery = pct(returned, issued);
-      const damage = pct(damaged, returned);
-      const overdueRate = pct(overdueQty, active);
-      const exposure = pct(active, issued);
-      const score = Math.round(clamp(exposure * 0.35 + overdueRate * 0.25 + damage * 0.25 + (100 - recovery) * 0.15));
-      return {
-        id: c.id, name: c.label, issued, active, overdue: overdueQty, returned, damaged,
-        recovery, damage, overdueRate, exposure, score, risk: riskBucket(score),
-      };
-    }).filter((x) => x.issued > 0 || x.returned > 0);
-  }, [contractorOptions, scopedLoansForCondition, filteredReturns]);
-
-  const materialStats = useMemo(() => {
-    const groups = {};
-    scopedLoansForCondition.forEach((loan) => {
-      const id = String(loan.material_id ?? loan.material_name ?? 'Unknown');
-      if (!groups[id]) groups[id] = {
-        id, name: loanMaterialName(loan), issued: 0, active: 0, overdue: 0,
-        returned: 0, damaged: 0, good: 0, worn: 0
-      };
-      groups[id].issued += num(loan.quantity);
-      groups[id].active += remainingQty(loan);
-      if (overdue(loan)) groups[id].overdue += remainingQty(loan);
-    });
-    filteredReturns.forEach((r) => {
-      const id = String(r.material_id ?? r.material_name ?? 'Unknown');
-      if (!groups[id]) groups[id] = {
-        id, name: nameOf(r.material_name, `Material ${r.material_id ?? 'Unknown'}`),
-        issued: 0, active: 0, overdue: 0, returned: 0, damaged: 0, good: 0, worn: 0
-      };
-      groups[id].returned += qty(r);
-      if (r.returned_condition === 'Damaged') groups[id].damaged += qty(r);
-      if (r.returned_condition === 'Good') groups[id].good += qty(r);
-      if (r.returned_condition === 'Worn') groups[id].worn += qty(r);
-    });
-    return Object.values(groups).map((x) => {
-      const recovery = pct(x.returned, x.issued);
-      const damage = pct(x.damaged, x.returned);
-      const overdueRate = pct(x.overdue, x.active);
-      const exposure = pct(x.active, x.issued);
-      const score = Math.round(clamp(exposure * 0.35 + overdueRate * 0.25 + damage * 0.25 + (100 - recovery) * 0.15));
-      return { ...x, recovery, damage, overdueRate, exposure, score, risk: riskBucket(score) };
-    }).sort((a, b) => b.active - a.active);
-  }, [scopedLoansForCondition, filteredReturns, materialById]);
-
-  const selectedStats = useMemo(() => {
-    if (analysis === 'site') {
-      const x = siteStats.find((s) => s.name === siteFilter);
-      if (siteFilter !== 'All' && x) return x;
-    }
-    if (analysis === 'contractor') {
-      const x = contractorStats.find((s) => String(s.id) === String(contractorFilter));
-      if (contractorFilter !== 'All' && x) return x;
-    }
-    if (analysis === 'material') {
-      const x = materialStats.find((s) => String(s.id) === String(materialFilter));
-      if (materialFilter !== 'All' && x) return x;
-    }
-    return null;
-  }, [analysis, siteFilter, contractorFilter, materialFilter, siteStats, contractorStats, materialStats]);
-
-  const availableStock = useMemo(() => {
-    const relevantMaterialIds = new Set(
-      scopedLoansForCondition.map((l) => String(l.material_id)).filter(Boolean)
+  const isOverdue = (loan) =>
+    Boolean(
+      loan?.expected_return_date &&
+        new Date(loan.expected_return_date) < new Date() &&
+        remainingQty(loan) > 0
     );
-    if (materialFilter !== 'All') relevantMaterialIds.add(String(materialFilter));
 
-    return safeMaterials
-      .filter((m) => relevantMaterialIds.size === 0 || relevantMaterialIds.has(String(m.id)))
-      .reduce((s, m) => s + num(m.quantity), 0);
-  }, [safeMaterials, scopedLoansForCondition, materialFilter]);
+  /* ==========================================================================
+     DELETE RETURN
+  ========================================================================== */
 
-  const deployedQty = useMemo(
-    () => scopedLoansForCondition.reduce((s, l) => s + remainingQty(l), 0),
-    [scopedLoansForCondition]
-  );
-  const returnedQty = useMemo(() => filteredReturns.reduce((s, r) => s + qty(r), 0), [filteredReturns]);
-  const damagedQty = useMemo(
-    () => filteredReturns.filter((r) => r.returned_condition === 'Damaged').reduce((s, r) => s + qty(r), 0),
-    [filteredReturns]
-  );
-  const goodQty = useMemo(
-    () => filteredReturns.filter((r) => r.returned_condition === 'Good').reduce((s, r) => s + qty(r), 0),
-    [filteredReturns]
-  );
-  const wornQty = useMemo(
-    () => filteredReturns.filter((r) => r.returned_condition === 'Worn').reduce((s, r) => s + qty(r), 0),
-    [filteredReturns]
-  );
-  const overdueQty = useMemo(
-    () => scopedLoansForCondition.reduce((s, l) => s + (overdue(l) ? remainingQty(l) : 0), 0),
-    [scopedLoansForCondition]
-  );
-  const totalStock = availableStock + deployedQty;
-  const utilization = pct(deployedQty, totalStock);
-  const recoveryRate = pct(returnedQty, returnedQty + deployedQty);
-  const damageRate = pct(damagedQty, returnedQty);
-  const exposureRate = pct(deployedQty, totalStock);
-  const selectedRiskScore = selectedStats?.score ?? (
-    analysis === 'site'
-      ? Math.max(0, ...siteStats.map((x) => x.score))
-      : analysis === 'contractor'
-        ? Math.max(0, ...contractorStats.map((x) => x.score))
-        : Math.max(0, ...materialStats.map((x) => x.score))
-  );
-  const criticalExposure = useMemo(() => {
-    const source = analysis === 'site' ? siteStats : analysis === 'contractor' ? contractorStats : materialStats;
-    return source.filter((x) => x.score >= 75).reduce((s, x) => s + x.active, 0);
-  }, [analysis, siteStats, contractorStats, materialStats]);
-  const recoveryLossRisk = Math.round(clamp(
-    exposureRate * 0.45 + pct(overdueQty, deployedQty) * 0.35 + damageRate * 0.20
-  ));
+  const handleDeleteReturn = async (returnId) => {
+    if (
+      !window.confirm(
+        'Delete this return record? The quantity restored to stock will be reversed and the loan may reopen.'
+      )
+    ) {
+      return;
+    }
 
-  const kpiValues = {
-    total_stock: totalStock,
-    deployed: deployedQty,
-    available: availableStock,
-    utilization: `${utilization}%`,
-    returned: returnedQty,
-    damaged: damagedQty,
-    damage_rate: `${damageRate}%`,
-    overdue: overdueQty,
-    critical_exposure: criticalExposure,
-    recovery_risk: `${recoveryLossRisk}%`,
-    recovery_rate: `${recoveryRate}%`,
-    good_qty: goodQty,
-    worn_qty: wornQty,
+    setDeletingId(returnId);
+    setDeleteMsg(null);
+
+    try {
+      await axios.delete(`${API_BASE}/api/returns/${returnId}`);
+
+      if (typeof syncSystemData === 'function') {
+        await syncSystemData();
+      }
+
+      setDeleteMsg({
+        type: 'success',
+        text: 'Return deleted and reversed successfully.',
+      });
+    } catch (err) {
+      setDeleteMsg({
+        type: 'error',
+        text:
+          err.response?.data?.error ||
+          'Failed to delete return.',
+      });
+    } finally {
+      setDeletingId(null);
+    }
   };
 
-  const kpiColors = {
-    total_stock: THEME.accentBlue,
-    deployed: THEME.accentAmber,
-    available: THEME.accentEmerald,
-    utilization: THEME.accentBlue,
-    returned: THEME.accentEmerald,
-    damaged: THEME.accentCrimson,
-    damage_rate: damageRate > 20 ? THEME.accentCrimson : THEME.accentAmber,
-    overdue: THEME.accentCrimson,
-    critical_exposure: THEME.accentCrimson,
-    recovery_risk: recoveryLossRisk >= 55 ? THEME.accentCrimson : THEME.accentAmber,
-    recovery_rate: THEME.accentEmerald,
-    good_qty: CONDITION_COLORS.Good,
-    worn_qty: CONDITION_COLORS.Worn,
-  };
+  /* ==========================================================================
+     GLOBAL INVENTORY / MOVEMENT KPIs
+  ========================================================================== */
 
-  const performanceData = useMemo(() => {
-    const source = analysis === 'site'
-      ? siteStats.map((x) => ({ ...x, name: x.name }))
-      : analysis === 'contractor'
-        ? contractorStats
-        : materialStats;
-    return source
-      .filter((x) => riskFilter === 'All' || x.risk === riskFilter)
-      .slice(0, 10)
-      .map((x) => ({
-        ...x,
-        display: nameOf(x.name, 'Unknown').slice(0, 18),
-      }));
-  }, [analysis, siteStats, contractorStats, materialStats, riskFilter]);
-
-  const riskData = useMemo(
-    () => [...performanceData].sort((a, b) => b.score - a.score).slice(0, 10),
-    [performanceData]
+  const totalLoanedQty = useMemo(
+    () => loans.reduce((sum, l) => sum + num(l.quantity), 0),
+    [loans]
   );
 
-  const conditionData = [
-    { name: 'Good', value: goodQty },
-    { name: 'Worn', value: wornQty },
-    { name: 'Damaged', value: damagedQty },
-  ].filter((x) => x.value > 0);
+  const totalReturnedQty = useMemo(
+    () => returns.reduce((sum, r) => sum + returnQty(r), 0),
+    [returns]
+  );
+
+  const totalRemainingQty = useMemo(
+    () =>
+      loans.reduce(
+        (sum, loan) => sum + remainingQty(loan),
+        0
+      ),
+    [loans, returns]
+  );
+
+  const totalOverdueQty = useMemo(
+    () =>
+      loans.reduce(
+        (sum, loan) =>
+          sum + (isOverdue(loan) ? remainingQty(loan) : 0),
+        0
+      ),
+    [loans, returns]
+  );
+
+  const globalGoodQty = useMemo(
+    () =>
+      returns
+        .filter((r) => r.returned_condition === 'Good')
+        .reduce((sum, r) => sum + returnQty(r), 0),
+    [returns]
+  );
+
+  const globalWornQty = useMemo(
+    () =>
+      returns
+        .filter((r) => r.returned_condition === 'Worn')
+        .reduce((sum, r) => sum + returnQty(r), 0),
+    [returns]
+  );
+
+  const globalDamagedQty = useMemo(
+    () =>
+      returns
+        .filter((r) => r.returned_condition === 'Damaged')
+        .reduce((sum, r) => sum + returnQty(r), 0),
+    [returns]
+  );
+
+  const globalConditionTotal =
+    globalGoodQty +
+    globalWornQty +
+    globalDamagedQty;
+
+  const globalRecoveryRate = pct(
+    totalReturnedQty,
+    totalLoanedQty
+  );
+
+  const globalDamageRate = pct(
+    globalDamagedQty,
+    globalConditionTotal
+  );
+
+  const globalWornRate = pct(
+    globalWornQty,
+    globalConditionTotal
+  );
+
+  const globalHealthRate = pct(
+    globalGoodQty,
+    globalConditionTotal
+  );
+
+  const overdueRate = pct(
+    totalOverdueQty,
+    totalRemainingQty
+  );
+
+  const unrecoveredRate = pct(
+    totalRemainingQty,
+    totalLoanedQty
+  );
+
+  /* ==========================================================================
+     TREND OVER TIME (last 6 months)
+     Deployed = loans grouped by their issue date
+     Returned / Damaged = returns grouped by their return date
+  ========================================================================== */
+
+  const monthKey = (value) => {
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return null;
+    return `${d.getFullYear()}-${String(
+      d.getMonth() + 1
+    ).padStart(2, '0')}`;
+  };
+
+  const monthLabel = (key) => {
+    const [y, m] = key.split('-');
+    const d = new Date(Number(y), Number(m) - 1, 1);
+    return d.toLocaleDateString('en-US', {
+      month: 'short',
+      year: '2-digit',
+    });
+  };
 
   const trendData = useMemo(() => {
-    const buckets = [];
+    const months = [];
     const now = new Date();
     for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const key = `${d.getFullYear()}-${d.getMonth()}`;
-      buckets.push({
-        key,
-        month: d.toLocaleDateString('en-US', { month: 'short' }),
+      const d = new Date(
+        now.getFullYear(),
+        now.getMonth() - i,
+        1
+      );
+      const key = `${d.getFullYear()}-${String(
+        d.getMonth() + 1
+      ).padStart(2, '0')}`;
+      months.push(key);
+    }
+
+    const buckets = {};
+    months.forEach((key) => {
+      buckets[key] = {
+        month: monthLabel(key),
         deployed: 0,
         returned: 0,
         damaged: 0,
-      });
-    }
-    const index = new Map(buckets.map((b, i) => [b.key, i]));
-    scopedLoansForCondition.forEach((l) => {
-      const raw = l.loan_date || l.issue_date || l.created_at || l.start_date;
-      const d = new Date(raw);
-      if (!Number.isNaN(d.getTime())) {
-        const b = index.get(`${d.getFullYear()}-${d.getMonth()}`);
-        if (b !== undefined) buckets[b].deployed += num(l.quantity);
-      }
+        overdue: 0,
+      };
     });
-    filteredReturns.forEach((r) => {
-      const d = new Date(r.return_date || r.created_at);
-      if (!Number.isNaN(d.getTime())) {
-        const b = index.get(`${d.getFullYear()}-${d.getMonth()}`);
-        if (b !== undefined) {
-          buckets[b].returned += qty(r);
-          if (r.returned_condition === 'Damaged') buckets[b].damaged += qty(r);
+
+    loans.forEach((loan) => {
+      const key = monthKey(
+        loan.loan_date ||
+          loan.issue_date ||
+          loan.created_at ||
+          loan.start_date
+      );
+      if (key && buckets[key]) {
+        buckets[key].deployed += num(loan.quantity);
+      }
+      if (isOverdue(loan)) {
+        const overdueKey =
+          monthKey(loan.expected_return_date) &&
+          buckets[monthKey(loan.expected_return_date)]
+            ? monthKey(loan.expected_return_date)
+            : null;
+        if (overdueKey) {
+          buckets[overdueKey].overdue += remainingQty(
+            loan
+          );
         }
       }
     });
-    return buckets;
-  }, [scopedLoansForCondition, filteredReturns]);
 
-  const toggle = (setter) => (id) => setter((prev) => (
-    prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-  ));
-
-  const resetFilters = () => {
-    setSiteFilter('All');
-    setContractorFilter('All');
-    setMaterialFilter('All');
-    setConditionFilter('All');
-    setRiskFilter('All');
-  };
-
-  const drillToAssets = (type, value, extra = {}) => {
-    const payload = { type, value, ...extra };
-    if (typeof navigateToAssets === 'function') {
-      navigateToAssets(payload);
-      return;
-    }
-    window.dispatchEvent(new CustomEvent('basirah-asset-drilldown', { detail: payload }));
-  };
-
-  const deleteReturn = async (id) => {
-    if (!window.confirm('Delete this return record? The quantity restored to stock will be reversed.')) return;
-    try {
-      await axios.delete(`${API_BASE}/api/returns/${id}`);
-      if (typeof syncSystemData === 'function') await syncSystemData();
-      setDeleteMsg({ type: 'success', text: 'Return deleted successfully.' });
-    } catch (e) {
-      setDeleteMsg({ type: 'error', text: e?.response?.data?.error || 'Failed to delete return.' });
-    }
-  };
-
-  const drawPdfBarChart = (doc, title, rows, valueKey, labelKey = 'name', maxValue = null) => {
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const left = 14;
-    const top = 34;
-    const chartWidth = pageWidth - 28;
-    const rowH = 9;
-    const maxRows = Math.min(rows.length, 10);
-    const max = maxValue || Math.max(1, ...rows.slice(0, maxRows).map((r) => num(r[valueKey])));
-    doc.setFontSize(12);
-    doc.setFont(undefined, 'bold');
-    doc.text(title, left, top);
-    rows.slice(0, maxRows).forEach((r, i) => {
-      const y = top + 9 + i * rowH;
-      const label = String(r[labelKey] ?? 'Unknown').slice(0, 22);
-      const value = num(r[valueKey]);
-      const barW = max > 0 ? (value / max) * (chartWidth - 70) : 0;
-      doc.setFontSize(8);
-      doc.setFont(undefined, 'normal');
-      doc.text(label, left, y);
-      doc.rect(left + 58, y - 4.5, chartWidth - 70, 4, 'S');
-      if (barW > 0) doc.rect(left + 58, y - 4.5, barW, 4, 'F');
-      doc.text(String(value), left + chartWidth - 10, y);
+    returns.forEach((record) => {
+      const key = monthKey(
+        record.return_date || record.created_at
+      );
+      if (!key || !buckets[key]) return;
+      const q = returnQty(record);
+      buckets[key].returned += q;
+      if (record.returned_condition === 'Damaged') {
+        buckets[key].damaged += q;
+      }
     });
-    return top + 16 + maxRows * rowH;
+
+    return months.map((key) => buckets[key]);
+  }, [loans, returns]);
+
+  const hasTrendData = trendData.some(
+    (m) =>
+      m.deployed > 0 ||
+      m.returned > 0 ||
+      m.damaged > 0
+  );
+
+
+  /* ==========================================================================
+     SITE ANALYTICS
+  ========================================================================== */
+
+  const siteStats = useMemo(() => {
+    const grouped = {};
+
+    loans.forEach((loan) => {
+      const site = safeName(loan.site_name);
+
+      if (!grouped[site]) {
+        grouped[site] = {
+          name: site,
+          loaned: 0,
+          returnedQty: 0,
+          remaining: 0,
+          overdue: 0,
+          goodQty: 0,
+          wornQty: 0,
+          damagedQty: 0,
+          loanIds: [],
+          materialIds: new Set(),
+          contractorIds: new Set(),
+        };
+      }
+
+      grouped[site].loaned += num(loan.quantity);
+      grouped[site].remaining += remainingQty(loan);
+      grouped[site].loanIds.push(loan.id);
+
+      if (loan.material_id !== undefined && loan.material_id !== null) {
+        grouped[site].materialIds.add(String(loan.material_id));
+      }
+
+      if (
+        loan.contractor_id !== undefined &&
+        loan.contractor_id !== null
+      ) {
+        grouped[site].contractorIds.add(
+          String(loan.contractor_id)
+        );
+      }
+
+      if (isOverdue(loan)) {
+        grouped[site].overdue += remainingQty(loan);
+      }
+    });
+
+    returns.forEach((record) => {
+      const loan = loans.find(
+        (l) => num(l.id) === num(record.loan_id)
+      );
+
+      const site = safeName(
+        record.site_name || loan?.site_name
+      );
+
+      if (!grouped[site]) {
+        grouped[site] = {
+          name: site,
+          loaned: 0,
+          returnedQty: 0,
+          remaining: 0,
+          overdue: 0,
+          goodQty: 0,
+          wornQty: 0,
+          damagedQty: 0,
+          loanIds: [],
+          materialIds: new Set(),
+          contractorIds: new Set(),
+        };
+      }
+
+      const q = returnQty(record);
+
+      grouped[site].returnedQty += q;
+
+      if (record.returned_condition === 'Good') {
+        grouped[site].goodQty += q;
+      }
+
+      if (record.returned_condition === 'Worn') {
+        grouped[site].wornQty += q;
+      }
+
+      if (record.returned_condition === 'Damaged') {
+        grouped[site].damagedQty += q;
+      }
+    });
+
+    return Object.values(grouped)
+      .map((site) => {
+        const conditionTotal =
+          site.goodQty +
+          site.wornQty +
+          site.damagedQty;
+
+        const returnRate = pct(
+          site.returnedQty,
+          site.loaned
+        );
+
+        const recoveryRate = returnRate;
+
+        const damageRate = pct(
+          site.damagedQty,
+          conditionTotal
+        );
+
+        const overdueRate = pct(
+          site.overdue,
+          site.remaining
+        );
+
+        const lossExposureRate = pct(
+          site.remaining,
+          site.loaned
+        );
+
+        const healthRate =
+          conditionTotal > 0
+            ? pct(site.goodQty, conditionTotal)
+            : null;
+
+        /*
+          Site Risk Score
+
+          35% unrecovered exposure
+          25% overdue exposure
+          25% damage rate
+          15% poor recovery performance
+        */
+        const recoveryRisk =
+          100 - recoveryRate;
+
+        const riskScore = Math.round(
+          clamp(
+            lossExposureRate * 0.35 +
+              overdueRate * 0.25 +
+              damageRate * 0.25 +
+              recoveryRisk * 0.15
+          )
+        );
+
+        return {
+          ...site,
+          materialCount: site.materialIds.size,
+          contractorCount: site.contractorIds.size,
+          healthRate,
+          returnRate,
+          recoveryRate,
+          damageRate,
+          overdueRate,
+          lossExposureRate,
+          riskScore,
+          risk: riskLabel(riskScore),
+        };
+      })
+      .sort((a, b) => b.loaned - a.loaned);
+  }, [loans, returns]);
+
+  /* ==========================================================================
+     CONTRACTOR ANALYTICS
+  ========================================================================== */
+
+  const contractorStats = useMemo(() => {
+    return contractors
+      .map((contractor) => {
+        const cLoans = loans.filter(
+          (loan) =>
+            String(loan.contractor_id) ===
+            String(contractor.id)
+        );
+
+        const loanIds = cLoans.map((loan) => loan.id);
+
+        const loaned = cLoans.reduce(
+          (sum, loan) => sum + num(loan.quantity),
+          0
+        );
+
+        let returnedQty = 0;
+        let goodQty = 0;
+        let wornQty = 0;
+        let damagedQty = 0;
+
+        returns.forEach((record) => {
+          if (loanIds.includes(num(record.loan_id))) {
+            const q = returnQty(record);
+
+            returnedQty += q;
+
+            if (record.returned_condition === 'Good') {
+              goodQty += q;
+            }
+
+            if (record.returned_condition === 'Worn') {
+              wornQty += q;
+            }
+
+            if (record.returned_condition === 'Damaged') {
+              damagedQty += q;
+            }
+          }
+        });
+
+        const stillOut = cLoans.reduce(
+          (sum, loan) => sum + remainingQty(loan),
+          0
+        );
+
+        const overdue = cLoans.reduce(
+          (sum, loan) =>
+            sum +
+            (isOverdue(loan) ? remainingQty(loan) : 0),
+          0
+        );
+
+        const conditionTotal =
+          goodQty +
+          wornQty +
+          damagedQty;
+
+        const returnRate = pct(
+          returnedQty,
+          loaned
+        );
+
+        const damageRate = pct(
+          damagedQty,
+          conditionTotal
+        );
+
+        const overdueRate = pct(
+          overdue,
+          stillOut
+        );
+
+        const lossExposureRate = pct(
+          stillOut,
+          loaned
+        );
+
+        const healthRate =
+          conditionTotal > 0
+            ? pct(goodQty, conditionTotal)
+            : null;
+
+        /*
+          Contractor Risk Score
+
+          35% outstanding exposure
+          25% overdue exposure
+          25% damage rate
+          15% poor recovery
+        */
+        const recoveryRisk =
+          100 - returnRate;
+
+        const riskScore = Math.round(
+          clamp(
+            lossExposureRate * 0.35 +
+              overdueRate * 0.25 +
+              damageRate * 0.25 +
+              recoveryRisk * 0.15
+          )
+        );
+
+        return {
+          ...contractor,
+          loaned,
+          returnedQty,
+          stillOut,
+          overdue,
+          goodQty,
+          wornQty,
+          damagedQty,
+          healthRate,
+          returnRate,
+          damageRate,
+          overdueRate,
+          lossExposureRate,
+          riskScore,
+          risk: riskLabel(riskScore),
+          loanIds,
+          sites: [
+            ...new Set(
+              cLoans
+                .map((loan) => loan.site_name)
+                .filter(Boolean)
+            ),
+          ],
+        };
+      })
+      .sort((a, b) => b.loaned - a.loaned);
+  }, [contractors, loans, returns]);
+
+  /* ==========================================================================
+     MATERIAL ANALYTICS
+  ========================================================================== */
+
+  const materialStats = useMemo(() => {
+    const grouped = {};
+
+    loans.forEach((loan) => {
+      const id = String(
+        loan.material_id ??
+          loan.material_name ??
+          'Unknown'
+      );
+
+      if (!grouped[id]) {
+        grouped[id] = {
+          id,
+          materialId: loan.material_id,
+          name: safeName(
+            loan.material_name,
+            'Unknown Material'
+          ),
+          issued: 0,
+          returned: 0,
+          active: 0,
+          overdue: 0,
+          good: 0,
+          worn: 0,
+          damaged: 0,
+          sites: new Set(),
+          contractors: new Set(),
+          loanIds: [],
+        };
+      }
+
+      grouped[id].issued += num(loan.quantity);
+      grouped[id].active += remainingQty(loan);
+      grouped[id].loanIds.push(loan.id);
+
+      if (loan.site_name) {
+        grouped[id].sites.add(loan.site_name);
+      }
+
+      if (loan.contractor_id !== undefined) {
+        grouped[id].contractors.add(
+          String(loan.contractor_id)
+        );
+      }
+
+      if (isOverdue(loan)) {
+        grouped[id].overdue += remainingQty(loan);
+      }
+    });
+
+    returns.forEach((record) => {
+      const id = String(
+        record.material_id ??
+          record.material_name ??
+          'Unknown'
+      );
+
+      if (!grouped[id]) {
+        grouped[id] = {
+          id,
+          materialId: record.material_id,
+          name: safeName(
+            record.material_name,
+            'Unknown Material'
+          ),
+          issued: 0,
+          returned: 0,
+          active: 0,
+          overdue: 0,
+          good: 0,
+          worn: 0,
+          damaged: 0,
+          sites: new Set(),
+          contractors: new Set(),
+          loanIds: [],
+        };
+      }
+
+      const q = returnQty(record);
+
+      grouped[id].returned += q;
+
+      if (record.returned_condition === 'Good') {
+        grouped[id].good += q;
+      }
+
+      if (record.returned_condition === 'Worn') {
+        grouped[id].worn += q;
+      }
+
+      if (record.returned_condition === 'Damaged') {
+        grouped[id].damaged += q;
+      }
+
+      if (record.site_name) {
+        grouped[id].sites.add(record.site_name);
+      }
+
+      if (record.contact_person) {
+        grouped[id].contractors.add(
+          record.contact_person
+        );
+      }
+    });
+
+    return Object.values(grouped)
+      .map((material) => {
+        const conditionTotal =
+          material.good +
+          material.worn +
+          material.damaged;
+
+        const recoveryRate = pct(
+          material.returned,
+          material.issued
+        );
+
+        const damageRate = pct(
+          material.damaged,
+          conditionTotal
+        );
+
+        const overdueRate = pct(
+          material.overdue,
+          material.active
+        );
+
+        const lossExposureRate = pct(
+          material.active,
+          material.issued
+        );
+
+        const healthRate =
+          conditionTotal > 0
+            ? pct(material.good, conditionTotal)
+            : null;
+
+        const riskScore = Math.round(
+          clamp(
+            lossExposureRate * 0.35 +
+              overdueRate * 0.25 +
+              damageRate * 0.25 +
+              (100 - recoveryRate) * 0.15
+          )
+        );
+
+        return {
+          ...material,
+          siteCount: material.sites.size,
+          contractorCount:
+            material.contractors.size,
+          recoveryRate,
+          damageRate,
+          overdueRate,
+          lossExposureRate,
+          healthRate,
+          riskScore,
+          risk: riskLabel(riskScore),
+        };
+      })
+      .sort((a, b) => b.issued - a.issued);
+  }, [loans, returns]);
+
+  /* ==========================================================================
+     MANAGEMENT ATTENTION
+  ========================================================================== */
+
+  const highRiskSites = siteStats.filter(
+    (site) =>
+      site.risk === 'HIGH' ||
+      site.risk === 'CRITICAL'
+  );
+
+  const highRiskContractors = contractorStats.filter(
+    (contractor) =>
+      contractor.risk === 'HIGH' ||
+      contractor.risk === 'CRITICAL'
+  );
+
+  const highRiskMaterials = materialStats.filter(
+    (material) =>
+      material.risk === 'HIGH' ||
+      material.risk === 'CRITICAL'
+  );
+
+  const managementAttention =
+    highRiskSites.length +
+    highRiskContractors.length +
+    highRiskMaterials.length;
+
+  /* ==========================================================================
+     PDF EXPORT — SELECTABLE KPI REPORT
+  ========================================================================== */
+
+  const EXPORT_KPI_CATALOG = [
+    {
+      id: 'gross_deployed',
+      label: t('grossDeployed'),
+      value: totalLoanedQty,
+    },
+    {
+      id: 'recovered',
+      label: t('recovered'),
+      value: `${totalReturnedQty} (${globalRecoveryRate}%)`,
+    },
+    {
+      id: 'field_exposure',
+      label: t('fieldExposure'),
+      value: `${totalRemainingQty} (${unrecoveredRate}%)`,
+    },
+    {
+      id: 'overdue_exposure',
+      label: t('overdueExposure'),
+      value: `${totalOverdueQty} (${overdueRate}%)`,
+    },
+    {
+      id: 'material_health',
+      label: t('materialHealth'),
+      value: `${globalHealthRate}%`,
+    },
+    {
+      id: 'damage_rate',
+      label: t('damageRate'),
+      value: `${globalDamageRate}% (${globalDamagedQty})`,
+    },
+    {
+      id: 'worn_rate',
+      label: t('wornRate'),
+      value: `${globalWornRate}%`,
+    },
+    {
+      id: 'high_risk_sites',
+      label: t('highRiskSites'),
+      value: highRiskSites.length,
+    },
+    {
+      id: 'high_risk_contractors',
+      label: t('highRiskContractors'),
+      value: highRiskContractors.length,
+    },
+    {
+      id: 'high_risk_materials',
+      label: t('highRiskMaterials'),
+      value: highRiskMaterials.length,
+    },
+    {
+      id: 'management_attention',
+      label: t('managementAttentionCount'),
+      value: managementAttention,
+    },
+    {
+      id: 'trend_chart',
+      label: t('trendChartLabel'),
+      value: null,
+      isTable: true,
+    },
+  ];
+
+  const [showExportModal, setShowExportModal] = useState(
+    false
+  );
+  const [selectedKpiIds, setSelectedKpiIds] = useState(
+    EXPORT_KPI_CATALOG.map((k) => k.id)
+  );
+
+  const toggleKpiSelection = (id) => {
+    setSelectedKpiIds((prev) =>
+      prev.includes(id)
+        ? prev.filter((k) => k !== id)
+        : [...prev, id]
+    );
   };
 
   const handleGeneratePdf = async () => {
-    if (selectedKpis.length === 0 && selectedCharts.length === 0) return;
-    setExporting(true);
-    try {
-      const { jsPDF } = await import('jspdf');
-      const autoTableModule = await import('jspdf-autotable');
-      const autoTable = autoTableModule.default || autoTableModule.autoTable;
-      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
+    const { jsPDF } = await import('jspdf');
 
-      doc.setFillColor(10, 10, 10);
-      doc.rect(0, 0, pageWidth, 24, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(18);
-      doc.setFont(undefined, 'bold');
-      doc.text('BASIRAH 360 — ANALYTICS REPORT', 14, 11);
-      doc.setFontSize(8);
-      doc.setFont(undefined, 'normal');
-      doc.text(`${analysis.toUpperCase()} ANALYSIS • ${new Date().toLocaleString()}`, 14, 18);
-      doc.setTextColor(0, 0, 0);
+    // IMPORTANT: This exporter intentionally uses vector graphics only.
+    // It does NOT use jspdf-autotable and does NOT export database rows.
+    // The result is a management-dashboard PDF: KPI cards + visual charts.
+    const doc = new jsPDF({
+      orientation: 'landscape',
+      unit: 'mm',
+      format: 'a4',
+    });
 
-      const filterText = [
-        `Site: ${siteFilter === 'All' ? 'All' : siteFilter}`,
-        `Contractor: ${contractorFilter === 'All' ? 'All' : contractorName(contractorFilter)}`,
-        `Material: ${materialFilter === 'All' ? 'All' : nameOf(materialById.get(String(materialFilter))?.name, materialFilter)}`,
-        `Condition: ${conditionFilter}`,
-        `Risk: ${riskFilter}`,
-      ].join('  |  ');
+    const W = doc.internal.pageSize.getWidth();
+    const H = doc.internal.pageSize.getHeight();
+    const margin = 12;
+    const usableW = W - margin * 2;
 
-      doc.setFontSize(8);
-      doc.text(filterText.slice(0, 180), 14, 30);
-      let y = 39;
+    const C = {
+      bg: [10, 10, 10],
+      card: [20, 20, 20],
+      border: [48, 48, 48],
+      text: [245, 245, 245],
+      muted: [155, 155, 155],
+      blue: [59, 130, 246],
+      green: [34, 197, 94],
+      amber: [245, 158, 11],
+      red: [239, 68, 68],
+      white: [255, 255, 255],
+    };
 
-      const selected = KPI_CATALOG
-        .filter(([id]) => selectedKpis.includes(id))
-        .map(([id, key]) => [t(key), String(kpiValues[id])]);
+    const fill = (rgb) => doc.setFillColor(...rgb);
+    const stroke = (rgb) => doc.setDrawColor(...rgb);
+    const text = (rgb) => doc.setTextColor(...rgb);
 
-      if (selected.length) {
-        doc.setFontSize(11);
-        doc.setFont(undefined, 'bold');
-        doc.text('Selected KPIs', 14, y);
-        y += 3;
-        autoTable(doc, {
-          startY: y,
-          head: [['KPI', 'Value']],
-          body: selected,
-          theme: 'grid',
-          margin: { left: 14, right: 14 },
-          styles: { fontSize: 9, cellPadding: 3 },
-          headStyles: { fillColor: [31, 41, 55], textColor: [255, 255, 255] },
-        });
-        y = doc.lastAutoTable.finalY + 9;
-      }
+    const rect = (x, y, w, h, radius = 3, color = C.card) => {
+      fill(color);
+      stroke(C.border);
+      doc.roundedRect(x, y, w, h, radius, radius, 'FD');
+    };
 
-      const newPage = () => {
-        doc.addPage();
-        doc.setTextColor(0, 0, 0);
-        return 20;
-      };
+    const pageBackground = () => {
+      fill(C.bg);
+      doc.rect(0, 0, W, H, 'F');
+    };
 
-      for (const chartId of selectedCharts) {
-        if (y > pageHeight - 75) y = newPage();
-        if (chartId === 'condition') {
-          doc.setFontSize(12);
-          doc.setFont(undefined, 'bold');
-          doc.text(t('conditionChart'), 14, y);
-          y += 6;
-          autoTable(doc, {
-            startY: y,
-            head: [['Condition', 'Quantity', 'Share']],
-            body: [
-              ['Good', goodQty, `${pct(goodQty, returnedQty)}%`],
-              ['Worn', wornQty, `${pct(wornQty, returnedQty)}%`],
-              ['Damaged', damagedQty, `${pct(damagedQty, returnedQty)}%`],
-            ],
-            theme: 'striped',
-            margin: { left: 14, right: 14 },
-            styles: { fontSize: 9 },
-            headStyles: { fillColor: [31, 41, 55], textColor: [255, 255, 255] },
-          });
-          y = doc.lastAutoTable.finalY + 9;
-        }
-        if (chartId === 'performance') {
-          y = drawPdfBarChart(doc, t('performanceChart'), performanceData, 'active', 'name');
-          y += 8;
-        }
-        if (chartId === 'risk') {
-          y = drawPdfBarChart(doc, t('riskChart'), riskData, 'score', 'name', 100);
-          y += 8;
-        }
-        if (chartId === 'trend') {
-          if (y > pageHeight - 85) y = newPage();
-          doc.setFontSize(12);
-          doc.setFont(undefined, 'bold');
-          doc.text(t('trendChart'), 14, y);
-          y += 6;
-          autoTable(doc, {
-            startY: y,
-            head: [['Month', 'Deployed', 'Returned', 'Damaged']],
-            body: trendData.map((m) => [m.month, m.deployed, m.returned, m.damaged]),
-            theme: 'grid',
-            margin: { left: 14, right: 14 },
-            styles: { fontSize: 9 },
-            headStyles: { fillColor: [31, 41, 55], textColor: [255, 255, 255] },
-          });
-          y = doc.lastAutoTable.finalY + 9;
-        }
-      }
+    const header = (title, subtitle = '') => {
+      pageBackground();
+      text(C.text);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(20);
+      doc.text(title, margin, 15);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      text(C.muted);
+      if (subtitle) doc.text(subtitle, margin, 21);
+      doc.text(`Generated ${new Date().toLocaleString()}`, W - margin, 15, { align: 'right' });
+      text(C.muted);
+      doc.text('BASIRAH 360 • MANAGEMENT ANALYTICS', W - margin, 21, { align: 'right' });
+    };
 
-      const pageCount = doc.internal.getNumberOfPages();
-      for (let i = 1; i <= pageCount; i++) {
-        doc.setPage(i);
-        doc.setFontSize(7);
-        doc.setTextColor(110, 110, 110);
-        doc.text(`Basirah 360 • Page ${i} of ${pageCount}`, 14, pageHeight - 8);
-      }
+    const addFooter = (pageNo) => {
+      text(C.muted);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      doc.text(`Basirah 360 Analytics • Page ${pageNo}`, margin, H - 7);
+    };
 
-      const safe = (v) => String(v).replace(/[^a-z0-9_-]+/gi, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
-      doc.save(`Basirah360_Analytics_${safe(analysis)}_${new Date().toISOString().slice(0, 10)}.pdf`);
-    } catch (e) {
-      console.error('PDF export failed:', e);
-      window.alert('PDF export failed. Make sure jspdf and jspdf-autotable are installed.');
-    } finally {
-      setExporting(false);
+    const selected = EXPORT_KPI_CATALOG.filter((k) => selectedKpiIds.includes(k.id));
+    const selectedMetric = (id, fallbackLabel, fallbackValue) => {
+      const k = selected.find((x) => x.id === id);
+      return k || { id, label: fallbackLabel, value: fallbackValue };
+    };
+
+    const kpis = [
+      selectedMetric('gross_deployed', 'Gross Deployed', totalLoanedQty),
+      selectedMetric('recovered', 'Recovered', `${totalReturnedQty} (${globalRecoveryRate}%)`),
+      selectedMetric('field_exposure', 'Field Exposure', `${totalRemainingQty} (${unrecoveredRate}%)`),
+      selectedMetric('overdue_exposure', 'Overdue Exposure', `${totalOverdueQty} (${overdueRate}%)`),
+      selectedMetric('material_health', 'Material Health', `${globalHealthRate}%`),
+      selectedMetric('damage_rate', 'Damage Rate', `${globalDamageRate}% (${globalDamagedQty})`),
+      selectedMetric('worn_rate', 'Worn Rate', `${globalWornRate}%`),
+      selectedMetric('high_risk_sites', 'High Risk Sites', highRiskSites.length),
+      selectedMetric('high_risk_contractors', 'High Risk Contractors', highRiskContractors.length),
+      selectedMetric('high_risk_materials', 'High Risk Materials', highRiskMaterials.length),
+      selectedMetric('management_attention', 'Management Attention', managementAttention),
+    ].filter((k) => selectedKpiIds.includes(k.id));
+
+    // Page 1 — executive dashboard
+    header('Basirah 360 — Analytics Report', 'Executive inventory and recovery dashboard');
+
+    let y = 29;
+    const cardGap = 4;
+    const cols = Math.min(4, Math.max(1, kpis.length));
+    const rows = Math.ceil(kpis.length / cols);
+    const cardW = (usableW - cardGap * (cols - 1)) / cols;
+    const cardH = 27;
+
+    kpis.forEach((k, i) => {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const x = margin + col * (cardW + cardGap);
+      const yy = y + row * (cardH + cardGap);
+      rect(x, yy, cardW, cardH, 3, C.card);
+      text(C.muted);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.5);
+      doc.text(String(k.label), x + 5, yy + 7);
+      text(C.text);
+      doc.setFontSize(16);
+      doc.text(String(k.value), x + 5, yy + 18);
+      stroke(C.blue);
+      doc.setLineWidth(1.2);
+      doc.line(x + 5, yy + cardH - 3, x + Math.min(cardW - 5, 16), yy + cardH - 3);
+    });
+
+    y += rows * (cardH + cardGap) + 7;
+
+    // Visual condition chart
+    const conditionW = (usableW - 5) * 0.42;
+    const riskW = usableW - conditionW - 5;
+    const chartH = 62;
+
+    rect(margin, y, conditionW, chartH);
+    text(C.text);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.text('Return Condition Profile', margin + 6, y + 9);
+
+    const cond = [
+      ['Good', globalGoodQty, C.green],
+      ['Worn', globalWornQty, C.amber],
+      ['Damaged', globalDamagedQty, C.red],
+    ];
+    const condTotal = Math.max(1, globalConditionTotal);
+    let bx = margin + 6;
+    const barY = y + 21;
+    const barW = conditionW - 12;
+    cond.forEach(([label, value, color]) => {
+      const w = (value / condTotal) * barW;
+      fill(color);
+      doc.rect(bx, barY, Math.max(0.5, w), 12, 'F');
+      bx += w;
+    });
+    cond.forEach(([label, value, color], i) => {
+      const yy = y + 43 + i * 6;
+      fill(color);
+      doc.circle(margin + 7, yy - 1.5, 1.4, 'F');
+      text(C.text);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.text(`${label}: ${value} (${pct(value, condTotal)}%)`, margin + 11, yy);
+    });
+
+    // Risk exposure chart
+    const rx = margin + conditionW + 5;
+    rect(rx, y, riskW, chartH);
+    text(C.text);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.text('Management Risk Exposure', rx + 6, y + 9);
+
+    const riskItems = [
+      ['Critical', materialStats.filter((m) => m.risk === 'CRITICAL').length, C.red],
+      ['High', materialStats.filter((m) => m.risk === 'HIGH').length, C.red],
+      ['Moderate', materialStats.filter((m) => m.risk === 'MODERATE').length, C.amber],
+      ['Low', materialStats.filter((m) => m.risk === 'LOW').length, C.green],
+    ];
+    const maxRisk = Math.max(1, ...riskItems.map((r) => r[1]));
+    riskItems.forEach(([label, value, color], i) => {
+      const yy = y + 18 + i * 10;
+      text(C.muted);
+      doc.setFontSize(7.5);
+      doc.text(label, rx + 6, yy + 4);
+      fill([42, 42, 42]);
+      doc.roundedRect(rx + 29, yy, riskW - 50, 6, 1.5, 1.5, 'F');
+      fill(color);
+      doc.roundedRect(rx + 29, yy, Math.max(1, ((riskW - 50) * value) / maxRisk), 6, 1.5, 1.5, 'F');
+      text(C.text);
+      doc.setFont('helvetica', 'bold');
+      doc.text(String(value), rx + riskW - 14, yy + 4, { align: 'right' });
+    });
+    addFooter(1);
+
+    // Page 2 — visual ranking chart
+    doc.addPage();
+    header('Performance Ranking', 'Top operational exposure by selected analytics dimension');
+    y = 31;
+
+    let ranking = topSitesByDeployment.map((x) => ({ name: x.name, value: x.loaned, risk: x.risk }));
+    let rankingTitle = 'Top Sites by Deployment';
+    if (drillType === 'contractor') {
+      ranking = contractorStats.slice(0, 10).map((x) => ({
+        name: safeName(x.company_name || x.contact_person, 'Unknown Contractor'),
+        value: x.loaned,
+        risk: x.risk,
+      }));
+      rankingTitle = 'Top Contractors by Deployment';
+    } else if (drillType === 'material') {
+      ranking = materialStats.slice(0, 10).map((x) => ({ name: x.name, value: x.issued, risk: x.risk }));
+      rankingTitle = 'Top Materials by Deployment';
     }
+
+    rect(margin, y, usableW, 113);
+    text(C.text);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text(rankingTitle, margin + 7, y + 10);
+
+    const chartX = margin + 47;
+    const chartY = y + 19;
+    const chartWidth = usableW - 62;
+    const rowH = 8.5;
+    const maxValue = Math.max(1, ...ranking.map((r) => num(r.value)));
+
+    ranking.slice(0, 10).forEach((r, i) => {
+      const yy = chartY + i * rowH;
+      text(C.muted);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      const label = String(r.name).length > 27 ? `${String(r.name).slice(0, 27)}…` : String(r.name);
+      doc.text(label, margin + 7, yy + 5);
+      fill([38, 38, 38]);
+      doc.roundedRect(chartX, yy, chartWidth, 5.5, 1.3, 1.3, 'F');
+      const bar = (num(r.value) / maxValue) * chartWidth;
+      const barColor = r.risk === 'CRITICAL' || r.risk === 'HIGH' ? C.red : C.blue;
+      fill(barColor);
+      doc.roundedRect(chartX, yy, Math.max(1, bar), 5.5, 1.3, 1.3, 'F');
+      text(C.text);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.text(String(num(r.value)), W - margin - 7, yy + 5, { align: 'right' });
+    });
+    addFooter(2);
+
+    // Page 3 — trend visualisation only when selected
+    if (selectedKpiIds.includes('trend_chart') && hasTrendData) {
+      doc.addPage();
+      header('Deployment & Recovery Trend', 'Six-month operational movement');
+      y = 31;
+      rect(margin, y, usableW, 113);
+
+      const tx = margin + 18;
+      const ty = y + 88;
+      const tw = usableW - 34;
+      const th = 65;
+      const maxTrend = Math.max(
+        1,
+        ...trendData.flatMap((m) => [num(m.deployed), num(m.returned), num(m.overdue)])
+      );
+
+      stroke([65, 65, 65]);
+      doc.setLineWidth(0.4);
+      for (let i = 0; i <= 4; i++) {
+        const gy = ty - (th * i) / 4;
+        doc.line(tx, gy, tx + tw, gy);
+      }
+
+      const series = [
+        ['Deployed', 'deployed', C.blue],
+        ['Returned', 'returned', C.green],
+        ['Overdue', 'overdue', C.red],
+      ];
+      series.forEach(([label, key, color]) => {
+        stroke(color);
+        doc.setLineWidth(1.4);
+        let previous = null;
+        trendData.forEach((m, i) => {
+          const px = tx + (tw * i) / Math.max(1, trendData.length - 1);
+          const py = ty - (num(m[key]) / maxTrend) * th;
+          if (previous) doc.line(previous.x, previous.y, px, py);
+          fill(color);
+          doc.circle(px, py, 1.2, 'F');
+          previous = { x: px, y: py };
+        });
+        text(color);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7);
+        doc.text(label, tx + series.indexOf(series.find((s) => s[1] === key)) * 34, y + 10);
+      });
+
+      trendData.forEach((m, i) => {
+        const px = tx + (tw * i) / Math.max(1, trendData.length - 1);
+        text(C.muted);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6.5);
+        doc.text(String(m.month), px, ty + 7, { align: 'center' });
+      });
+      addFooter(3);
+    }
+
+    const filename = `basirah-360-analytics-dashboard-${new Date().toISOString().slice(0, 10)}.pdf`;
+    doc.save(filename);
+    setShowExportModal(false);
   };
 
-  const KpiCard = ({ id, label, value, color }) => (
+  /* ==========================================================================
+     TOP RANKINGS
+  ========================================================================== */
+
+  const topSitesByDeployment = [...siteStats]
+    .sort((a, b) => b.loaned - a.loaned)
+    .slice(0, 10);
+
+  const topSitesByLoss = [...siteStats]
+    .sort(
+      (a, b) =>
+        b.remaining - a.remaining
+    )
+    .slice(0, 10);
+
+  const topSitesByDamage = [...siteStats]
+    .filter((site) => site.returnedQty > 0)
+    .sort(
+      (a, b) =>
+        b.damageRate - a.damageRate
+    )
+    .slice(0, 10);
+
+  const topContractorsByRisk = [
+    ...contractorStats,
+  ]
+    .sort(
+      (a, b) =>
+        b.riskScore - a.riskScore
+    )
+    .slice(0, 10);
+
+  const topMaterialsByRisk = [
+    ...materialStats,
+  ]
+    .sort(
+      (a, b) =>
+        b.riskScore - a.riskScore
+    )
+    .slice(0, 10);
+
+  const topMaterialsByExposure = [
+    ...materialStats,
+  ]
+    .sort(
+      (a, b) =>
+        b.active - a.active
+    )
+    .slice(0, 10);
+
+  /* ==========================================================================
+     FILTERED MATERIAL TABLE
+  ========================================================================== */
+
+  const filteredMaterials = materialStats.filter(
+    (material) =>
+      material.name
+        .toLowerCase()
+        .includes(
+          materialSearch.toLowerCase()
+        )
+  );
+
+  /* ==========================================================================
+     DRILL-DOWN DATA
+  ========================================================================== */
+
+  const selectedSite =
+    drillType === 'site'
+      ? siteStats.find(
+          (site) =>
+            site.name === drillValue
+        )
+      : null;
+
+  const selectedContractor =
+    drillType === 'contractor'
+      ? contractorStats.find(
+          (contractor) =>
+            String(contractor.id) ===
+            String(drillValue)
+        )
+      : null;
+
+  const siteLoanHistory = selectedSite
+    ? loans
+        .filter(
+          (loan) =>
+            safeName(loan.site_name) ===
+            selectedSite.name
+        )
+        .map((loan) => {
+          const loanReturns =
+            returns.filter(
+              (r) =>
+                num(r.loan_id) ===
+                num(loan.id)
+            );
+
+          const retQty =
+            loanReturns.reduce(
+              (sum, r) =>
+                sum + returnQty(r),
+              0
+            );
+
+          return {
+            ...loan,
+            retQty,
+            remaining:
+              remainingQty(loan),
+            lReturns: loanReturns,
+          };
+        })
+    : [];
+
+  const siteReturnRecords = selectedSite
+    ? returns.filter((record) => {
+        const loan = loans.find(
+          (l) =>
+            num(l.id) ===
+            num(record.loan_id)
+        );
+
+        return (
+          safeName(
+            record.site_name ||
+              loan?.site_name
+          ) === selectedSite.name
+        );
+      })
+    : [];
+
+  const contractorLoanHistory =
+    selectedContractor
+      ? loans
+          .filter(
+            (loan) =>
+              String(loan.contractor_id) ===
+              String(
+                selectedContractor.id
+              )
+          )
+          .map((loan) => {
+            const loanReturns =
+              returns.filter(
+                (r) =>
+                  num(r.loan_id) ===
+                  num(loan.id)
+              );
+
+            const retQty =
+              loanReturns.reduce(
+                (sum, r) =>
+                  sum + returnQty(r),
+                0
+              );
+
+            return {
+              ...loan,
+              retQty,
+              remaining:
+                remainingQty(loan),
+              lReturns: loanReturns,
+            };
+          })
+      : [];
+
+  const contractorReturnRecords =
+    selectedContractor
+      ? returns.filter((record) =>
+          selectedContractor.loanIds.includes(
+            num(record.loan_id)
+          )
+        )
+      : [];
+
+  const conditionRecords =
+    drillType === 'condition'
+      ? returns.filter(
+          (record) =>
+            record.returned_condition ===
+            drillValue
+        )
+      : [];
+
+  /* ==========================================================================
+     SITE × MATERIAL MATRIX
+  ========================================================================== */
+
+  const siteMaterialMatrix = useMemo(() => {
+    const matrix = {};
+
+    loans.forEach((loan) => {
+      const site = safeName(
+        loan.site_name
+      );
+
+      const material = safeName(
+        loan.material_name,
+        'Unknown Material'
+      );
+
+      if (!matrix[site]) {
+        matrix[site] = {};
+      }
+
+      matrix[site][material] =
+        (matrix[site][material] || 0) +
+        num(loan.quantity);
+    });
+
+    return matrix;
+  }, [loans]);
+
+  /* ==========================================================================
+     REPORT GENERATOR
+  ========================================================================== */
+
+  const uniqueSites = [
+    ...new Set(
+      loans
+        .map((loan) => loan.site_name)
+        .filter(Boolean)
+    ),
+  ];
+
+  const buildFilteredLoans = () =>
+    loans;
+
+  const buildFilteredReturns = () => {
+    const filteredLoanIds = new Set(
+      buildFilteredLoans().map(
+        (loan) => loan.id
+      )
+    );
+
+    return returns.filter((record) =>
+      filteredLoanIds.has(
+        num(record.loan_id)
+      )
+    );
+  };
+
+  const downloadReport = async () => {
+    const filteredLoans =
+      buildFilteredLoans();
+
+    const filteredReturns =
+      buildFilteredReturns();
+
+    const loanRows = filteredLoans.map(
+      (loan) => [
+        loan.material_name || '—',
+        loan.contact_person || '—',
+        loan.site_name || '—',
+        loan.quantity,
+        remainingQty(loan),
+        loan.expected_return_date || '—',
+        remainingQty(loan) > 0
+          ? isOverdue(loan)
+            ? 'Overdue'
+            : 'Active'
+          : 'Closed',
+      ]
+    );
+
+    const returnRows = filteredReturns.map(
+      (record) => [
+        record.material_name || '—',
+        record.contact_person || '—',
+        record.site_name || '—',
+        returnQty(record),
+        record.returned_condition || '—',
+        record.return_date || '—',
+      ]
+    );
+
+    const riskRows = materialStats.map(
+      (material) => [
+        material.name,
+        material.issued,
+        material.returned,
+        material.active,
+        material.overdue,
+        `${material.damageRate}%`,
+        `${material.recoveryRate}%`,
+        `${material.lossExposureRate}%`,
+        material.riskScore,
+        material.risk,
+      ]
+    );
+
+    const parts = [];
+
+    if (reportSite !== 'All') {
+      parts.push(reportSite);
+    }
+
+    if (reportContractor !== 'All') {
+      const contractor =
+        contractors.find(
+          (c) =>
+            String(c.id) ===
+            String(reportContractor)
+        );
+
+      if (contractor) {
+        parts.push(
+          contractor.company_name ||
+            contractor.contact_person
+        );
+      }
+    }
+
+    if (reportMaterial !== 'All') {
+      const material =
+        materials.find(
+          (m) =>
+            String(m.id) ===
+            String(reportMaterial)
+        );
+
+      if (material) {
+        parts.push(material.name);
+      }
+    }
+
+    const suffix = parts.length
+      ? `_${parts
+          .join('_')
+          .replace(/\s+/g, '-')}`
+      : '_All';
+
+    const { jsPDF } = await import('jspdf');
+    const autoTableModule = await import(
+      'jspdf-autotable'
+    );
+    const autoTable = autoTableModule.default;
+
+    const doc = new jsPDF({
+      orientation: 'landscape',
+    });
+
+    doc.setFontSize(16);
+    doc.setFont(undefined, 'bold');
+    doc.text(
+      `Basirah Analytics Report${
+        parts.length ? ` — ${parts.join(', ')}` : ''
+      }`,
+      14,
+      16
+    );
+
+    doc.setFontSize(9);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(120);
+    doc.text(
+      `Generated ${new Date().toLocaleString()}`,
+      14,
+      22
+    );
+    doc.setTextColor(0);
+
+    let cursorY = 30;
+
+    doc.setFontSize(11);
+    doc.setFont(undefined, 'bold');
+    doc.text('Loans', 14, cursorY);
+    cursorY += 4;
+
+    autoTable(doc, {
+      startY: cursorY,
+      head: [
+        [
+          'Material',
+          'Contractor',
+          'Site',
+          'Qty Loaned',
+          'Qty Remaining',
+          'Due Date',
+          'Status',
+        ],
+      ],
+      body: loanRows.length
+        ? loanRows
+        : [['No matching loans', '', '', '', '', '', '']],
+      theme: 'grid',
+      headStyles: { fillColor: [30, 41, 59] },
+      styles: { fontSize: 8 },
+    });
+    cursorY = doc.lastAutoTable.finalY + 10;
+
+    if (cursorY > 170) {
+      doc.addPage();
+      cursorY = 20;
+    }
+
+    doc.setFontSize(11);
+    doc.setFont(undefined, 'bold');
+    doc.text('Returns', 14, cursorY);
+    cursorY += 4;
+
+    autoTable(doc, {
+      startY: cursorY,
+      head: [
+        [
+          'Material',
+          'Contractor',
+          'Site',
+          'Qty Returned',
+          'Condition',
+          'Return Date',
+        ],
+      ],
+      body: returnRows.length
+        ? returnRows
+        : [['No matching returns', '', '', '', '', '']],
+      theme: 'grid',
+      headStyles: { fillColor: [30, 41, 59] },
+      styles: { fontSize: 8 },
+    });
+    cursorY = doc.lastAutoTable.finalY + 10;
+
+    if (cursorY > 170) {
+      doc.addPage();
+      cursorY = 20;
+    }
+
+    doc.setFontSize(11);
+    doc.setFont(undefined, 'bold');
+    doc.text('Material Risk', 14, cursorY);
+    cursorY += 4;
+
+    autoTable(doc, {
+      startY: cursorY,
+      head: [
+        [
+          'Material',
+          'Issued',
+          'Returned',
+          'Active',
+          'Overdue',
+          'Damage Rate',
+          'Recovery Rate',
+          'Loss Exposure',
+          'Risk Score',
+          'Risk',
+        ],
+      ],
+      body: riskRows.length
+        ? riskRows
+        : [
+            [
+              'No material analytics',
+              '',
+              '',
+              '',
+              '',
+              '',
+              '',
+              '',
+              '',
+              '',
+            ],
+          ],
+      theme: 'grid',
+      headStyles: { fillColor: [30, 41, 59] },
+      styles: { fontSize: 8 },
+    });
+
+    doc.save(
+      `Basirah_Analytics${suffix}_${new Date()
+        .toISOString()
+        .slice(0, 10)}.pdf`
+    );
+  };
+
+  /* ==========================================================================
+     UI COMPONENTS
+  ========================================================================== */
+
+  const exitDrill = () => {
+    setDrillType(null);
+    setDrillValue(null);
+  };
+
+  const BackBtn = () => (
     <button
-      type="button"
-      onClick={() => {
-        if (id === 'deployed') drillToAssets('deployed', null, {
-          site: siteFilter, contractor: contractorFilter, material: materialFilter
-        });
-        else if (id === 'overdue') drillToAssets('overdue', null, {
-          site: siteFilter, contractor: contractorFilter, material: materialFilter
-        });
-        else if (id === 'damaged' || id === 'damage_rate') drillToAssets('condition', 'Damaged', {
-          site: siteFilter, contractor: contractorFilter, material: materialFilter
-        });
-      }}
+      onClick={exitDrill}
       style={{
-        ...STYLES.box,
-        marginBottom: 0,
-        padding: 16,
-        textAlign: 'left',
-        cursor: ['deployed', 'overdue', 'damaged', 'damage_rate'].includes(id) ? 'pointer' : 'default',
-        borderTop: `2px solid ${color || THEME.border}`,
-        backgroundColor: THEME.cardBg,
+        background: 'none',
+        border: 'none',
+        color: THEME.accentBlue,
+        cursor: 'pointer',
+        fontSize: '13px',
+        fontWeight: '600',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '6px',
+        marginBottom: '20px',
+        padding: 0,
       }}
     >
-      <div style={{ ...STYLES.label, fontSize: 10 }}>{label}</div>
-      <div style={{ fontSize: 25, fontWeight: 900, color: color || THEME.textMain, marginTop: 5 }}>
-        {value}
-      </div>
+      <ChevronLeft size={16} />
+      Back to Analytics
     </button>
   );
 
-  const FilterSelect = ({ label, value, onChange, children }) => (
-    <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <span style={{ ...STYLES.label, fontSize: 10 }}>{label}</span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        style={{
-          ...STYLES.input,
-          marginBottom: 0,
-          minWidth: 170,
-          background: THEME.cardBg,
-          color: THEME.textMain,
-        }}
-      >
-        {children}
-      </select>
-    </label>
+  const StatGrid = ({ stats }) => (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns:
+          'repeat(auto-fit, minmax(155px, 1fr))',
+        gap: '14px',
+        marginBottom: '24px',
+      }}
+    >
+      {stats.map((item) => (
+        <div
+          key={item.label}
+          style={{
+            ...STYLES.box,
+            marginBottom: 0,
+            padding: '17px',
+          }}
+        >
+          <div style={STYLES.label}>
+            {item.label}
+          </div>
+
+          <div
+            style={{
+              fontSize: '24px',
+              fontWeight: '800',
+              color:
+                item.color ||
+                THEME.textMain,
+              marginTop: '4px',
+            }}
+          >
+            {item.value}
+          </div>
+
+          {item.sub && (
+            <div
+              style={{
+                fontSize: '11px',
+                color: THEME.textMuted,
+                marginTop: '4px',
+              }}
+            >
+              {item.sub}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
   );
+
+  const RiskBadge = ({ score }) => {
+    const label = riskLabel(score);
+
+    return BADGE(
+      riskColor(score),
+      label
+    );
+  };
+
+  const DeleteReturnBtn = ({ id }) => (
+    <button
+      onClick={() =>
+        handleDeleteReturn(id)
+      }
+      disabled={deletingId === id}
+      style={{
+        padding: '4px 10px',
+        borderRadius: '5px',
+        border: `1px solid ${THEME.accentCrimson}55`,
+        backgroundColor: `${THEME.accentCrimson}10`,
+        color: THEME.accentCrimson,
+        fontSize: '11px',
+        cursor:
+          deletingId === id
+            ? 'not-allowed'
+            : 'pointer',
+        fontWeight: '600',
+        opacity:
+          deletingId === id ? 0.5 : 1,
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '4px',
+      }}
+    >
+      <Trash2 size={12} />
+      {deletingId === id
+        ? '...'
+        : 'Delete'}
+    </button>
+  );
+
+  const SectionHeader = ({
+    icon,
+    title,
+    subtitle,
+  }) => (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+        marginBottom: '16px',
+      }}
+    >
+      {icon}
+
+      <div>
+        <div
+          style={{
+            ...sectionTitleStyle,
+            marginBottom: 0,
+          }}
+        >
+          {title}
+        </div>
+
+        {subtitle && (
+          <div
+            style={{
+              color: THEME.textMuted,
+              fontSize: '11px',
+              marginTop: '3px',
+            }}
+          >
+            {subtitle}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  /* ==========================================================================
+     CONDITION CARDS
+  ========================================================================== */
+
+  const ConditionOverviewCards = ({
+    good,
+    worn,
+    damaged,
+    total,
+  }) => (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns:
+          'repeat(3, 1fr)',
+        gap: '14px',
+        marginBottom: '24px',
+      }}
+    >
+      {[
+        {
+          label: 'Good',
+          qty: good,
+          color:
+            CONDITION_COLORS.Good,
+        },
+        {
+          label: 'Worn',
+          qty: worn,
+          color:
+            CONDITION_COLORS.Worn,
+        },
+        {
+          label: 'Damaged',
+          qty: damaged,
+          color:
+            CONDITION_COLORS.Damaged,
+        },
+      ].map((condition) => {
+        const percentage = pct(
+          condition.qty,
+          total
+        );
+
+        return (
+          <div
+            key={condition.label}
+            onClick={() => {
+              setDrillType(
+                'condition'
+              );
+              setDrillValue(
+                condition.label
+              );
+            }}
+            style={{
+              ...STYLES.box,
+              marginBottom: 0,
+              padding: '18px',
+              cursor: 'pointer',
+              border: `1px solid ${condition.color}44`,
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent:
+                  'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <div style={STYLES.label}>
+                {condition.label} Returns
+              </div>
+
+              <ChevronRight
+                size={14}
+                color={THEME.textMuted}
+              />
+            </div>
+
+            <div
+              style={{
+                fontSize: '28px',
+                fontWeight: '800',
+                color: condition.color,
+              }}
+            >
+              {percentage}%
+            </div>
+
+            <div
+              style={{
+                fontSize: '12px',
+                color: THEME.textMuted,
+              }}
+            >
+              {condition.qty} units
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  /* ==========================================================================
+     DRILL VIEW: CONDITION
+  ========================================================================== */
+
+  if (drillType === 'condition') {
+    return (
+      <div>
+        <BackBtn />
+
+        <h2
+          style={{
+            fontSize: '22px',
+            fontWeight: '700',
+            marginBottom: '6px',
+          }}
+        >
+          Returns marked:{' '}
+          {drillValue}
+        </h2>
+
+        <p
+          style={{
+            color: THEME.textMuted,
+            fontSize: '13px',
+            marginBottom: '24px',
+          }}
+        >
+          {
+            conditionRecords.length
+          }{' '}
+          records ·{' '}
+          {conditionRecords.reduce(
+            (sum, r) =>
+              sum + returnQty(r),
+            0
+          )}{' '}
+          units total
+        </p>
+
+        {deleteMsg && (
+          <div
+            style={{
+              ...msgStyle(
+                deleteMsg.type
+              ),
+              marginBottom: '16px',
+            }}
+          >
+            {deleteMsg.text}
+          </div>
+        )}
+
+        <div style={STYLES.box}>
+          <table style={STYLES.table}>
+            <thead>
+              <tr>
+                <th style={STYLES.th}>
+                  Material
+                </th>
+                <th style={STYLES.th}>
+                  Contractor
+                </th>
+                <th style={STYLES.th}>
+                  Site
+                </th>
+                <th style={STYLES.th}>
+                  Qty Returned
+                </th>
+                <th style={STYLES.th}>
+                  Return Date
+                </th>
+                <th style={STYLES.th}>
+                  Action
+                </th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {conditionRecords.length ===
+              0 ? (
+                <tr>
+                  <td
+                    colSpan={6}
+                    style={{
+                      ...STYLES.td,
+                      textAlign:
+                        'center',
+                      color:
+                        THEME.textMuted,
+                    }}
+                  >
+                    No records
+                  </td>
+                </tr>
+              ) : (
+                conditionRecords.map(
+                  (record) => (
+                    <tr
+                      key={record.id}
+                    >
+                      <td
+                        style={
+                          STYLES.td
+                        }
+                      >
+                        {
+                          record.material_name
+                        }
+                      </td>
+
+                      <td
+                        style={
+                          STYLES.td
+                        }
+                      >
+                        {
+                          record.contact_person
+                        }
+                      </td>
+
+                      <td
+                        style={
+                          STYLES.td
+                        }
+                      >
+                        {
+                          record.site_name ||
+                          '—'
+                        }
+                      </td>
+
+                      <td
+                        style={{
+                          ...STYLES.td,
+                          fontWeight:
+                            '700',
+                        }}
+                      >
+                        {returnQty(
+                          record
+                        )}
+                      </td>
+
+                      <td
+                        style={
+                          STYLES.td
+                        }
+                      >
+                        {
+                          record.return_date ||
+                          '—'
+                        }
+                      </td>
+
+                      <td
+                        style={
+                          STYLES.td
+                        }
+                      >
+                        <DeleteReturnBtn
+                          id={
+                            record.id
+                          }
+                        />
+                      </td>
+                    </tr>
+                  )
+                )
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
+  /* ==========================================================================
+     DRILL VIEW: SITE
+  ========================================================================== */
+
+  if (
+    drillType === 'site' &&
+    !selectedSite
+  ) {
+    return (
+      <div>
+        <BackBtn />
+        <p style={{ color: THEME.textMuted, fontSize: '13px' }}>
+          No site data found for "{String(drillValue)}".
+        </p>
+      </div>
+    );
+  }
+
+  if (
+    drillType === 'site' &&
+    selectedSite
+  ) {
+    return (
+      <div>
+        <BackBtn />
+
+        <h2
+          style={{
+            fontSize: '22px',
+            fontWeight: '700',
+            marginBottom: '6px',
+          }}
+        >
+          Site:{' '}
+          {selectedSite.name}
+        </h2>
+
+        <p
+          style={{
+            color: THEME.textMuted,
+            fontSize: '13px',
+            marginBottom: '24px',
+          }}
+        >
+          Site utilization,
+          material exposure,
+          overdue activity and
+          return-condition analysis
+        </p>
+
+        <StatGrid
+          stats={[
+            {
+              label: 'Deployed',
+              value:
+                selectedSite.loaned,
+              color:
+                THEME.accentBlue,
+            },
+            {
+              label: 'Returned',
+              value:
+                selectedSite.returnedQty,
+              color:
+                THEME.accentEmerald,
+            },
+            {
+              label: 'Currently Out',
+              value:
+                selectedSite.remaining,
+              color:
+                THEME.accentAmber,
+            },
+            {
+              label: 'Overdue',
+              value:
+                selectedSite.overdue,
+              color:
+                THEME.accentCrimson,
+            },
+            {
+              label: 'Recovery',
+              value: `${selectedSite.recoveryRate}%`,
+              color:
+                THEME.accentPurple,
+            },
+            {
+              label: 'Damage Rate',
+              value: `${selectedSite.damageRate}%`,
+              color:
+                selectedSite.damageRate >
+                20
+                  ? THEME.accentCrimson
+                  : THEME.accentEmerald,
+            },
+            {
+              label: 'Risk Score',
+              value:
+                selectedSite.riskScore,
+              color:
+                riskColor(
+                  selectedSite.riskScore
+                ),
+              sub:
+                selectedSite.risk,
+            },
+            {
+              label: 'Materials Used',
+              value:
+                selectedSite.materialCount,
+              color:
+                THEME.accentCyan,
+            },
+          ]}
+        />
+
+        <div
+          style={{
+            ...STYLES.box,
+            marginBottom: '20px',
+          }}
+        >
+          <SectionHeader
+            icon={
+              <ShieldAlert
+                size={17}
+                color={riskColor(
+                  selectedSite.riskScore
+                )}
+              />
+            }
+            title="Site Risk Assessment"
+          />
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns:
+                'repeat(auto-fit, minmax(180px, 1fr))',
+              gap: '14px',
+            }}
+          >
+            <div>
+              <div
+                style={STYLES.label}
+              >
+                Risk Level
+              </div>
+              <RiskBadge
+                score={
+                  selectedSite.riskScore
+                }
+              />
+            </div>
+
+            <div>
+              <div
+                style={STYLES.label}
+              >
+                Unrecovered Exposure
+              </div>
+              <strong>
+                {
+                  selectedSite.remaining
+                }{' '}
+                units
+              </strong>
+            </div>
+
+            <div>
+              <div
+                style={STYLES.label}
+              >
+                Overdue Exposure
+              </div>
+              <strong
+                style={{
+                  color:
+                    selectedSite.overdue >
+                    0
+                      ? THEME.accentCrimson
+                      : THEME.textMain,
+                }}
+              >
+                {
+                  selectedSite.overdue
+                }{' '}
+                units
+              </strong>
+            </div>
+
+            <div>
+              <div
+                style={STYLES.label}
+              >
+                Contractors
+              </div>
+              <strong>
+                {
+                  selectedSite.contractorCount
+                }
+              </strong>
+            </div>
+          </div>
+        </div>
+
+        {deleteMsg && (
+          <div
+            style={{
+              ...msgStyle(
+                deleteMsg.type
+              ),
+              marginBottom: '16px',
+            }}
+          >
+            {deleteMsg.text}
+          </div>
+        )}
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns:
+              '2fr 1fr',
+            gap: '20px',
+            marginBottom: '20px',
+          }}
+        >
+          <div style={STYLES.box}>
+            <div style={sectionTitleStyle}>
+              Material Loan History
+            </div>
+
+            <div
+              style={{
+                overflowX: 'auto',
+              }}
+            >
+              <table
+                style={STYLES.table}
+              >
+                <thead>
+                  <tr>
+                    <th
+                      style={STYLES.th}
+                    >
+                      Material
+                    </th>
+                    <th
+                      style={STYLES.th}
+                    >
+                      Contractor
+                    </th>
+                    <th
+                      style={STYLES.th}
+                    >
+                      Qty
+                    </th>
+                    <th
+                      style={STYLES.th}
+                    >
+                      Returned
+                    </th>
+                    <th
+                      style={STYLES.th}
+                    >
+                      Remaining
+                    </th>
+                    <th
+                      style={STYLES.th}
+                    >
+                      Status
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {siteLoanHistory.length ===
+                  0 ? (
+                    <tr>
+                      <td
+                        colSpan={6}
+                        style={{
+                          ...STYLES.td,
+                          textAlign:
+                            'center',
+                          color:
+                            THEME.textMuted,
+                        }}
+                      >
+                        No loans
+                      </td>
+                    </tr>
+                  ) : (
+                    siteLoanHistory.map(
+                      (loan) => {
+                        const overdue =
+                          isOverdue(
+                            loan
+                          );
+
+                        return (
+                          <tr
+                            key={
+                              loan.id
+                            }
+                          >
+                            <td
+                              style={
+                                STYLES.td
+                              }
+                            >
+                              {
+                                loan.material_name
+                              }
+                            </td>
+
+                            <td
+                              style={
+                                STYLES.td
+                              }
+                            >
+                              {
+                                loan.contact_person
+                              }
+                            </td>
+
+                            <td
+                              style={
+                                STYLES.td
+                              }
+                            >
+                              {
+                                loan.quantity
+                              }
+                            </td>
+
+                            <td
+                              style={
+                                STYLES.td
+                              }
+                            >
+                              {
+                                loan.retQty
+                              }
+                            </td>
+
+                            <td
+                              style={
+                                STYLES.td
+                              }
+                            >
+                              {
+                                loan.remaining
+                              }
+                            </td>
+
+                            <td
+                              style={
+                                STYLES.td
+                              }
+                            >
+                              {loan.remaining >
+                              0
+                                ? BADGE(
+                                    overdue
+                                      ? THEME.accentCrimson
+                                      : THEME.accentAmber,
+                                    overdue
+                                      ? 'OVERDUE'
+                                      : 'OUT'
+                                  )
+                                : BADGE(
+                                    THEME.accentEmerald,
+                                    'CLOSED'
+                                  )}
+                            </td>
+                          </tr>
+                        );
+                      }
+                    )
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div style={STYLES.box}>
+            <div style={sectionTitleStyle}>
+              Return Condition
+            </div>
+
+            {selectedSite.returnedQty >
+            0 ? (
+              <div
+                style={{
+                  height: 230,
+                }}
+              >
+                <ResponsiveContainer>
+                  <PieChart>
+                    <Pie
+                      data={[
+                        {
+                          name: 'Good',
+                          value:
+                            selectedSite.goodQty,
+                        },
+                        {
+                          name: 'Worn',
+                          value:
+                            selectedSite.wornQty,
+                        },
+                        {
+                          name: 'Damaged',
+                          value:
+                            selectedSite.damagedQty,
+                        },
+                      ].filter(
+                        (x) =>
+                          x.value > 0
+                      )}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={55}
+                      outerRadius={82}
+                      paddingAngle={4}
+                      dataKey="value"
+                    >
+                      <Cell
+                        fill={
+                          CONDITION_COLORS.Good
+                        }
+                      />
+                      <Cell
+                        fill={
+                          CONDITION_COLORS.Worn
+                        }
+                      />
+                      <Cell
+                        fill={
+                          CONDITION_COLORS.Damaged
+                        }
+                      />
+                    </Pie>
+
+                    <Tooltip
+                      contentStyle={
+                        chartTooltipStyle
+                      }
+                    />
+
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div
+                style={{
+                  color:
+                    THEME.textMuted,
+                  fontSize: '13px',
+                  padding:
+                    '20px 0',
+                }}
+              >
+                No returns yet.
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div style={STYLES.box}>
+          <div
+            style={sectionTitleStyle}
+          >
+            Individual Return Records (
+            {
+              siteReturnRecords.length
+            }
+            )
+          </div>
+
+          <div
+            style={{
+              overflowX: 'auto',
+            }}
+          >
+            <table style={STYLES.table}>
+              <thead>
+                <tr>
+                  <th
+                    style={STYLES.th}
+                  >
+                    Material
+                  </th>
+                  <th
+                    style={STYLES.th}
+                  >
+                    Contractor
+                  </th>
+                  <th
+                    style={STYLES.th}
+                  >
+                    Qty
+                  </th>
+                  <th
+                    style={STYLES.th}
+                  >
+                    Condition
+                  </th>
+                  <th
+                    style={STYLES.th}
+                  >
+                    Date
+                  </th>
+                  <th
+                    style={STYLES.th}
+                  />
+                </tr>
+              </thead>
+
+              <tbody>
+                {siteReturnRecords.length ===
+                0 ? (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      style={{
+                        ...STYLES.td,
+                        textAlign:
+                          'center',
+                        color:
+                          THEME.textMuted,
+                      }}
+                    >
+                      No returns yet
+                    </td>
+                  </tr>
+                ) : (
+                  siteReturnRecords.map(
+                    (record) => (
+                      <tr
+                        key={
+                          record.id
+                        }
+                      >
+                        <td
+                          style={
+                            STYLES.td
+                          }
+                        >
+                          {
+                            record.material_name
+                          }
+                        </td>
+
+                        <td
+                          style={
+                            STYLES.td
+                          }
+                        >
+                          {
+                            record.contact_person
+                          }
+                        </td>
+
+                        <td
+                          style={{
+                            ...STYLES.td,
+                            fontWeight:
+                              '700',
+                          }}
+                        >
+                          {returnQty(
+                            record
+                          )}
+                        </td>
+
+                        <td
+                          style={
+                            STYLES.td
+                          }
+                        >
+                          {BADGE(
+                            CONDITION_COLORS[
+                              record.returned_condition
+                            ] ||
+                              THEME.textMuted,
+                            record.returned_condition ||
+                              '—'
+                          )}
+                        </td>
+
+                        <td
+                          style={
+                            STYLES.td
+                          }
+                        >
+                          {
+                            record.return_date ||
+                            '—'
+                          }
+                        </td>
+
+                        <td
+                          style={
+                            STYLES.td
+                          }
+                        >
+                          <DeleteReturnBtn
+                            id={
+                              record.id
+                            }
+                          />
+                        </td>
+                      </tr>
+                    )
+                  )
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /* ==========================================================================
+     DRILL VIEW: CONTRACTOR
+  ========================================================================== */
+
+  if (
+    drillType === 'contractor' &&
+    !selectedContractor
+  ) {
+    return (
+      <div>
+        <BackBtn />
+        <p style={{ color: THEME.textMuted, fontSize: '13px' }}>
+          No contractor data found for "{String(drillValue)}".
+        </p>
+      </div>
+    );
+  }
+
+  if (
+    drillType === 'contractor' &&
+    selectedContractor
+  ) {
+    return (
+      <div>
+        <BackBtn />
+
+        <h2
+          style={{
+            fontSize: '22px',
+            fontWeight: '700',
+            marginBottom: '6px',
+          }}
+        >
+          {
+            selectedContractor.contact_person
+          }{' '}
+          —{' '}
+          {
+            selectedContractor.company_name
+          }
+        </h2>
+
+        <p
+          style={{
+            color: THEME.textMuted,
+            fontSize: '13px',
+            marginBottom: '24px',
+          }}
+        >
+          Sites:{' '}
+          {selectedContractor.sites.join(
+            ', '
+          ) || 'None'}
+        </p>
+
+        <StatGrid
+          stats={[
+            {
+              label: 'Issued',
+              value:
+                selectedContractor.loaned,
+              color:
+                THEME.accentBlue,
+            },
+            {
+              label: 'Returned',
+              value:
+                selectedContractor.returnedQty,
+              color:
+                THEME.accentEmerald,
+            },
+            {
+              label: 'Still Out',
+              value:
+                selectedContractor.stillOut,
+              color:
+                THEME.accentAmber,
+            },
+            {
+              label: 'Overdue',
+              value:
+                selectedContractor.overdue,
+              color:
+                THEME.accentCrimson,
+            },
+            {
+              label: 'Recovery',
+              value: `${selectedContractor.returnRate}%`,
+              color:
+                THEME.accentPurple,
+            },
+            {
+              label: 'Damage Rate',
+              value: `${selectedContractor.damageRate}%`,
+              color:
+                selectedContractor.damageRate >
+                20
+                  ? THEME.accentCrimson
+                  : THEME.accentEmerald,
+            },
+            {
+              label: 'Risk Score',
+              value:
+                selectedContractor.riskScore,
+              color:
+                riskColor(
+                  selectedContractor.riskScore
+                ),
+              sub:
+                selectedContractor.risk,
+            },
+            {
+              label: 'Sites',
+              value:
+                selectedContractor.sites
+                  .length,
+              color:
+                THEME.accentCyan,
+            },
+          ]}
+        />
+
+        <div
+          style={{
+            ...STYLES.box,
+            marginBottom: '20px',
+          }}
+        >
+          <SectionHeader
+            icon={
+              <ShieldAlert
+                size={17}
+                color={riskColor(
+                  selectedContractor.riskScore
+                )}
+              />
+            }
+            title="Contractor Risk Assessment"
+          />
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns:
+                'repeat(auto-fit, minmax(180px, 1fr))',
+              gap: '14px',
+            }}
+          >
+            <div>
+              <div
+                style={STYLES.label}
+              >
+                Risk Level
+              </div>
+
+              <RiskBadge
+                score={
+                  selectedContractor.riskScore
+                }
+              />
+            </div>
+
+            <div>
+              <div
+                style={STYLES.label}
+              >
+                Unrecovered
+              </div>
+
+              <strong>
+                {
+                  selectedContractor.stillOut
+                }{' '}
+                units
+              </strong>
+            </div>
+
+            <div>
+              <div
+                style={STYLES.label}
+              >
+                Overdue
+              </div>
+
+              <strong
+                style={{
+                  color:
+                    selectedContractor.overdue >
+                    0
+                      ? THEME.accentCrimson
+                      : THEME.textMain,
+                }}
+              >
+                {
+                  selectedContractor.overdue
+                }{' '}
+                units
+              </strong>
+            </div>
+
+            <div>
+              <div
+                style={STYLES.label}
+              >
+                Damaged
+              </div>
+
+              <strong
+                style={{
+                  color:
+                    selectedContractor.damagedQty >
+                    0
+                      ? THEME.accentCrimson
+                      : THEME.textMain,
+                }}
+              >
+                {
+                  selectedContractor.damagedQty
+                }{' '}
+                units
+              </strong>
+            </div>
+          </div>
+        </div>
+
+        {deleteMsg && (
+          <div
+            style={{
+              ...msgStyle(
+                deleteMsg.type
+              ),
+              marginBottom: '16px',
+            }}
+          >
+            {deleteMsg.text}
+          </div>
+        )}
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns:
+              '2fr 1fr',
+            gap: '20px',
+            marginBottom: '20px',
+          }}
+        >
+          <div style={STYLES.box}>
+            <div style={sectionTitleStyle}>
+              Contractor Loan History
+            </div>
+
+            <div
+              style={{
+                overflowX: 'auto',
+              }}
+            >
+              <table style={STYLES.table}>
+                <thead>
+                  <tr>
+                    <th
+                      style={STYLES.th}
+                    >
+                      Material
+                    </th>
+                    <th
+                      style={STYLES.th}
+                    >
+                      Site
+                    </th>
+                    <th
+                      style={STYLES.th}
+                    >
+                      Qty
+                    </th>
+                    <th
+                      style={STYLES.th}
+                    >
+                      Returned
+                    </th>
+                    <th
+                      style={STYLES.th}
+                    >
+                      Remaining
+                    </th>
+                    <th
+                      style={STYLES.th}
+                    >
+                      Status
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {contractorLoanHistory.length ===
+                  0 ? (
+                    <tr>
+                      <td
+                        colSpan={6}
+                        style={{
+                          ...STYLES.td,
+                          textAlign:
+                            'center',
+                          color:
+                            THEME.textMuted,
+                        }}
+                      >
+                        No history
+                      </td>
+                    </tr>
+                  ) : (
+                    contractorLoanHistory.map(
+                      (loan) => (
+                        <tr
+                          key={
+                            loan.id
+                          }
+                        >
+                          <td
+                            style={
+                              STYLES.td
+                            }
+                          >
+                            {
+                              loan.material_name
+                            }
+                          </td>
+
+                          <td
+                            style={
+                              STYLES.td
+                            }
+                          >
+                            {
+                              loan.site_name ||
+                              '—'
+                            }
+                          </td>
+
+                          <td
+                            style={
+                              STYLES.td
+                            }
+                          >
+                            {
+                              loan.quantity
+                            }
+                          </td>
+
+                          <td
+                            style={
+                              STYLES.td
+                            }
+                          >
+                            {
+                              loan.retQty
+                            }
+                          </td>
+
+                          <td
+                            style={
+                              STYLES.td
+                            }
+                          >
+                            {
+                              loan.remaining
+                            }
+                          </td>
+
+                          <td
+                            style={
+                              STYLES.td
+                            }
+                          >
+                            {loan.remaining >
+                            0
+                              ? BADGE(
+                                  isOverdue(
+                                    loan
+                                  )
+                                    ? THEME.accentCrimson
+                                    : THEME.accentAmber,
+                                  isOverdue(
+                                    loan
+                                  )
+                                    ? 'OVERDUE'
+                                    : 'OUT'
+                                )
+                              : BADGE(
+                                  THEME.accentEmerald,
+                                  'CLOSED'
+                                )}
+                          </td>
+                        </tr>
+                      )
+                    )
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div style={STYLES.box}>
+            <div style={sectionTitleStyle}>
+              Return Condition
+            </div>
+
+            {selectedContractor.returnedQty >
+            0 ? (
+              <div
+                style={{
+                  height: 230,
+                }}
+              >
+                <ResponsiveContainer>
+                  <PieChart>
+                    <Pie
+                      data={[
+                        {
+                          name: 'Good',
+                          value:
+                            selectedContractor.goodQty,
+                        },
+                        {
+                          name: 'Worn',
+                          value:
+                            selectedContractor.wornQty,
+                        },
+                        {
+                          name: 'Damaged',
+                          value:
+                            selectedContractor.damagedQty,
+                        },
+                      ].filter(
+                        (x) =>
+                          x.value > 0
+                      )}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={55}
+                      outerRadius={82}
+                      paddingAngle={4}
+                      dataKey="value"
+                    >
+                      <Cell
+                        fill={
+                          CONDITION_COLORS.Good
+                        }
+                      />
+                      <Cell
+                        fill={
+                          CONDITION_COLORS.Worn
+                        }
+                      />
+                      <Cell
+                        fill={
+                          CONDITION_COLORS.Damaged
+                        }
+                      />
+                    </Pie>
+
+                    <Tooltip
+                      contentStyle={
+                        chartTooltipStyle
+                      }
+                    />
+
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div
+                style={{
+                  color:
+                    THEME.textMuted,
+                  fontSize: '13px',
+                  padding:
+                    '20px 0',
+                }}
+              >
+                No returns yet.
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div style={STYLES.box}>
+          <div
+            style={sectionTitleStyle}
+          >
+            Individual Return Records (
+            {
+              contractorReturnRecords.length
+            }
+            )
+          </div>
+
+          <div
+            style={{
+              overflowX: 'auto',
+            }}
+          >
+            <table style={STYLES.table}>
+              <thead>
+                <tr>
+                  <th
+                    style={STYLES.th}
+                  >
+                    Material
+                  </th>
+                  <th
+                    style={STYLES.th}
+                  >
+                    Site
+                  </th>
+                  <th
+                    style={STYLES.th}
+                  >
+                    Qty
+                  </th>
+                  <th
+                    style={STYLES.th}
+                  >
+                    Condition
+                  </th>
+                  <th
+                    style={STYLES.th}
+                  >
+                    Date
+                  </th>
+                  <th
+                    style={STYLES.th}
+                  />
+                </tr>
+              </thead>
+
+              <tbody>
+                {contractorReturnRecords.length ===
+                0 ? (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      style={{
+                        ...STYLES.td,
+                        textAlign:
+                          'center',
+                        color:
+                          THEME.textMuted,
+                      }}
+                    >
+                      No returns yet
+                    </td>
+                  </tr>
+                ) : (
+                  contractorReturnRecords.map(
+                    (record) => (
+                      <tr
+                        key={
+                          record.id
+                        }
+                      >
+                        <td
+                          style={
+                            STYLES.td
+                          }
+                        >
+                          {
+                            record.material_name
+                          }
+                        </td>
+
+                        <td
+                          style={
+                            STYLES.td
+                          }
+                        >
+                          {
+                            record.site_name ||
+                            '—'
+                          }
+                        </td>
+
+                        <td
+                          style={{
+                            ...STYLES.td,
+                            fontWeight:
+                              '700',
+                          }}
+                        >
+                          {returnQty(
+                            record
+                          )}
+                        </td>
+
+                        <td
+                          style={
+                            STYLES.td
+                          }
+                        >
+                          {BADGE(
+                            CONDITION_COLORS[
+                              record.returned_condition
+                            ] ||
+                              THEME.textMuted,
+                            record.returned_condition ||
+                              '—'
+                          )}
+                        </td>
+
+                        <td
+                          style={
+                            STYLES.td
+                          }
+                        >
+                          {
+                            record.return_date ||
+                            '—'
+                          }
+                        </td>
+
+                        <td
+                          style={
+                            STYLES.td
+                          }
+                        >
+                          <DeleteReturnBtn
+                            id={
+                              record.id
+                            }
+                          />
+                        </td>
+                      </tr>
+                    )
+                  )
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /* ==========================================================================
+     MAIN ANALYTICS PAGE
+  ========================================================================== */
 
   return (
     <div dir={dir}>
-      <div style={{
-        display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-        gap: 18, flexWrap: 'wrap', marginBottom: 20
-      }}>
+      {/* ======================================================================
+         HEADER
+      ====================================================================== */}
+
+      <div
+        style={{
+          display: 'flex',
+          justifyContent:
+            'space-between',
+          alignItems: 'flex-start',
+          gap: '20px',
+          marginBottom: '24px',
+          flexWrap: 'wrap',
+        }}
+      >
         <div>
-          <h2 style={{ margin: 0, fontSize: 25, fontWeight: 900 }}>{t('title')}</h2>
-          <p style={{ margin: '6px 0 0', color: THEME.textMuted, fontSize: 13, maxWidth: 700 }}>
-            {t('subtitle')}
+          <h2
+            style={{
+              fontSize: '24px',
+              fontWeight: '800',
+              marginBottom: '6px',
+            }}
+          >
+            {t('kpiAnalytics')}
+          </h2>
+
+          <p
+            style={{
+              color: THEME.textMuted,
+              fontSize: '13px',
+              margin: 0,
+              maxWidth: '520px',
+            }}
+          >
+            {t('headerSubtitle')}
           </p>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: THEME.textMuted, fontSize: 11 }}>
-            <Activity size={14} /> {t('live')}
-          </div>
+
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '14px',
+            flexWrap: 'wrap',
+          }}
+        >
           <select
             value={language}
-            onChange={(e) => setLanguage(e.target.value)}
+            onChange={(e) =>
+              setLanguage(e.target.value)
+            }
+            aria-label={t('language')}
             style={{
-              padding: '8px 10px', borderRadius: 8, border: `1px solid ${THEME.border}`,
-              background: THEME.cardBg, color: THEME.textMain
+              padding: '7px 10px',
+              borderRadius: '8px',
+              border: `1px solid ${THEME.border}`,
+              backgroundColor: THEME.cardBg,
+              color: '#fff',
+              fontSize: '12px',
+              cursor: 'pointer',
             }}
           >
-            <option value="en">English</option>
-            <option value="ar">العربية</option>
-            <option value="fr">Français</option>
+            {LANGUAGE_OPTIONS.map((opt) => (
+              <option
+                key={opt.code}
+                value={opt.code}
+              >
+                {opt.label}
+              </option>
+            ))}
           </select>
-          <button
-            type="button"
-            onClick={handleGeneratePdf}
-            disabled={exporting || (selectedKpis.length === 0 && selectedCharts.length === 0)}
+
+          <div
             style={{
-              ...STYLES.button(THEME.accentBlue),
-              width: 'auto',
-              padding: '9px 14px',
-              display: 'inline-flex',
+              display: 'flex',
               alignItems: 'center',
-              gap: 7,
-              opacity: exporting ? 0.6 : 1,
+              gap: '8px',
+              fontSize: '11px',
+              color: THEME.textMuted,
             }}
           >
-            <Download size={14} /> {exporting ? 'Generating…' : t('export')}
+            <Activity size={14} />
+            {t('liveAnalytics')}
+          </div>
+
+          <button
+            onClick={() =>
+              setShowExportModal(true)
+            }
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
+              borderRadius: '8px',
+              border: `1px solid ${THEME.border}`,
+              backgroundColor: THEME.cardBg,
+              color: '#fff',
+              fontSize: '12px',
+              fontWeight: '700',
+              cursor: 'pointer',
+            }}
+          >
+            <Download size={14} />
+            {t('exportPdf')}
           </button>
         </div>
       </div>
 
-      <div style={{
-        ...STYLES.box, marginBottom: 22, padding: 18,
-        border: `1px solid ${THEME.border}`,
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-          <SlidersHorizontal size={16} color={THEME.accentBlue} />
-          <div style={sectionTitle}>{t('analysis')}</div>
-        </div>
-
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))',
-          gap: 12
-        }}>
-          <FilterSelect label={t('analysis')} value={analysis} onChange={setAnalysis}>
-            <option value="site">{t('site')}</option>
-            <option value="contractor">{t('contractor')}</option>
-            <option value="material">{t('material')}</option>
-          </FilterSelect>
-
-          <FilterSelect label={t('site')} value={siteFilter} onChange={setSiteFilter}>
-            <option value="All">{t('allSites')}</option>
-            {siteOptions.map((s) => <option key={s} value={s}>{s}</option>)}
-          </FilterSelect>
-
-          <FilterSelect label={t('contractor')} value={contractorFilter} onChange={setContractorFilter}>
-            <option value="All">{t('allContractors')}</option>
-            {contractorOptions.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
-          </FilterSelect>
-
-          <FilterSelect label={t('material')} value={materialFilter} onChange={setMaterialFilter}>
-            <option value="All">{t('allMaterials')}</option>
-            {materialOptions.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
-          </FilterSelect>
-
-          <FilterSelect label={t('condition')} value={conditionFilter} onChange={setConditionFilter}>
-            <option value="All">{t('allConditions')}</option>
-            <option value="Good">Good</option>
-            <option value="Worn">Worn</option>
-            <option value="Damaged">Damaged</option>
-          </FilterSelect>
-
-          <FilterSelect label={t('risk')} value={riskFilter} onChange={setRiskFilter}>
-            <option value="All">{t('allRisk')}</option>
-            <option value="Normal">{t('normal')}</option>
-            <option value="Attention">{t('attention')}</option>
-            <option value="High Risk">{t('highRisk')}</option>
-            <option value="Critical">{t('critical')}</option>
-          </FilterSelect>
-        </div>
-
-        <button
-          type="button"
-          onClick={resetFilters}
+      {showExportModal && (
+        <div
           style={{
-            marginTop: 14, border: 'none', background: 'transparent',
-            color: THEME.accentBlue, cursor: 'pointer', fontSize: 11, fontWeight: 700
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
           }}
+          onClick={() =>
+            setShowExportModal(false)
+          }
         >
-          {t('reset')}
-        </button>
-      </div>
+          <div
+            onClick={(e) =>
+              e.stopPropagation()
+            }
+            style={{
+              ...STYLES.box,
+              width: '420px',
+              maxHeight: '80vh',
+              overflowY: 'auto',
+              backgroundColor:
+                THEME.cardBg,
+            }}
+          >
+            <div
+              style={{
+                fontSize: '16px',
+                fontWeight: '800',
+                marginBottom: '4px',
+              }}
+            >
+              {t('exportModalTitle')}
+            </div>
 
-      <div style={{ ...STYLES.box, marginBottom: 22 }}>
-        <div style={{
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          gap: 12, flexWrap: 'wrap', marginBottom: 14
-        }}>
-          <div style={sectionTitle}>{t('selectKpis')}</div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <button type="button" onClick={() => setSelectedKpis(KPI_CATALOG.map(([id]) => id))}
-              style={{ border: 'none', background: 'transparent', color: THEME.accentBlue, cursor: 'pointer', fontSize: 11 }}>
-              {t('selectAll')}
-            </button>
-            <button type="button" onClick={() => setSelectedKpis([])}
-              style={{ border: 'none', background: 'transparent', color: THEME.textMuted, cursor: 'pointer', fontSize: 11 }}>
-              {t('clear')}
-            </button>
-          </div>
-        </div>
-        <div style={{
-          display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 9
-        }}>
-          {KPI_CATALOG.map(([id, labelKey]) => {
-            const checked = selectedKpis.includes(id);
-            return (
-              <button
-                key={id}
-                type="button"
-                onClick={() => toggle(setSelectedKpis)(id)}
+            <div
+              style={{
+                fontSize: '12px',
+                color: THEME.textMuted,
+                marginBottom: '16px',
+              }}
+            >
+              {t('exportModalSubtitle')}
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '10px',
+                marginBottom: '10px',
+                fontSize: '11px',
+              }}
+            >
+              <span
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 9, padding: '10px 11px',
-                  borderRadius: 8, border: `1px solid ${checked ? THEME.accentBlue : THEME.border}`,
-                  background: checked ? `${THEME.accentBlue}16` : 'transparent',
-                  color: THEME.textMain, cursor: 'pointer', textAlign: 'left'
+                  cursor: 'pointer',
+                  color: THEME.accentBlue,
+                }}
+                onClick={() =>
+                  setSelectedKpiIds(
+                    EXPORT_KPI_CATALOG.map(
+                      (k) => k.id
+                    )
+                  )
+                }
+              >
+                {t('selectAll')}
+              </span>
+              <span
+                style={{
+                  cursor: 'pointer',
+                  color: THEME.textMuted,
+                }}
+                onClick={() =>
+                  setSelectedKpiIds([])
+                }
+              >
+                {t('clear')}
+              </span>
+            </div>
+
+            {EXPORT_KPI_CATALOG.map((k) => (
+              <label
+                key={k.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  padding: '8px 4px',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  borderBottom: `1px solid ${THEME.border}`,
                 }}
               >
-                <span style={{
-                  width: 17, height: 17, borderRadius: 4,
-                  border: `1px solid ${checked ? THEME.accentBlue : THEME.border}`,
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  background: checked ? THEME.accentBlue : 'transparent'
-                }}>
-                  {checked && <Check size={12} color="#fff" />}
-                </span>
-                <span style={{ fontSize: 11, fontWeight: 700 }}>{t(labelKey)}</span>
+                <input
+                  type="checkbox"
+                  checked={selectedKpiIds.includes(
+                    k.id
+                  )}
+                  onChange={() =>
+                    toggleKpiSelection(k.id)
+                  }
+                />
+                <span>{k.label}</span>
+                {!k.isTable && (
+                  <span
+                    style={{
+                      marginLeft: 'auto',
+                      color: THEME.textMuted,
+                      fontSize: '12px',
+                    }}
+                  >
+                    {String(k.value)}
+                  </span>
+                )}
+              </label>
+            ))}
+
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '10px',
+                marginTop: '18px',
+              }}
+            >
+              <button
+                onClick={() =>
+                  setShowExportModal(false)
+                }
+                style={{
+                  padding: '8px 14px',
+                  borderRadius: '8px',
+                  border: `1px solid ${THEME.border}`,
+                  backgroundColor: 'transparent',
+                  color: THEME.textMuted,
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                }}
+              >
+                {t('cancel')}
               </button>
-            );
-          })}
+
+              <button
+                onClick={handleGeneratePdf}
+                disabled={
+                  selectedKpiIds.length === 0
+                }
+                style={{
+                  padding: '8px 14px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  backgroundColor:
+                    THEME.accentBlue,
+                  color: '#fff',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  cursor:
+                    selectedKpiIds.length === 0
+                      ? 'not-allowed'
+                      : 'pointer',
+                  opacity:
+                    selectedKpiIds.length === 0
+                      ? 0.5
+                      : 1,
+                }}
+              >
+                {t('generatePdf')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================================
+         EXECUTIVE KPI LAYER
+      ====================================================================== */}
+
+      <div style={sectionTitleStyle}>
+        {t('executiveInventoryPosition')}
+      </div>
+
+      <StatGrid
+        stats={[
+          {
+            label: t('grossDeployed'),
+            value: totalLoanedQty,
+            color:
+              THEME.accentBlue,
+            sub: 'Total quantity issued',
+          },
+          {
+            label: t('recovered'),
+            value: totalReturnedQty,
+            color:
+              THEME.accentEmerald,
+            sub: `${globalRecoveryRate}%`,
+          },
+          {
+            label: t('fieldExposure'),
+            value: totalRemainingQty,
+            color:
+              THEME.accentAmber,
+            sub: `${unrecoveredRate}%`,
+          },
+          {
+            label: t('overdueExposure'),
+            value: totalOverdueQty,
+            color:
+              THEME.accentCrimson,
+            sub: `${overdueRate}%`,
+          },
+          {
+            label: t('materialHealth'),
+            value: `${globalHealthRate}%`,
+            color:
+              globalHealthRate >= 80
+                ? THEME.accentEmerald
+                : THEME.accentAmber,
+            sub: '',
+          },
+          {
+            label: t('damageRate'),
+            value: `${globalDamageRate}%`,
+            color:
+              globalDamageRate > 20
+                ? THEME.accentCrimson
+                : THEME.accentEmerald,
+            sub: `${globalDamagedQty}`,
+          },
+          {
+            label: t('highRiskSites'),
+            value:
+              highRiskSites.length,
+            color:
+              highRiskSites.length > 0
+                ? THEME.accentCrimson
+                : THEME.accentEmerald,
+            sub: t('requiresAttention'),
+          },
+          {
+            label: t('highRiskContractors'),
+            value:
+              highRiskContractors.length,
+            color:
+              highRiskContractors.length >
+              0
+                ? THEME.accentCrimson
+                : THEME.accentEmerald,
+            sub: t('requiresAttention'),
+          },
+        ]}
+      />
+
+      {/* ======================================================================
+         MANAGEMENT ATTENTION
+      ====================================================================== */}
+
+      <div
+        style={{
+          ...STYLES.box,
+          marginBottom: '24px',
+          border: `1px solid ${
+            managementAttention > 0
+              ? THEME.accentCrimson
+              : THEME.accentEmerald
+          }44`,
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent:
+              'space-between',
+            gap: '20px',
+            flexWrap: 'wrap',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+            }}
+          >
+            <div
+              style={{
+                width: '38px',
+                height: '38px',
+                borderRadius: '9px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent:
+                  'center',
+                backgroundColor:
+                  managementAttention >
+                  0
+                    ? `${THEME.accentCrimson}18`
+                    : `${THEME.accentEmerald}18`,
+              }}
+            >
+              {managementAttention >
+              0 ? (
+                <AlertTriangle
+                  size={19}
+                  color={
+                    THEME.accentCrimson
+                  }
+                />
+              ) : (
+                <Activity
+                  size={19}
+                  color={
+                    THEME.accentEmerald
+                  }
+                />
+              )}
+            </div>
+
+            <div>
+              <div
+                style={{
+                  fontSize: '14px',
+                  fontWeight: '800',
+                }}
+              >
+                {t('managementAttention')}
+              </div>
+
+              <div
+                style={{
+                  fontSize: '11px',
+                  color: THEME.textMuted,
+                  marginTop: '3px',
+                }}
+              >
+                {
+                  highRiskSites.length
+                }{' '}
+                {t('sitesLabel')} ·{' '}
+                {
+                  highRiskContractors.length
+                }{' '}
+                {t('contractorsLabel')} ·{' '}
+                {
+                  highRiskMaterials.length
+                }{' '}
+                {t('materialsLabel')}{' '}
+                {t('reviewNote')}
+              </div>
+            </div>
+          </div>
+
+          <div
+            style={{
+              fontSize: '28px',
+              fontWeight: '900',
+              color:
+                managementAttention >
+                0
+                  ? THEME.accentCrimson
+                  : THEME.accentEmerald,
+            }}
+          >
+            {managementAttention}
+          </div>
         </div>
       </div>
 
-      <div style={{ marginBottom: 22 }}>
-        <div style={sectionTitle}>{t('title')}</div>
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit,minmax(155px,1fr))',
-          gap: 12
-        }}>
-          {selectedKpis.map((id) => {
-            const labelKey = KPI_CATALOG.find(([x]) => x === id)?.[1];
-            if (!labelKey) return null;
-            return <KpiCard key={id} id={id} label={t(labelKey)} value={kpiValues[id]} color={kpiColors[id]} />;
-          })}
-        </div>
-        {selectedKpis.length === 0 && (
-          <div style={{ ...STYLES.box, color: THEME.textMuted, fontSize: 12 }}>
-            Select at least one KPI for the dashboard/report.
+      {/* ======================================================================
+         DEPLOYMENT / RETURN TREND
+      ====================================================================== */}
+
+      <div style={sectionTitleStyle}>
+        {t('trendTitle')}
+      </div>
+
+      <div
+        style={{
+          ...STYLES.box,
+          marginBottom: '24px',
+        }}
+      >
+        {!hasTrendData ? (
+          <div
+            style={{
+              padding: '30px',
+              textAlign: 'center',
+              color: THEME.textMuted,
+              fontSize: '13px',
+            }}
+          >
+            {t('noTrendData')}
+          </div>
+        ) : (
+          <div style={{ height: 280 }}>
+            <ResponsiveContainer>
+              <LineChart data={trendData}>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke={THEME.border}
+                />
+                <XAxis
+                  dataKey="month"
+                  stroke={THEME.textMuted}
+                  tick={{ fontSize: 11 }}
+                />
+                <YAxis
+                  stroke={THEME.textMuted}
+                  tick={{ fontSize: 11 }}
+                />
+                <Tooltip
+                  contentStyle={
+                    chartTooltipStyle
+                  }
+                />
+                <Legend
+                  wrapperStyle={{
+                    fontSize: '11px',
+                  }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="deployed"
+                  name={t('deployed')}
+                  stroke={THEME.accentBlue}
+                  strokeWidth={2}
+                  dot={{ r: 3 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="returned"
+                  name={t('returned')}
+                  stroke={THEME.accentEmerald}
+                  strokeWidth={2}
+                  dot={{ r: 3 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="damaged"
+                  name={t('damaged')}
+                  stroke={THEME.accentCrimson}
+                  strokeWidth={2}
+                  dot={{ r: 3 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="overdue"
+                  name={t('overdue')}
+                  stroke={THEME.accentAmber}
+                  strokeWidth={2}
+                  strokeDasharray="4 3"
+                  dot={{ r: 3 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
           </div>
         )}
       </div>
 
-      <div style={{ ...STYLES.box, marginBottom: 22 }}>
-        <div style={{
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          gap: 12, flexWrap: 'wrap', marginBottom: 14
-        }}>
-          <div style={sectionTitle}>{t('selectCharts')}</div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <button type="button" onClick={() => setSelectedCharts(CHART_CATALOG.map(([id]) => id))}
-              style={{ border: 'none', background: 'transparent', color: THEME.accentBlue, cursor: 'pointer', fontSize: 11 }}>
-              {t('selectAll')}
-            </button>
-            <button type="button" onClick={() => setSelectedCharts([])}
-              style={{ border: 'none', background: 'transparent', color: THEME.textMuted, cursor: 'pointer', fontSize: 11 }}>
-              {t('clear')}
-            </button>
-          </div>
-        </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 9 }}>
-          {CHART_CATALOG.map(([id, key]) => {
-            const checked = selectedCharts.includes(id);
-            return (
-              <button key={id} type="button" onClick={() => toggle(setSelectedCharts)(id)}
-                style={{
-                  padding: '8px 11px', borderRadius: 8,
-                  border: `1px solid ${checked ? THEME.accentBlue : THEME.border}`,
-                  background: checked ? `${THEME.accentBlue}16` : 'transparent',
-                  color: THEME.textMain, cursor: 'pointer', fontSize: 11, fontWeight: 700
-                }}>
-                {checked ? '✓ ' : ''}{t(key)}
-              </button>
-            );
-          })}
+      {/* ======================================================================
+         RETURN CONDITION
+      ====================================================================== */}
+
+      <div style={sectionTitleStyle}>
+        {t('returnedMaterialQuality')}
+      </div>
+
+      <ConditionOverviewCards
+        good={globalGoodQty}
+        worn={globalWornQty}
+        damaged={globalDamagedQty}
+        total={globalConditionTotal}
+      />
+
+      {/* ======================================================================
+         SITE INTELLIGENCE
+      ====================================================================== */}
+
+      <div style={STYLES.box}>
+        <SectionHeader
+          icon={
+            <MapPin
+              size={17}
+              color={THEME.accentAmber}
+            />
+          }
+          title="Site Material Control Performance"
+          subtitle="Identify where materials are being deployed, retained, damaged or becoming overdue."
+        />
+
+        <div
+          style={{
+            overflowX: 'auto',
+          }}
+        >
+          <table style={STYLES.table}>
+            <thead>
+              <tr>
+                <th style={STYLES.th}>
+                  Site
+                </th>
+                <th style={STYLES.th}>
+                  Deployed
+                </th>
+                <th style={STYLES.th}>
+                  Active
+                </th>
+                <th style={STYLES.th}>
+                  Returned
+                </th>
+                <th style={STYLES.th}>
+                  Overdue
+                </th>
+                <th style={STYLES.th}>
+                  Recovery %
+                </th>
+                <th style={STYLES.th}>
+                  Damage %
+                </th>
+                <th style={STYLES.th}>
+                  Loss Exposure
+                </th>
+                <th style={STYLES.th}>
+                  Risk
+                </th>
+                <th style={STYLES.th} />
+              </tr>
+            </thead>
+
+            <tbody>
+              {siteStats.length ===
+              0 ? (
+                <tr>
+                  <td
+                    colSpan={10}
+                    style={{
+                      ...STYLES.td,
+                      textAlign:
+                        'center',
+                      color:
+                        THEME.textMuted,
+                    }}
+                  >
+                    No site data yet.
+                  </td>
+                </tr>
+              ) : (
+                siteStats.map(
+                  (site) => (
+                    <tr
+                      key={
+                        site.name
+                      }
+                      style={{
+                        cursor:
+                          'pointer',
+                      }}
+                      onClick={() => {
+                        setDrillType(
+                          'site'
+                        );
+                        setDrillValue(
+                          site.name
+                        );
+                      }}
+                    >
+                      <td
+                        style={
+                          STYLES.td
+                        }
+                      >
+                        <strong>
+                          {
+                            site.name
+                          }
+                        </strong>
+                      </td>
+
+                      <td
+                        style={
+                          STYLES.td
+                        }
+                      >
+                        {site.loaned}
+                      </td>
+
+                      <td
+                        style={{
+                          ...STYLES.td,
+                          color:
+                            site.remaining >
+                            0
+                              ? THEME.accentAmber
+                              : THEME.textMain,
+                          fontWeight:
+                            site.remaining >
+                            0
+                              ? '700'
+                              : '400',
+                        }}
+                      >
+                        {
+                          site.remaining
+                        }
+                      </td>
+
+                      <td
+                        style={
+                          STYLES.td
+                        }
+                      >
+                        {
+                          site.returnedQty
+                        }
+                      </td>
+
+                      <td
+                        style={{
+                          ...STYLES.td,
+                          color:
+                            site.overdue >
+                            0
+                              ? THEME.accentCrimson
+                              : THEME.textMain,
+                          fontWeight:
+                            site.overdue >
+                            0
+                              ? '700'
+                              : '400',
+                        }}
+                      >
+                        {site.overdue}
+                      </td>
+
+                      <td
+                        style={
+                          STYLES.td
+                        }
+                      >
+                        {site.recoveryRate}%
+                      </td>
+
+                      <td
+                        style={{
+                          ...STYLES.td,
+                          color:
+                            site.damageRate >
+                            20
+                              ? THEME.accentCrimson
+                              : site.damageRate >
+                                10
+                              ? THEME.accentAmber
+                              : THEME.accentEmerald,
+                          fontWeight:
+                            '700',
+                        }}
+                      >
+                        {
+                          site.damageRate
+                        }%
+                      </td>
+
+                      <td
+                        style={
+                          STYLES.td
+                        }
+                      >
+                        {
+                          site.lossExposureRate
+                        }%
+                      </td>
+
+                      <td
+                        style={
+                          STYLES.td
+                        }
+                      >
+                        <RiskBadge
+                          score={
+                            site.riskScore
+                          }
+                        />
+                      </td>
+
+                      <td
+                        style={
+                          STYLES.td
+                        }
+                      >
+                        <ChevronRight
+                          size={14}
+                          color={
+                            THEME.textMuted
+                          }
+                        />
+                      </td>
+                    </tr>
+                  )
+                )
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
-      {selectedCharts.length > 0 && (
-        <div style={{
+      {/* ======================================================================
+         SITE CHARTS
+      ====================================================================== */}
+
+      <div
+        style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit,minmax(340px,1fr))',
-          gap: 18,
-          marginBottom: 22
-        }}>
-          {selectedCharts.includes('performance') && (
-            <div style={STYLES.box}>
-              <div style={sectionTitle}>{t('performanceChart')}</div>
-              {performanceData.length ? (
-                <div style={{ height: 320 }}>
-                  <ResponsiveContainer>
-                    <BarChart data={performanceData} layout="vertical" margin={{ left: 10, right: 20 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke={THEME.border} />
-                      <XAxis type="number" stroke={THEME.textMuted} />
-                      <YAxis type="category" dataKey="display" width={120} stroke={THEME.textMuted} tick={{ fontSize: 9 }} />
-                      <Tooltip contentStyle={tooltipStyle} formatter={(v, n) => [v, n === 'active' ? 'Currently deployed' : n]} />
-                      <Bar
-                        dataKey="active" name="Currently deployed" fill={THEME.accentBlue} radius={[0, 4, 4, 0]}
-                        onClick={(data) => {
-                          const p = data?.payload;
-                          if (!p) return;
-                          if (analysis === 'site') drillToAssets('site', p.name);
-                          if (analysis === 'contractor') drillToAssets('contractor', p.id);
-                          if (analysis === 'material') drillToAssets('material', p.id);
-                        }}
+          gridTemplateColumns:
+            '1fr 1fr',
+          gap: '20px',
+          marginBottom: '24px',
+        }}
+      >
+        <div style={STYLES.box}>
+          <div style={sectionTitleStyle}>
+            Top Sites by Material Deployment
+          </div>
+
+          <div
+            style={{
+              height:
+                Math.max(
+                  250,
+                  topSitesByDeployment.length *
+                    34
+                ),
+            }}
+          >
+            <ResponsiveContainer>
+              <BarChart
+                data={
+                  topSitesByDeployment
+                }
+                layout="vertical"
+                margin={{
+                  left: 10,
+                  right: 20,
+                  top: 5,
+                  bottom: 5,
+                }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke={
+                    THEME.border
+                  }
+                />
+
+                <XAxis
+                  type="number"
+                  stroke={
+                    THEME.textMuted
+                  }
+                />
+
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  width={110}
+                  stroke={
+                    THEME.textMuted
+                  }
+                  tick={{
+                    fontSize: 10,
+                  }}
+                />
+
+                <Tooltip
+                  contentStyle={
+                    chartTooltipStyle
+                  }
+                />
+
+                <Bar
+                  dataKey="loaned"
+                  name="Deployed Qty"
+                  fill={
+                    THEME.accentBlue
+                  }
+                  radius={[
+                    0, 4, 4, 0,
+                  ]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div style={STYLES.box}>
+          <div style={sectionTitleStyle}>
+            Sites by Unrecovered Exposure
+          </div>
+
+          <div
+            style={{
+              height:
+                Math.max(
+                  250,
+                  topSitesByLoss.length *
+                    34
+                ),
+            }}
+          >
+            <ResponsiveContainer>
+              <BarChart
+                data={topSitesByLoss}
+                layout="vertical"
+                margin={{
+                  left: 10,
+                  right: 20,
+                  top: 5,
+                  bottom: 5,
+                }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke={
+                    THEME.border
+                  }
+                />
+
+                <XAxis
+                  type="number"
+                  stroke={
+                    THEME.textMuted
+                  }
+                />
+
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  width={110}
+                  stroke={
+                    THEME.textMuted
+                  }
+                  tick={{
+                    fontSize: 10,
+                  }}
+                />
+
+                <Tooltip
+                  contentStyle={
+                    chartTooltipStyle
+                  }
+                />
+
+                <Bar
+                  dataKey="remaining"
+                  name="Unrecovered Qty"
+                  fill={
+                    THEME.accentCrimson
+                  }
+                  radius={[
+                    0, 4, 4, 0,
+                  ]}
+                  onClick={(data) => {
+                    const siteName =
+                      data?.payload?.name;
+                    if (siteName) {
+                      setDrillType(
+                        'site'
+                      );
+                      setDrillValue(
+                        siteName
+                      );
+                    }
+                  }}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      {/* ======================================================================
+         SITE DAMAGE
+      ====================================================================== */}
+
+      <div style={STYLES.box}>
+        <SectionHeader
+          icon={
+            <AlertTriangle
+              size={17}
+              color={
+                THEME.accentCrimson
+              }
+            />
+          }
+          title="Sites with Highest Damage Rate"
+          subtitle="Use this ranking to identify where material handling or operational conditions require investigation."
+        />
+
+        <div
+          style={{
+            overflowX: 'auto',
+          }}
+        >
+          <table style={STYLES.table}>
+            <thead>
+              <tr>
+                <th style={STYLES.th}>
+                  Rank
+                </th>
+                <th style={STYLES.th}>
+                  Site
+                </th>
+                <th style={STYLES.th}>
+                  Returned
+                </th>
+                <th style={STYLES.th}>
+                  Damaged
+                </th>
+                <th style={STYLES.th}>
+                  Damage Rate
+                </th>
+                <th style={STYLES.th}>
+                  Health Rate
+                </th>
+                <th style={STYLES.th}>
+                  Risk
+                </th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {topSitesByDamage.map(
+                (site, index) => (
+                  <tr
+                    key={
+                      site.name
+                    }
+                    style={{
+                      cursor:
+                        'pointer',
+                    }}
+                    onClick={() => {
+                      setDrillType(
+                        'site'
+                      );
+                      setDrillValue(
+                        site.name
+                      );
+                    }}
+                  >
+                    <td
+                      style={
+                        STYLES.td
+                      }
+                    >
+                      {index + 1}
+                    </td>
+
+                    <td
+                      style={
+                        STYLES.td
+                      }
+                    >
+                      <strong>
+                        {
+                          site.name
+                        }
+                      </strong>
+                    </td>
+
+                    <td
+                      style={
+                        STYLES.td
+                      }
+                    >
+                      {
+                        site.returnedQty
+                      }
+                    </td>
+
+                    <td
+                      style={{
+                        ...STYLES.td,
+                        color:
+                          THEME.accentCrimson,
+                        fontWeight:
+                          '700',
+                      }}
+                    >
+                      {
+                        site.damagedQty
+                      }
+                    </td>
+
+                    <td
+                      style={{
+                        ...STYLES.td,
+                        color:
+                          riskColor(
+                            site.damageRate
+                          ),
+                        fontWeight:
+                          '800',
+                      }}
+                    >
+                      {
+                        site.damageRate
+                      }%
+                    </td>
+
+                    <td
+                      style={
+                        STYLES.td
+                      }
+                    >
+                      {site.healthRate !==
+                      null
+                        ? `${site.healthRate}%`
+                        : 'N/A'}
+                    </td>
+
+                    <td
+                      style={
+                        STYLES.td
+                      }
+                    >
+                      <RiskBadge
+                        score={
+                          site.riskScore
+                        }
                       />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : <div style={{ color: THEME.textMuted, fontSize: 12 }}>{t('noData')}</div>}
-            </div>
-          )}
+                    </td>
+                  </tr>
+                )
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-          {selectedCharts.includes('condition') && (
-            <div style={STYLES.box}>
-              <div style={sectionTitle}>{t('conditionChart')}</div>
-              {conditionData.length ? (
-                <div style={{ height: 320 }}>
-                  <ResponsiveContainer>
-                    <PieChart>
-                      <Pie data={conditionData} dataKey="value" nameKey="name" cx="50%" cy="48%" innerRadius={65} outerRadius={105}>
-                        {conditionData.map((x) => <Cell key={x.name} fill={CONDITION_COLORS[x.name]} />)}
-                      </Pie>
-                      <Tooltip contentStyle={tooltipStyle} />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : <div style={{ color: THEME.textMuted, fontSize: 12 }}>{t('noData')}</div>}
-            </div>
-          )}
+      {/* ======================================================================
+         CONTRACTOR INTELLIGENCE
+      ====================================================================== */}
 
-          {selectedCharts.includes('risk') && (
-            <div style={STYLES.box}>
-              <div style={sectionTitle}>{t('riskChart')}</div>
-              {riskData.length ? (
-                <div style={{ height: 320 }}>
-                  <ResponsiveContainer>
-                    <BarChart data={riskData} layout="vertical" margin={{ left: 10, right: 20 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke={THEME.border} />
-                      <XAxis type="number" domain={[0, 100]} stroke={THEME.textMuted} />
-                      <YAxis type="category" dataKey="display" width={120} stroke={THEME.textMuted} tick={{ fontSize: 9 }} />
-                      <Tooltip contentStyle={tooltipStyle} formatter={(v) => [`${v}/100`, 'Risk score']} />
-                      <Bar
-                        dataKey="score" name="Risk score" fill={THEME.accentCrimson} radius={[0, 4, 4, 0]}
-                        onClick={(data) => {
-                          const p = data?.payload;
-                          if (!p) return;
-                          if (analysis === 'site') drillToAssets('site', p.name, { risk: p.risk });
-                          if (analysis === 'contractor') drillToAssets('contractor', p.id, { risk: p.risk });
-                          if (analysis === 'material') drillToAssets('material', p.id, { risk: p.risk });
+      <div style={STYLES.box}>
+        <SectionHeader
+          icon={
+            <Users
+              size={17}
+              color={THEME.accentCyan}
+            />
+          }
+          title="Contractor Operational Risk"
+          subtitle="Identify contractors with high outstanding exposure, overdue material and damage rates."
+        />
+
+        <div
+          style={{
+            overflowX: 'auto',
+          }}
+        >
+          <table style={STYLES.table}>
+            <thead>
+              <tr>
+                <th style={STYLES.th}>
+                  Contractor
+                </th>
+                <th style={STYLES.th}>
+                  Company
+                </th>
+                <th style={STYLES.th}>
+                  Issued
+                </th>
+                <th style={STYLES.th}>
+                  Still Out
+                </th>
+                <th style={STYLES.th}>
+                  Overdue
+                </th>
+                <th style={STYLES.th}>
+                  Recovery
+                </th>
+                <th style={STYLES.th}>
+                  Damage
+                </th>
+                <th style={STYLES.th}>
+                  Risk
+                </th>
+                <th style={STYLES.th} />
+              </tr>
+            </thead>
+
+            <tbody>
+              {contractorStats.length ===
+              0 ? (
+                <tr>
+                  <td
+                    colSpan={9}
+                    style={{
+                      ...STYLES.td,
+                      textAlign:
+                        'center',
+                      color:
+                        THEME.textMuted,
+                    }}
+                  >
+                    No contractor
+                    data yet.
+                  </td>
+                </tr>
+              ) : (
+                contractorStats.map(
+                  (contractor) => (
+                    <tr
+                      key={
+                        contractor.id
+                      }
+                      style={{
+                        cursor:
+                          'pointer',
+                      }}
+                      onClick={() => {
+                        setDrillType(
+                          'contractor'
+                        );
+                        setDrillValue(
+                          contractor.id
+                        );
+                      }}
+                    >
+                      <td
+                        style={
+                          STYLES.td
+                        }
+                      >
+                        <strong>
+                          {
+                            contractor.contact_person
+                          }
+                        </strong>
+                      </td>
+
+                      <td
+                        style={
+                          STYLES.td
+                        }
+                      >
+                        {
+                          contractor.company_name
+                        }
+                      </td>
+
+                      <td
+                        style={
+                          STYLES.td
+                        }
+                      >
+                        {
+                          contractor.loaned
+                        }
+                      </td>
+
+                      <td
+                        style={{
+                          ...STYLES.td,
+                          color:
+                            contractor.stillOut >
+                            0
+                              ? THEME.accentAmber
+                              : THEME.textMain,
+                          fontWeight:
+                            contractor.stillOut >
+                            0
+                              ? '700'
+                              : '400',
                         }}
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
+                      >
+                        {
+                          contractor.stillOut
+                        }
+                      </td>
+
+                      <td
+                        style={{
+                          ...STYLES.td,
+                          color:
+                            contractor.overdue >
+                            0
+                              ? THEME.accentCrimson
+                              : THEME.textMain,
+                          fontWeight:
+                            contractor.overdue >
+                            0
+                              ? '700'
+                              : '400',
+                        }}
+                      >
+                        {
+                          contractor.overdue
+                        }
+                      </td>
+
+                      <td
+                        style={
+                          STYLES.td
+                        }
+                      >
+                        {
+                          contractor.returnRate
+                        }%
+                      </td>
+
+                      <td
+                        style={{
+                          ...STYLES.td,
+                          color:
+                            contractor.damageRate >
+                            20
+                              ? THEME.accentCrimson
+                              : THEME.textMain,
+                        }}
+                      >
+                        {
+                          contractor.damageRate
+                        }%
+                      </td>
+
+                      <td
+                        style={
+                          STYLES.td
+                        }
+                      >
+                        <RiskBadge
+                          score={
+                            contractor.riskScore
+                          }
+                        />
+                      </td>
+
+                      <td
+                        style={
+                          STYLES.td
+                        }
+                      >
+                        <ChevronRight
+                          size={14}
+                          color={
+                            THEME.textMuted
+                          }
+                        />
+                      </td>
+                    </tr>
+                  )
+                )
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ======================================================================
+         CONTRACTOR RISK CHART
+      ====================================================================== */}
+
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns:
+            '1fr 1fr',
+          gap: '20px',
+          marginBottom: '24px',
+        }}
+      >
+        <div style={STYLES.box}>
+          <div style={sectionTitleStyle}>
+            Contractor Risk Ranking
+          </div>
+
+          <div
+            style={{
+              height:
+                Math.max(
+                  250,
+                  topContractorsByRisk.length *
+                    34
+                ),
+            }}
+          >
+            <ResponsiveContainer>
+              <BarChart
+                data={
+                  topContractorsByRisk
+                }
+                layout="vertical"
+                margin={{
+                  left: 10,
+                  right: 20,
+                }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke={
+                    THEME.border
+                  }
+                />
+
+                <XAxis
+                  type="number"
+                  domain={[0, 100]}
+                  stroke={
+                    THEME.textMuted
+                  }
+                />
+
+                <YAxis
+                  type="category"
+                  dataKey="contact_person"
+                  width={110}
+                  stroke={
+                    THEME.textMuted
+                  }
+                  tick={{
+                    fontSize: 10,
+                  }}
+                />
+
+                <Tooltip
+                  contentStyle={
+                    chartTooltipStyle
+                  }
+                  formatter={(value) =>
+                    `${value} risk score`
+                  }
+                />
+
+                <Bar
+                  dataKey="riskScore"
+                  name="Risk Score"
+                  fill={
+                    THEME.accentCrimson
+                  }
+                  radius={[
+                    0, 4, 4, 0,
+                  ]}
+                  onClick={(data) => {
+                    const contractorId =
+                      data?.payload?.id;
+                    if (
+                      contractorId !==
+                      undefined
+                    ) {
+                      setDrillType(
+                        'contractor'
+                      );
+                      setDrillValue(
+                        contractorId
+                      );
+                    }
+                  }}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div style={STYLES.box}>
+          <div style={sectionTitleStyle}>
+            Contractor Recovery Performance
+          </div>
+
+          <div
+            style={{
+              height: 300,
+            }}
+          >
+            <ResponsiveContainer>
+              <BarChart
+                data={contractorStats.slice(
+                  0,
+                  10
+                )}
+                layout="vertical"
+                margin={{
+                  left: 10,
+                  right: 20,
+                }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke={
+                    THEME.border
+                  }
+                />
+
+                <XAxis
+                  type="number"
+                  domain={[0, 100]}
+                  stroke={
+                    THEME.textMuted
+                  }
+                />
+
+                <YAxis
+                  type="category"
+                  dataKey="contact_person"
+                  width={110}
+                  stroke={
+                    THEME.textMuted
+                  }
+                  tick={{
+                    fontSize: 10,
+                  }}
+                />
+
+                <Tooltip
+                  contentStyle={
+                    chartTooltipStyle
+                  }
+                  formatter={(value) =>
+                    `${value}%`
+                  }
+                />
+
+                <Bar
+                  dataKey="returnRate"
+                  name="Recovery %"
+                  fill={
+                    THEME.accentEmerald
+                  }
+                  radius={[
+                    0, 4, 4, 0,
+                  ]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      {/* ======================================================================
+         MATERIAL INTELLIGENCE
+      ====================================================================== */}
+
+      <div style={STYLES.box}>
+        <SectionHeader
+          icon={
+            <Package
+              size={17}
+              color={THEME.accentBlue}
+            />
+          }
+          title="Material Risk & Utilization"
+          subtitle="Identify materials with the highest deployment, outstanding exposure, overdue quantity and damage."
+        />
+
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            marginBottom: '16px',
+            maxWidth: '420px',
+          }}
+        >
+          <Search
+            size={15}
+            color={THEME.textMuted}
+          />
+
+          <input
+            value={materialSearch}
+            onChange={(e) =>
+              setMaterialSearch(
+                e.target.value
+              )
+            }
+            placeholder="Search material..."
+            style={{
+              ...STYLES.input,
+              marginBottom: 0,
+            }}
+          />
+        </div>
+
+        <div
+          style={{
+            overflowX: 'auto',
+          }}
+        >
+          <table style={STYLES.table}>
+            <thead>
+              <tr>
+                <th style={STYLES.th}>
+                  Material
+                </th>
+                <th style={STYLES.th}>
+                  Issued
+                </th>
+                <th style={STYLES.th}>
+                  Active
+                </th>
+                <th style={STYLES.th}>
+                  Returned
+                </th>
+                <th style={STYLES.th}>
+                  Overdue
+                </th>
+                <th style={STYLES.th}>
+                  Recovery %
+                </th>
+                <th style={STYLES.th}>
+                  Damage %
+                </th>
+                <th style={STYLES.th}>
+                  Site Count
+                </th>
+                <th style={STYLES.th}>
+                  Risk
+                </th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {filteredMaterials.length ===
+              0 ? (
+                <tr>
+                  <td
+                    colSpan={9}
+                    style={{
+                      ...STYLES.td,
+                      textAlign:
+                        'center',
+                      color:
+                        THEME.textMuted,
+                    }}
+                  >
+                    No material data.
+                  </td>
+                </tr>
+              ) : (
+                filteredMaterials.map(
+                  (material) => (
+                    <tr
+                      key={
+                        material.id
+                      }
+                    >
+                      <td
+                        style={
+                          STYLES.td
+                        }
+                      >
+                        <strong>
+                          {
+                            material.name
+                          }
+                        </strong>
+                      </td>
+
+                      <td
+                        style={
+                          STYLES.td
+                        }
+                      >
+                        {
+                          material.issued
+                        }
+                      </td>
+
+                      <td
+                        style={{
+                          ...STYLES.td,
+                          color:
+                            material.active >
+                            0
+                              ? THEME.accentAmber
+                              : THEME.textMain,
+                          fontWeight:
+                            material.active >
+                            0
+                              ? '700'
+                              : '400',
+                        }}
+                      >
+                        {
+                          material.active
+                        }
+                      </td>
+
+                      <td
+                        style={
+                          STYLES.td
+                        }
+                      >
+                        {
+                          material.returned
+                        }
+                      </td>
+
+                      <td
+                        style={{
+                          ...STYLES.td,
+                          color:
+                            material.overdue >
+                            0
+                              ? THEME.accentCrimson
+                              : THEME.textMain,
+                        }}
+                      >
+                        {
+                          material.overdue
+                        }
+                      </td>
+
+                      <td
+                        style={
+                          STYLES.td
+                        }
+                      >
+                        {
+                          material.recoveryRate
+                        }%
+                      </td>
+
+                      <td
+                        style={{
+                          ...STYLES.td,
+                          color:
+                            material.damageRate >
+                            20
+                              ? THEME.accentCrimson
+                              : material.damageRate >
+                                10
+                              ? THEME.accentAmber
+                              : THEME.accentEmerald,
+                          fontWeight:
+                            '700',
+                        }}
+                      >
+                        {
+                          material.damageRate
+                        }%
+                      </td>
+
+                      <td
+                        style={
+                          STYLES.td
+                        }
+                      >
+                        {
+                          material.siteCount
+                        }
+                      </td>
+
+                      <td
+                        style={
+                          STYLES.td
+                        }
+                      >
+                        <RiskBadge
+                          score={
+                            material.riskScore
+                          }
+                        />
+                      </td>
+                    </tr>
+                  )
+                )
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ======================================================================
+         MATERIAL RISK / EXPOSURE CHARTS
+      ====================================================================== */}
+
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns:
+            '1fr 1fr',
+          gap: '20px',
+          marginBottom: '24px',
+        }}
+      >
+        <div style={STYLES.box}>
+          <div style={sectionTitleStyle}>
+            Materials with Highest Outstanding Exposure
+          </div>
+
+          <div
+            style={{
+              height: 320,
+            }}
+          >
+            <ResponsiveContainer>
+              <BarChart
+                data={
+                  topMaterialsByExposure
+                }
+                layout="vertical"
+                margin={{
+                  left: 10,
+                  right: 20,
+                }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke={
+                    THEME.border
+                  }
+                />
+
+                <XAxis
+                  type="number"
+                  stroke={
+                    THEME.textMuted
+                  }
+                />
+
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  width={130}
+                  stroke={
+                    THEME.textMuted
+                  }
+                  tick={{
+                    fontSize: 9,
+                  }}
+                />
+
+                <Tooltip
+                  contentStyle={
+                    chartTooltipStyle
+                  }
+                />
+
+                <Bar
+                  dataKey="active"
+                  name="Active / Outstanding"
+                  fill={
+                    THEME.accentAmber
+                  }
+                  radius={[
+                    0, 4, 4, 0,
+                  ]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div style={STYLES.box}>
+          <div style={sectionTitleStyle}>
+            Highest-Risk Materials
+          </div>
+
+          <div
+            style={{
+              height: 320,
+            }}
+          >
+            <ResponsiveContainer>
+              <BarChart
+                data={
+                  topMaterialsByRisk
+                }
+                layout="vertical"
+                margin={{
+                  left: 10,
+                  right: 20,
+                }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke={
+                    THEME.border
+                  }
+                />
+
+                <XAxis
+                  type="number"
+                  domain={[0, 100]}
+                  stroke={
+                    THEME.textMuted
+                  }
+                />
+
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  width={130}
+                  stroke={
+                    THEME.textMuted
+                  }
+                  tick={{
+                    fontSize: 9,
+                  }}
+                />
+
+                <Tooltip
+                  contentStyle={
+                    chartTooltipStyle
+                  }
+                  formatter={(value) =>
+                    `${value} risk score`
+                  }
+                />
+
+                <Bar
+                  dataKey="riskScore"
+                  name="Risk Score"
+                  fill={
+                    THEME.accentCrimson
+                  }
+                  radius={[
+                    0, 4, 4, 0,
+                  ]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      {/* ======================================================================
+         SITE × MATERIAL MATRIX
+      ====================================================================== */}
+
+      <div style={STYLES.box}>
+        <SectionHeader
+          icon={
+            <TrendingUp
+              size={17}
+              color={THEME.accentPurple}
+            />
+          }
+          title="Material Deployment by Site"
+          subtitle="Shows which materials are being deployed to each site. Click a site for detailed history."
+        />
+
+        <div
+          style={{
+            overflowX: 'auto',
+          }}
+        >
+          <table style={STYLES.table}>
+            <thead>
+              <tr>
+                <th style={STYLES.th}>
+                  Site
+                </th>
+
+                {topMaterialsByExposure
+                  .slice(0, 10)
+                  .map((material) => (
+                    <th
+                      key={
+                        material.id
+                      }
+                      style={
+                        STYLES.th
+                      }
+                    >
+                      {
+                        material.name
+                      }
+                    </th>
+                  ))}
+              </tr>
+            </thead>
+
+            <tbody>
+              {siteStats.map(
+                (site) => (
+                  <tr
+                    key={
+                      site.name
+                    }
+                  >
+                    <td
+                      style={{
+                        ...STYLES.td,
+                        cursor:
+                          'pointer',
+                      }}
+                      onClick={() => {
+                        setDrillType(
+                          'site'
+                        );
+                        setDrillValue(
+                          site.name
+                        );
+                      }}
+                    >
+                      <strong>
+                        {
+                          site.name
+                        }
+                      </strong>
+                    </td>
+
+                    {topMaterialsByExposure
+                      .slice(0, 10)
+                      .map(
+                        (
+                          material
+                        ) => {
+                          const quantity =
+                            siteMaterialMatrix[
+                              site.name
+                            ]?.[
+                              material.name
+                            ] ||
+                            0;
+
+                          return (
+                            <td
+                              key={
+                                material.id
+                              }
+                              style={{
+                                ...STYLES.td,
+                                fontWeight:
+                                  quantity >
+                                  0
+                                    ? '700'
+                                    : '400',
+                                color:
+                                  quantity >
+                                  0
+                                    ? THEME.textMain
+                                    : THEME.textMuted,
+                              }}
+                            >
+                              {quantity ||
+                                '—'}
+                            </td>
+                          );
+                        }
+                      )}
+                  </tr>
+                )
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ======================================================================
+         EXPORT KPI REPORT
+      ====================================================================== */}
+
+      <div
+        style={{
+          ...STYLES.box,
+          marginTop: '24px',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: '16px',
+          }}
+        >
+          <div>
+            <h3
+              style={{
+                margin: 0,
+                fontSize: '14px',
+                fontWeight: '800',
+              }}
+            >
+              {t('exportModalTitle')}
+            </h3>
+            <p
+              style={{
+                margin: '4px 0 0 0',
+                fontSize: '12px',
+                color: THEME.textMuted,
+              }}
+            >
+              {t(
+                'exportModalSubtitle'
+              )}
+            </p>
+          </div>
+
+          <div
+            style={{
+              display: 'flex',
+              gap: '10px',
+              fontSize: '11px',
+            }}
+          >
+            <span
+              style={{
+                cursor: 'pointer',
+                color: THEME.accentBlue,
+              }}
+              onClick={() =>
+                setSelectedKpiIds(
+                  EXPORT_KPI_CATALOG.map(
+                    (k) => k.id
+                  )
+                )
+              }
+            >
+              {t('selectAll')}
+            </span>
+            <span
+              style={{
+                cursor: 'pointer',
+                color: THEME.textMuted,
+              }}
+              onClick={() =>
+                setSelectedKpiIds([])
+              }
+            >
+              {t('clear')}
+            </span>
+          </div>
+        </div>
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns:
+              'repeat(auto-fit, minmax(240px, 1fr))',
+            gap: '12px',
+            marginBottom: '18px',
+          }}
+        >
+          {EXPORT_KPI_CATALOG.map(
+            (k) => (
+              <label
+                key={k.id}
+                style={{
+                  display: 'flex',
+                  alignItems:
+                    'flex-start',
+                  gap: '10px',
+                  padding: '10px',
+                  borderRadius: '8px',
+                  border: `1px solid ${THEME.border}`,
+                  cursor: 'pointer',
+                  transition:
+                    'all 0.2s',
+                  backgroundColor: selectedKpiIds.includes(
+                    k.id
+                  )
+                    ? THEME.border
+                    : 'transparent',
+                  ':hover': {
+                    backgroundColor:
+                      THEME.border,
+                  },
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedKpiIds.includes(
+                    k.id
+                  )}
+                  onChange={() =>
+                    toggleKpiSelection(
+                      k.id
+                    )
+                  }
+                  style={{
+                    marginTop: '3px',
+                  }}
+                />
+                <div
+                  style={{
+                    flex: 1,
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize:
+                        '13px',
+                      fontWeight:
+                        '600',
+                      marginBottom:
+                        '4px',
+                    }}
+                  >
+                    {k.label}
+                  </div>
+                  {!k.isTable && (
+                    <div
+                      style={{
+                        fontSize:
+                          '12px',
+                        color:
+                          THEME.textMuted,
+                      }}
+                    >
+                      {String(
+                        k.value
+                      )}
+                    </div>
+                  )}
                 </div>
-              ) : <div style={{ color: THEME.textMuted, fontSize: 12 }}>{t('noData')}</div>}
-            </div>
-          )}
-
-          {selectedCharts.includes('trend') && (
-            <div style={STYLES.box}>
-              <div style={sectionTitle}>{t('trendChart')}</div>
-              <div style={{ height: 320 }}>
-                <ResponsiveContainer>
-                  <LineChart data={trendData} margin={{ left: 0, right: 12 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke={THEME.border} />
-                    <XAxis dataKey="month" stroke={THEME.textMuted} />
-                    <YAxis stroke={THEME.textMuted} />
-                    <Tooltip contentStyle={tooltipStyle} />
-                    <Legend />
-                    <Line type="monotone" dataKey="deployed" name="Deployed" stroke={THEME.accentBlue} strokeWidth={2} />
-                    <Line type="monotone" dataKey="returned" name="Returned" stroke={THEME.accentEmerald} strokeWidth={2} />
-                    <Line type="monotone" dataKey="damaged" name="Damaged" stroke={THEME.accentCrimson} strokeWidth={2} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
+              </label>
+            )
           )}
         </div>
-      )}
 
-      {deleteMsg && (
-        <div style={{
-          ...STYLES.box, marginBottom: 18,
-          borderColor: deleteMsg.type === 'success' ? THEME.accentEmerald : THEME.accentCrimson,
-          color: deleteMsg.type === 'success' ? THEME.accentEmerald : THEME.accentCrimson
-        }}>
-          {deleteMsg.text}
-        </div>
-      )}
-
-      <div style={{ ...STYLES.box, marginBottom: 30 }}>
-        <div style={sectionTitle}>Selected Analysis Summary</div>
-        <div style={{
-          display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 10
-        }}>
-          <div><span style={STYLES.label}>Analysis</span><div>{analysis}</div></div>
-          <div><span style={STYLES.label}>Filtered Loans</span><div>{filteredLoans.length}</div></div>
-          <div><span style={STYLES.label}>Filtered Returns</span><div>{filteredReturns.length}</div></div>
-          <div><span style={STYLES.label}>Risk Status</span><div style={{ color: riskColor(selectedRiskScore), fontWeight: 800 }}>{riskLabel(selectedRiskScore)}</div></div>
-        </div>
+        <button
+          onClick={
+            handleGeneratePdf
+          }
+          disabled={
+            selectedKpiIds.length ===
+            0
+          }
+          style={{
+            ...STYLES.button(
+              selectedKpiIds.length ===
+              0
+                ? THEME.textMuted
+                : THEME.accentBlue
+            ),
+            width: 'auto',
+            padding:
+              '10px 20px',
+            display:
+              'inline-flex',
+            alignItems:
+              'center',
+            gap: '8px',
+            opacity:
+              selectedKpiIds.length ===
+              0
+                ? 0.5
+                : 1,
+            cursor:
+              selectedKpiIds.length ===
+              0
+                ? 'not-allowed'
+                : 'pointer',
+          }}
+        >
+          <Download size={14} />
+          {t('generatePdf')}
+        </button>
       </div>
     </div>
   );
