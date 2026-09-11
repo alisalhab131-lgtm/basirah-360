@@ -35,16 +35,6 @@ const safeName = (value, fallback = 'Unknown') => {
 const pct = (numerator, denominator) =>
   denominator > 0 ? Math.round((numerator / denominator) * 100) : 0;
 
-const clamp = (value, min = 0, max = 100) =>
-  Math.min(max, Math.max(min, value));
-
-const riskLabel = (score) => {
-  if (score >= 75) return 'CRITICAL';
-  if (score >= 55) return 'HIGH';
-  if (score >= 30) return 'MODERATE';
-  return 'LOW';
-};
-
 const msgStyle = (type) => ({
   padding: '10px 14px',
   borderRadius: '6px',
@@ -268,7 +258,7 @@ export default function AnalyticsPage({
     );
 
   /* ==========================================================================
-     GLOBAL INVENTORY / MOVEMENT KPIs
+     GLOBAL INVENTORY / MOVEMENT KPIS
   ========================================================================== */
 
   const totalLoanedQty = useMemo(
@@ -857,14 +847,13 @@ export default function AnalyticsPage({
               </button>
             </div>
 
-            {/* Checkbox Grid */}
+            {/* Checkbox Grid with <label> wrapper to fix selection */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', maxHeight: '260px', overflowY: 'auto', marginBottom: '24px', paddingRight: '4px' }}>
               {EXPORT_KPI_CATALOG.map((kpi) => {
                 const checked = selectedKpiIds.includes(kpi.id);
                 return (
-                  <div
+                  <label
                     key={kpi.id}
-                    onClick={() => toggleKpiSelection(kpi.id)}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -880,13 +869,13 @@ export default function AnalyticsPage({
                     <input
                       type="checkbox"
                       checked={checked}
-                      onChange={() => {}}
+                      onChange={() => toggleKpiSelection(kpi.id)}
                       style={{ cursor: 'pointer', accentColor: THEME.primary }}
                     />
                     <span style={{ fontSize: '12px', fontWeight: '600', color: checked ? '#fff' : THEME.textMuted }}>
                       {kpi.label}
                     </span>
-                  </div>
+                  </label>
                 );
               })}
             </div>
